@@ -1,0 +1,35 @@
+# Don't upload the log files but keep the folder.
+logs/*
+!logs/.gitkeep
+
+# Don't upload the data files but keep the folder.
+data/*
+!data/.gitkeep
+
+# Don't upload the configuration files but keep the folder.
+configuration/*
+!configuration/.gitkeep
+
+# Settings file.
+settings.ini
+
+# Virtual environment.
+venv/
+
+# Docker volumes.
+volumes/
+
+# Byte-compiled / optimized / DLL files.
+__pycache__/
+*.py[cod]
+*.pyc
+
+# User-specific stuff
+.idea/
+
+# CMake
+cmake-build-*/
+
+# File-based project format
+*.iws
+

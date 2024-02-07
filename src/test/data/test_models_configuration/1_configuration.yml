@@ -1,0 +1,21 @@
+- active: true
+  digits: 3
+  id: 1
+  key: '*'
+  links:
+  - 2
+  module_name: processors.math.standard.round_1
+  panel: panel-1
+  x: 400
+  y: 250
+- active: true
+  dashboard: Default
+  id: 2
+  links: []
+  module_name: processors.dashboard.scatter_1
+  name: test3
+  panel: panel-1
+  points: 0
+  time_range: 5
+  x: 400
+  y: 550

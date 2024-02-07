@@ -1,0 +1,122 @@
+"""
+This is an application, which collects or receives data from various input modules
+specified in a configuration file. The received data can be processed and dynamically tagged.
+Subsequently, the data is stored in defined output modules.
+
+For further information please see README.md.
+"""
+import os
+import sys
+import logging
+import time
+import atexit
+
+# Internal imports. Caution: Make sure we have set the environment variables, before you (globally) try to access them.
+import config
+import utils.logging
+import utils.initialization
+import data_layer
+import configuration
+import utils.arg_parser
+import utils.mothership_interface
+import utils.usage_statistics
+import utils.updater
+import utils.plugin_interface
+import models
+
+logger = logging.getLogger(config.APP_NAME.lower())
+"""The logger instance."""
+
+
+def exit_handler():
+    """
+    This functions gets called when the application exits.
+
+    Note: The exit function is not called when the program is killed by a signal,
+    when a Python fatal internal error is detected, or when os._exit() is called.
+    """
+    logger.info("Thank you for using {0}!".format(config.APP_NAME))
+
+
+# This is the entrypoint of the application.
+if __name__ == "__main__":
+    # Set /src as working directory.
+    os.chdir(sys.path[0])
+
+    # Check the python version.
+    if sys.version_info < (3, 10):
+        raise Exception("Python 3.10 or a more recent version is required. We recommend Python 3.11.")
+
+    # Set up the logging.
+    utils.logging.start(logger)
+
+    # Exit handler.
+    atexit.register(exit_handler)
+
+    # Load all available modules.
+    utils.plugin_interface.load_modules()
+
+    # Check if all requirements of third party packages are met.
+    utils.initialization.check_installed_app_packages()
+    # Set the default environment variables and install plugins defined in the settings file.
+    utils.initialization.load_and_process_settings_file()
+
+    # Check if additional commands are given.
+    utils.arg_parser.process_commands()
+
+    # TODO: Check if folder is not empty.
+    if bool(int(os.environ.get('API', '1'))):
+        # Once we set up the logger and initialized everything, we can import the other things.
+        # This guarantees, that we already have set all environment variables.
+        import api_v1.app
+
+        # Start the API.
+        api_v1.app.start()
+
+    # TODO: Check if folder is not empty.
+    if bool(int(os.environ.get('FRONTEND', '1'))):
+        if not bool(int(os.environ.get('API', '1'))):
+            logger.warning("The API is disabled. "
+                           "Some features, such as mothership functionality, are not supported without the API.")
+        import frontend_v1.app
+
+        # Start the frontend.
+        frontend_v1.app.start()
+
+    # Start the mothership reporting.
+    utils.mothership_interface.start()
+
+    # Initialize the usage statistic sender.
+    if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
+        data_layer.statistics = utils.usage_statistics.Statistics(send_logs=True)
+
+    commits = utils.updater.check_for_updates_with_git()
+    if commits:
+        logger.warning(f"{commits} update(s) can be applied.")
+    elif commits == 0:
+        logger.info(f"{config.APP_NAME} is up to date.")
+
+    # Initialize the configuration.
+    configuration.Configuration()
+
+    # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
+    timer: int = 60
+    """Time in seconds to send the alive status."""
+    counter: int = timer
+    """Counter holding the currently slept time."""
+    while data_layer.running:
+        try:
+            if counter >= timer:
+                counter = 0
+                # This is called every 'timer' seconds.
+                # We send a notification if the usage statistic sender was instantiated.
+                if data_layer.statistics:
+                    data_layer.statistics.send_status()
+            counter += 1
+            time.sleep(1)
+        except KeyboardInterrupt:
+            # Stop all running modules.
+            data_layer.configuration.stop()
+            # Stop all processes and other loops.
+            data_layer.running = False
+            sys.exit(0)

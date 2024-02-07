@@ -1,0 +1,40 @@
+version: '3'
+services:
+  collectu:
+    build: src/.
+    container_name: collectu-core
+    restart: always
+    environment:  # Overwrites the settings.ini variables.
+      - APP_DESCRIPTION=My Machine  # The description of the app.
+      - CONFIG=configuration.yml  # The filepath to the configuration file.
+      - TEST=0  # Start the application in test mode.
+      - IGNORE_START_FAIL=1  # Does not stop all modules if one fails initially.
+      - AUTO_START=1  # Load configuration file on start-up.
+      - AUTO_INSTALL=1  # Automatically install third party requirements.
+      - API=1  # Start the api.
+      - API_HOST=0.0.0.0  # Host address of the api.
+      - API_PORT=8181  # Port of the api.
+      - FRONTEND=1  # Start the frontend.
+      - COLOR_MODE=dark  # Color mode of the frontend: dark or light.
+      - FRONTEND_HOST=0.0.0.0  # Host address of the frontend.
+      - FRONTEND_PORT=8282  # Port of the frontend.
+      - MOTHERSHIPS=["http://127.0.0.1:8181"]  # The host addresses of the motherships to report to.
+      # - HUB_API_ACCESS_TOKEN=
+      - REPORT_TO_HUB=0
+      - SEND_USAGE_STATISTICS=1  # Send usage statistics.
+      - URL=127.0.0.1  # The address of the application.
+      - GIT_DISCOVERY_ACROSS_FILESYSTEM=1  # Required by third party package (GitPython) to access the local repository.
+    ports:
+      - "8181:8181" # API
+      - "8282:8282" # FRONTEND
+      # - "8123:8123" # REST Endpoint (Input module)
+      # - "9999:9999" # TCP Server (Input module)
+      # - "80:80" # REST Endpoint (Output module)
+    volumes:
+      - './configuration:/configuration'
+      - './logs:/logs'
+      - './data:/data'
+      - './src:/src'
+      - './.git:/.git'
+      - './settings.ini:/settings.ini'
+      

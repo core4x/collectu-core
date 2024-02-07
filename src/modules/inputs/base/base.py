@@ -1,0 +1,174 @@
+"""
+This is the base class of all input modules. All implemented input modules have to be derived from this class.
+The derived child class has to be named 'InputModule', 'TagModule', or 'VariableModule'.
+"""
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import Any, Optional
+
+# Internal imports.
+import config
+import data_layer
+import models
+from modules.base.base import AbstractModule
+
+
+class AbstractInputModule(AbstractModule):
+    """
+    !!!The derived child class has to be named 'InputModule'!!!
+
+    Abstract base class for the input module.
+    This class shows the required methods to be implemented by the derived child.
+
+    Use: super().__init__(configuration)
+
+    to call this base initialization when implementing the InputModule __init__.
+
+    :param configuration: The configuration object of the input module.
+    """
+
+    @dataclass
+    class Configuration(models.InputModule):
+        """
+        The configuration model of the module.
+        """
+        pass
+
+    def __init__(self, configuration: Configuration):
+        super().__init__(configuration=configuration)
+
+    @abstractmethod
+    def start(self) -> bool:
+        """
+        Method for starting the module. Is called by the main thread or the retry class.
+        InputModules normally connect to the data source.
+
+        :returns: True if successfully started, otherwise false.
+        """
+        success = False
+        try:
+            ...
+        except Exception as e:
+            self.logger.critical("Something went wrong while trying to start the module. {0}".format(str(e)),
+                                 exc_info=config.EXC_INFO)
+        finally:
+            return success
+
+
+class AbstractVariableModule(AbstractModule):
+    """
+    !!!The derived child class has to be named 'VariableModule'!!!
+
+    Abstract base class for the variable module.
+    This class shows the required methods to be implemented by the derived child.
+
+    Use: super().__init__(configuration, input_module_instance)
+
+    to call this base initialization when implementing the VariableModule __init__.
+
+    :param configuration: The configuration object of the variable module.
+    :param input_module_instance: The instance of the parent input module if it exists.
+    """
+
+    @dataclass
+    class Configuration(models.VariableModule):
+        """
+        The configuration model of the module.
+        """
+        pass
+
+    def __init__(self, configuration: Configuration, input_module_instance=None):
+        super().__init__(configuration=configuration)
+        self.input_module_instance = input_module_instance
+        """The input module instance."""
+
+    @abstractmethod
+    def start(self) -> bool:
+        """
+        Method for starting the module. Is called by the main thread.
+        VariableModules normally start a subscription.
+
+        :returns: True if successfully started, otherwise false.
+        """
+        success = False
+        try:
+            ...
+        except Exception as e:
+            self.logger.critical("Something went wrong while trying to start the module. {0}".format(str(e)),
+                                 exc_info=config.EXC_INFO)
+        finally:
+            return success
+
+
+class AbstractTagModule(AbstractModule):
+    """
+    !!!The derived child class has to be named 'TagModule'!!!
+
+    Abstract base class for the tag module.
+    This class shows the required methods to be implemented by the derived child.
+
+    Use: super().__init__(configuration, input_module_instance)
+
+    to call this base initialization when implementing the TagModule __init__.
+
+    :param configuration: The configuration object of the tag module.
+    :param input_module_instance: The instance of the parent input module if it exists.
+    """
+
+    @dataclass
+    class Configuration(models.TagModule):
+        """
+        The configuration model of the module.
+        """
+        pass
+
+    def __init__(self, configuration: Configuration, input_module_instance=None):
+        super().__init__(configuration=configuration)
+        self.input_module_instance = input_module_instance
+        """The input module instance."""
+        self.current_input_data: Optional[models.Data] = None
+        """The currently received data object. Used for replacing dynamic variables with local data."""
+
+    def run(self, data: models.Data):
+        """
+        Method for executing the module.
+
+        :param data: The data object.
+        """
+        try:
+            if self.active:
+                # Set the current data object.
+                self.current_input_data = data
+                # Execute the module specific logic.
+                key_values = self._run() or {}
+                for key, value in key_values.items():
+                    if self.configuration.is_field:
+                        data.fields[key] = value
+                    if self.configuration.is_tag:
+                        data.tags[key] = value
+
+                if data.fields and data.measurement:
+                    # During the stopping procedure, it could happen, that the entry does no longer exist.
+                    # We catch it here.
+                    if self.configuration.id not in data_layer.module_data:
+                        self.logger.error("Could not find module with id '{0}' in data layer."
+                                          .format(str(self.configuration.id)))
+                    else:
+                        # Store the data in the latest data entry.
+                        data_layer.module_data[self.configuration.id].latest_data = data
+                    # Call the subsequent links.
+                    self._call_links(data)
+                # Reset the current data object.
+                self.current_input_data = None
+        except Exception as e:
+            self.logger.error("Something went wrong while requesting key-value pair: {0}".format(str(e)),
+                              exc_info=config.EXC_INFO)
+
+    @abstractmethod
+    def _run(self) -> dict[str, Any]:
+        """
+        Method generates/requests the data for this module and returns it.
+
+        :returns: A dict containing the generated key-value pairs.
+        """
+        return {}

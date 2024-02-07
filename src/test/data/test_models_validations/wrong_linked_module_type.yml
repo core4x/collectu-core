@@ -1,0 +1,19 @@
+- active: true
+  digits: 3
+  id: 1
+  key: a key
+  links:
+  - some_id_1
+  module_name: processors.math.standard.round_1
+  panel: panel-1
+  x: 400
+  y: 250
+- active: true
+  anonymous: true
+  id: some_id_1
+  module_name: inputs.web.rest_get_1
+  panel: panel-1
+  password: admin
+  username: admin
+  x: 0
+  y: 0

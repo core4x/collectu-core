@@ -1,0 +1,10 @@
+- active: true
+  buffer_size: 100
+  buffer_to_file: true
+  buffered: true
+  id: id_1
+  is_buffer: true
+  module_name: outputs.buffers.ram_1
+  panel: panel-1
+  x: 200
+  y: 100

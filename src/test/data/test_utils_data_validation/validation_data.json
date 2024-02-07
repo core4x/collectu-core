@@ -1,0 +1,696 @@
+{
+  "test_data": [
+    {
+      "data": {},
+      "requirement": [],
+      "assertion": true
+    },
+    {
+      "data": {},
+      "requirement": [
+        "(key *)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1
+      },
+      "requirement": [
+        "(key *)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {},
+      "requirement": [
+        "(keys >= 1)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 3
+      },
+      "requirement": [
+        "(keys == 2)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 3
+      },
+      "requirement": [
+        "(key * with str)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 3
+      },
+      "requirement": [
+        "(key * with int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "3"
+      },
+      "requirement": [
+        "(key test1 with str)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "str"
+      },
+      "requirement": [
+        "(key test1 with int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 3
+      },
+      "requirement": [
+        "(key test1 with str)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 3
+      },
+      "requirement": [
+        "(key * with int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "3"
+      },
+      "requirement": [
+        "((key test1 with int) and (key test2 with str))"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "3"
+      },
+      "requirement": [
+        "(key test1 with str)",
+        "(key test2 with str)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "3"
+      },
+      "requirement": [
+        "(key test1 with str)",
+        "((key test2 with str) and (keys == 2))"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2
+        ]
+      },
+      "requirement": [
+        "(key * with ints)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          true
+        ]
+      },
+      "requirement": [
+        "(key * with ints)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          true
+        ]
+      },
+      "requirement": [
+        "(key * with bools)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          false,
+          true
+        ]
+      },
+      "requirement": [
+        "(key * with bools)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          false,
+          true
+        ],
+        "test2": 1,
+        "test3": [
+          true
+        ]
+      },
+      "requirement": [
+        "((key !test2 with bools) and (key test2 with int))"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2
+        ],
+        "test2": 3,
+        "test3": 4
+      },
+      "requirement": [
+        "(key * with ints/int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1
+      },
+      "requirement": [
+        "(key test1 with str/int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": "str"
+      },
+      "requirement": [
+        "(key test1 with str/int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          "str"
+        ]
+      },
+      "requirement": [
+        "(key test1 with str/int)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": "str",
+        "test2": 1,
+        "test3": true
+      },
+      "requirement": [
+        "(key * with str/int/bool)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": "str",
+        "test2": 1,
+        "test3": true,
+        "test4": [
+          "str1",
+          "str2"
+        ]
+      },
+      "requirement": [
+        "(key * with str/int/bool)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": "str",
+        "test2": 1,
+        "test3": true,
+        "test4": {
+          "str1": "str2"
+        }
+      },
+      "requirement": [
+        "(key * with str/int/bool)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2
+        ]
+      },
+      "requirement": [
+        "(length * == 2)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length * == 2)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length test1 == 2)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length test1 == 3)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "requirement": [
+        "(length test1 == test2)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length test1 == test2)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length * equal)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "test2": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length * equal)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "test2": [
+          1,
+          2,
+          3
+        ],
+        "test3": 32
+      },
+      "requirement": [
+        "(length * equal)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": [
+          1,
+          2,
+          3
+        ]
+      },
+      "requirement": [
+        "(length test1 == test3)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": 12
+      },
+      "requirement": [
+        "(length test1 == test3)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": 12
+      },
+      "requirement": [
+        "(length test2 == 1)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": 12
+      },
+      "requirement": [
+        "(length test2 == unknown_key)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test1": [
+          1,
+          2,
+          3
+        ],
+        "test2": [
+          "str1",
+          "str2",
+          "str3"
+        ]
+      },
+      "requirement": [
+        "((length test1 == test2) and (key test2 with strs) and (length test2 == 3))"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": [
+          "str1",
+          "str2",
+          "str3"
+        ],
+        "test3": true
+      },
+      "requirement": [
+        "(key test1 with int)",
+        "(key test2 with strs)",
+        "(key test3 with bool)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": [
+          "str1",
+          "str2",
+          "str3"
+        ],
+        "test3": true
+      },
+      "requirement": [
+        "(key test1 with int)",
+        "(key test2 with strs)",
+        "(key test3 with int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": [
+          "str1",
+          1,
+          false
+        ],
+        "test3": true
+      },
+      "requirement": [
+        "(key test2 with list)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": [
+          3,
+          1,
+          "4"
+        ]
+      },
+      "requirement": [
+        "(key test2 with list/ints)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": 3
+      },
+      "requirement": [
+        "(key test2 with list)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test2": 3
+      },
+      "requirement": [
+        "(value test2 == 3)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": 3
+      },
+      "requirement": [
+        "(value test2 != 3)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test2": 3
+      },
+      "requirement": [
+        "(value test2 == 3)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": "3"
+      },
+      "requirement": [
+        "(value test2 == 3)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test2": "3"
+      },
+      "requirement": [
+        "(value test2 == 3)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test2": 2
+      },
+      "requirement": [
+        "(value test2 < 3)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": true
+      },
+      "requirement": [
+        "(value test2 == True)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": 1.1
+      },
+      "requirement": [
+        "(value test2 >= 1)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": 0
+      },
+      "requirement": [
+        "(value test2 == False)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test2": "0"
+      },
+      "requirement": [
+        "(value test2 == False)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {
+        "test2": "init"
+      },
+      "requirement": [
+        "(value test2 == init)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [1, 2, 3],
+        "test2": [3, 4, 5],
+        "event": "string"
+      },
+      "requirement": [
+        "(length !event equal)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": [1, 2, 3],
+        "test2": true,
+        "event": "string"
+      },
+      "requirement": [
+        "(length !event equal)"
+      ],
+      "assertion": false
+    }
+  ]
+}
