@@ -1,0 +1,3 @@
+[submodule "src/collectu-interface"]
+	path = src/collectu-interface
+	url = git@github.com:core4x/collectu-interface.git
