@@ -64,24 +64,30 @@ if __name__ == "__main__":
     # Check if additional commands are given.
     utils.arg_parser.process_commands()
 
-    # TODO: Check if folder is not empty.
     if bool(int(os.environ.get('API', '1'))):
         # Once we set up the logger and initialized everything, we can import the other things.
         # This guarantees, that we already have set all environment variables.
-        import interface.api_v1.app
+        try:
+            import interface.api_v1.app
 
-        # Start the API.
-        interface.api_v1.app.start()
+            # Start the API.
+            interface.api_v1.app.start()
+        except Exception as e:
+            logger.error("Could not start api. Do you have a valid license?".format(str(e)),
+                         exc_info=config.EXC_INFO)
 
-    # TODO: Check if folder is not empty.
     if bool(int(os.environ.get('FRONTEND', '1'))):
         if not bool(int(os.environ.get('API', '1'))):
             logger.warning("The API is disabled. "
                            "Some features, such as mothership functionality, are not supported without the API.")
-        import interface.frontend_v1.app
+        try:
+            import interface.frontend_v1.app
 
-        # Start the frontend.
-        interface.frontend_v1.app.start()
+            # Start the frontend.
+            interface.frontend_v1.app.start()
+        except Exception as e:
+            logger.error("Could not start frontend. Do you have a valid license?".format(str(e)),
+                         exc_info=config.EXC_INFO)
 
     # Start the mothership reporting.
     utils.mothership_interface.start()
