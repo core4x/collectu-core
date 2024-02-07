@@ -68,20 +68,20 @@ if __name__ == "__main__":
     if bool(int(os.environ.get('API', '1'))):
         # Once we set up the logger and initialized everything, we can import the other things.
         # This guarantees, that we already have set all environment variables.
-        import api_v1.app
+        import interface.api_v1.app
 
         # Start the API.
-        api_v1.app.start()
+        interface.api_v1.app.start()
 
     # TODO: Check if folder is not empty.
     if bool(int(os.environ.get('FRONTEND', '1'))):
         if not bool(int(os.environ.get('API', '1'))):
             logger.warning("The API is disabled. "
                            "Some features, such as mothership functionality, are not supported without the API.")
-        import frontend_v1.app
+        import interface.frontend_v1.app
 
         # Start the frontend.
-        frontend_v1.app.start()
+        interface.frontend_v1.app.start()
 
     # Start the mothership reporting.
     utils.mothership_interface.start()
