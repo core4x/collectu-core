@@ -87,6 +87,14 @@ def check_for_updates_with_git() -> Optional[int]:
                     list(submodule_repo.iter_commits(f"{submodule_branch.name}..origin/{submodule_branch.name}",
                                                      env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})))
             except Exception as e:
+                try:
+                    if os.environ.get("GIT_ACCESS_TOKEN", None):
+                        # Initialize and update submodules.
+                        repo.git.submodule('update', '--init', '--recursive',
+                                           env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
+                except Exception as e:
+                    logging.error("Could not initialize submodule '{0}': {1}"
+                                  .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
                 logging.error("Could not check for updates for submodule '{0}': {1}"
                               .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
     return commit_count
