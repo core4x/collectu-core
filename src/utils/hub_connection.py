@@ -124,11 +124,16 @@ def download_module(module_name: Optional[str] = None) -> bool:
 def update_modules(module_names: Optional[List[str]] = None):
     """
     Update the given modules or all.
+    # TODO: Integrate a function to update the modules via the frontend.
 
     :param module_names: A list with modules names to be updated. If none is given, all modules are updated.
     """
-    # TODO
-    raise NotImplementedError
+    if module_names is None:
+        for keys in data_layer.registered_modules:
+            download_module(keys)
+    else:
+        for module_name in module_names:
+            download_module(module_name)
 
 
 def send_modules(module_names: Optional[List[str]] = None):
