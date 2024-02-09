@@ -20,6 +20,7 @@ import data_layer
 import models
 from models.validations import ValidationError
 import utils.retrying
+import utils.hub_connection
 
 # Third party imports.
 import yaml
@@ -365,17 +366,21 @@ class Configuration:
                     module_name = module_configuration.get("module_name", "").lower()
                     module = data_layer.registered_modules.get(module_name, None)
                     if module is None:
-                        errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}'.")
-                        continue
+                        # Try to fetch the module from hub.
+                        if not utils.hub_connection.download_module(module_name=module_name):
+                            errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}'.")
+                            continue
+                        else:
+                            module = data_layer.registered_modules.get(module_name, None)
                     # Deserialize the module configuration using the according dataclass
                     # and add it to the configuration list.
                     module_schema = getattr(module, "Configuration", None)
                     if module_schema is not None:
                         configuration.append(module_schema(**module_configuration))
                     else:
-                        errors[module_configuration.get("id", "-")].append("Invalid module. Could not find the "
-                                                                           "configuration class. Please make sure the used "
-                                                                           "module contains a configuration definition.")
+                        errors[module_configuration.get("id", "-")].append(
+                            "Invalid module. Could not find the configuration class. Please make sure the used "
+                            "module contains a configuration definition.")
                 except ValidationError as e:
                     errors[module_configuration.get("id", "-")].extend(e.args[0])
                 except (ValueError, TypeError) as e:
@@ -504,7 +509,8 @@ class Configuration:
                     except Exception as e:
                         success = False
                         self.logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name, module_data.configuration.get("id", "-"),
+                                          .format(module_data.module_name,
+                                                  module_data.configuration.get("id", "-"),
                                                   str(e)), exc_info=config.EXC_INFO)
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
@@ -521,7 +527,8 @@ class Configuration:
                     except Exception as e:
                         success = False
                         self.logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name, module_data.configuration.get("id", "-"),
+                                          .format(module_data.module_name,
+                                                  module_data.configuration.get("id", "-"),
                                                   str(e)), exc_info=config.EXC_INFO)
 
             # Stop all input modules.
@@ -535,7 +542,8 @@ class Configuration:
                     except Exception as e:
                         success = False
                         self.logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name, module_data.configuration.get("id", "-"),
+                                          .format(module_data.module_name,
+                                                  module_data.configuration.get("id", "-"),
                                                   str(e)), exc_info=config.EXC_INFO)
 
             # Stop all processor modules.
@@ -547,7 +555,8 @@ class Configuration:
                     except Exception as e:
                         success = False
                         self.logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name, module_data.configuration.get("id", "-"),
+                                          .format(module_data.module_name,
+                                                  module_data.configuration.get("id", "-"),
                                                   str(e)), exc_info=config.EXC_INFO)
 
             # Stop all output modules.
@@ -559,7 +568,8 @@ class Configuration:
                     except Exception as e:
                         success = False
                         self.logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name, module_data.configuration.get("id", "-"),
+                                          .format(module_data.module_name,
+                                                  module_data.configuration.get("id", "-"),
                                                   str(e)), exc_info=config.EXC_INFO)
 
             # Reset buffer instance.
@@ -653,7 +663,8 @@ class Configuration:
         """
         if getattr(module, "deprecated", False):
             self.logger.warning("The module '{0}' is deprecated. Please check if a newer module version is available."
-                                .format(str(".".join([module.__module__, module.__name__])).replace("modules.", "")))
+                                .format(str(".".join([module.__module__, module.__name__])).replace(
+                "modules.", "")))
             return True
         return False
 

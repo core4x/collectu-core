@@ -9,7 +9,7 @@ import os
 
 # Internal imports.
 import data_layer
-import utils.send_modules_to_hub
+import utils.hub_connection
 
 
 def process_commands():
