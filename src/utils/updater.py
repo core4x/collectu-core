@@ -41,19 +41,19 @@ def check_git_access_token() -> bool:
             logger.error("Could not find local git repository. "
                          "Please clone the project to use the update functionality.")
             valid = False
-
-        if not os.path.isfile('../ssh_key'):
-            logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
-                         f"You can add your git access token in settings.ini. "
-                         f"If you do not have a git access token, please subscribe to a plan or contact: "
-                         f"{config.CONTACT}.")
-            valid = False
         else:
-            os.chmod("../ssh_key", 0o600)
-            os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../ssh_key '
-                                             f'-o UserKnownHostsFile=/dev/null '
-                                             f'-o StrictHostKeyChecking=no')
-
+            if not os.path.isfile('../ssh_key'):
+                logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
+                             f"You can add your git access token by creating a file named 'ssh_key'. "
+                             f"If you do not have a git access token, please subscribe to a plan or contact: "
+                             f"{config.CONTACT}.")
+                valid = False
+            else:
+                os.chmod("../ssh_key", 0o600)
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./ssh_key '
+                                                 f'-o UserKnownHostsFile=/dev/null '
+                                                 f'-o StrictHostKeyChecking=no')
+                valid = True
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
                      exc_info=config.EXC_INFO)
@@ -95,6 +95,8 @@ def check_for_updates_with_git() -> Optional[int]:
                 try:
                     # Initialize and update submodules.
                     repo.git.submodule('update', '--init', '--recursive')
+                    logger.info("Successfully cloned submodule: {0}".format(submodule.name))
+                    return commit_count
                 except Exception as e2:
                     logging.error("Could not initialize submodule '{0}': {1}"
                                   .format(submodule.name, str(e2)), exc_info=config.EXC_INFO)
