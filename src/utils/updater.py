@@ -42,14 +42,15 @@ def check_git_access_token() -> bool:
                          "Please clone the project to use the update functionality.")
             valid = False
 
-        if not os.path.isfile('../ssh_key.pub'):
+        if not os.path.isfile('../ssh_key'):
             logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
                          f"You can add your git access token in settings.ini. "
                          f"If you do not have a git access token, please subscribe to a plan or contact: "
                          f"{config.CONTACT}.")
             valid = False
         else:
-            os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../ssh_key.pub '
+            os.chmod("../ssh_key", 0o600)
+            os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../ssh_key '
                                              f'-o UserKnownHostsFile=/dev/null '
                                              f'-o StrictHostKeyChecking=no')
 
