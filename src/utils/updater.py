@@ -109,7 +109,7 @@ def update_app_with_git() -> str:
             repo = git.Repo("..")
             if os.environ.get("GIT_ACCESS_TOKEN", None):
                 repo.remotes.origin.pull(env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
-                repo.git.submodule('update', '--recursive', '--remote',
+                repo.git.submodule('update', '--init', '--recursive', '--remote',
                                    env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
             else:
                 repo.remotes.origin.pull()
