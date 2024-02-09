@@ -43,9 +43,10 @@ def check_git_access_token() -> bool:
             valid = False
 
         if not os.environ.get("GIT_ACCESS_TOKEN", None):
-            logger.error(f"You haven't a valid git access token for updating {config.APP_NAME}. "
+            logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
                          f"You can add your git access token in settings.ini. "
-                         f"If you do not have a git access token, please contact: {config.CONTACT}.")
+                         f"If you do not have a git access token, please subscribe to a plan or contact: "
+                         f"{config.CONTACT}.")
             valid = False
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
@@ -67,30 +68,27 @@ def check_for_updates_with_git() -> Optional[int]:
     If the app is up-to-date, 0 is returned.
     Otherwise (something went wrong), None is returned.
     """
-    commits_behind = None
-    try:
-        if check_git_access_token():
-            # First do a git fetch, so we have possible changes in our local repository.
-            git.cmd.Git().fetch()
-            # If we use the one below, this is only working once?!
-            # git.cmd.Git().fetch(f'https://oauth2:{os.environ.get("GIT_ACCESS_TOKEN")}@{config.GIT_LINK}',
-            #                     config.GIT_BRANCH)
-            # Subsequently we check the status.
-            status = git.cmd.Git().status("--branch", "--porcelain").splitlines()[0]
-            # If there are commits: ## development...origin/development [behind 1]
-            # If there are no commits: ## development...origin/development
-            if "[behind" in status:
-                # Extract the number of commits behind.
-                commits_behind = int(status[status.find("[behind ") + len("[behind "):status.rfind("]")])
-            else:
-                commits_behind = 0
-        else:
-            raise Exception("The system does not meet the requirements for using the update functionality. "
-                            "Please check the logs for further information.")
-    except Exception as e:
-        logger.error("Could not check for updates: {0}".format(str(e)), exc_info=config.EXC_INFO)
-    finally:
-        return commits_behind
+    if not os.path.isdir('../.git'):
+        return None
+
+    # Open the repository.
+    repo = git.Repo("..")
+    current_branch = repo.active_branch
+    # Get the commit count of the current branch.
+    commit_count = len(list(repo.iter_commits(f"{current_branch.name}..origin/{current_branch.name}")))
+
+    if check_git_access_token():
+        # Check for updates in submodules.
+        for submodule in repo.submodules:
+            try:
+                submodule_repo = git.Repo(os.path.join("..", submodule.path))
+                submodule_branch = submodule_repo.active_branch
+                commit_count += len(
+                    list(submodule_repo.iter_commits(f"{submodule_branch.name}..origin/{submodule_branch.name}")))
+            except Exception as e:
+                logging.error("Could not check for updates for submodule '{0}': {1}"
+                              .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
+    return commit_count
 
 
 def update_app_with_git() -> str:
@@ -108,12 +106,16 @@ def update_app_with_git() -> str:
         elif not possible_updates:
             raise Exception("Cancelled update procedure. Please check the logs for further information.")
         else:
-            # Pull from remote origin to the current working directory.
-            result = git.cmd.Git().pull(f'https://oauth2:{os.environ.get("GIT_ACCESS_TOKEN")}@{config.GIT_LINK}',
-                                        config.GIT_BRANCH)
+            repo = git.Repo("..")
+            if os.environ.get("GIT_ACCESS_TOKEN", None):
+                repo.remotes.origin.pull(env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
+                repo.git.submodule('update', '--recursive', '--remote',
+                                   env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
+            else:
+                repo.remotes.origin.pull()
             if data_layer.statistics:
                 data_layer.statistics.send_successful_update()
-            message = "Successfully finished update: {0} - Please restart the app.".format(str(result))
+            message = "Successfully finished update. Please restart the app."
             logger.info(message)
             return message
     except Exception as e:

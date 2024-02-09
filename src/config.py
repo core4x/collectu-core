@@ -21,13 +21,6 @@ CONTACT: str = "info@collectu.de"
 SETTINGS_FILENAME: str = "settings.ini"
 """The filename of the settings file containing the environment variables to be set."""
 
-GIT_LINK: str = "git@github.com:core4x/collectu-core.git"
-"""The link to the git repository. 
-GIT_ACCESS_TOKEN (settings.ini) is used for authentication: https://oauth2:{GIT_ACCESS_TOKEN}@GIT_LINK"""
-
-GIT_BRANCH: str = "master"
-"""The git branch used to get the updates."""
-
 SERVE_FRONTEND_PACKAGES_AS_STATIC_FILES: bool = True
 """Third party packages as bootstrap, jQuery etc are served as static files if true."""
 

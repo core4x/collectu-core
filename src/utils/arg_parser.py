@@ -8,8 +8,10 @@ import argparse
 import os
 
 # Internal imports.
+import config
 import data_layer
 import utils.hub_connection
+import utils.updater
 
 
 def process_commands():
@@ -53,6 +55,10 @@ def process_commands():
                        metavar='send all',
                        help='sends all (or the defined) module(s) to the hub')
 
+    group.add_argument('-u', '--update',
+                       action='store_true',
+                       help='updates the app and all submodules')
+
     args = parser.parse_args()
 
     if args.modules:
@@ -69,6 +75,9 @@ def process_commands():
         _command_test(args.test)
     if args.send:
         _command_send(args.send)
+        sys.exit(0)
+    if args.update:
+        _command_update()
         sys.exit(0)
 
 
@@ -155,4 +164,11 @@ def _command_send(module_name: str):
         module_name = None
     else:
         module_name = [module_name]
-    utils.send_modules_to_hub.start(module_name)
+    utils.hub_connection.send_modules(module_name)
+
+
+def _command_update():
+    """
+    Update the app.
+    """
+    utils.updater.update_app_with_git()

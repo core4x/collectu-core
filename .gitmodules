@@ -1,3 +1,4 @@
 [submodule "src/interface"]
 	path = src/interface
+	branch = main
 	url = git@github.com:core4x/interface.git
