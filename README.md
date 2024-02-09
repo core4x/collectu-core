@@ -2,6 +2,8 @@
   Collectu
 </h1>
 
+> Collectu is the open all-in-one solution for your data-driven future.
+
 <p style="text-align: center;">
 Collectu is an open and Python-based no-code platform for fast and flexible data collection, combination, processing, 
 analysis, visualization, and storage. From various data sources to different target systems. 
@@ -9,18 +11,7 @@ Collectu ships with a lot of game-changing advantages and is based on a modular 
 which makes it easily adjustable and extendable.
 </p>
 
-<p style="text-align: center;">
-  <img src="docs/figures/overview.png" alt="overview">
-</p>
-
-> Collectu is the open all-in-one solution for your data-driven future.
-
-- Connect all of your systems - collect and combine your data.
-- Process, analyze, and visualize your data in one open platform.
-- Stay safe and save your data where you want.
-- Control your systems based on the information you gather.
-- Automate your data processing without the need of programming.
-- Collectu offers more than 200 modules.
+> Visit [collectu.de](https://collectu.de) for further information.
 
 --------
 
@@ -47,12 +38,7 @@ which makes it easily adjustable and extendable.
 
 ## Quick Start Guide
 
-Collectu is a fast and easy portable application. 
-Collectu can run decentralized on any system. From Windows to Linux, a desktop pc, an edge device, or server. 
-Collectu can also be containerized with e.g. Docker. This allows any device in the network to be connected and become 
-a data source in a turn of a hand, thus ensuring scalability at all times.
-
-> For further information please check www.collectu.de
+> Please check [collectu.de/docs](https://collectu.de/docs)
 
 ## Configuration
 
@@ -73,8 +59,6 @@ The configuration can be created using yaml/json files (located in the `configur
 or the user-friendly frontend.
 
 By default, the file `configuration/configuration.yml` is used.
-
-> All available modules can be found [here](docs/MODULES.md).
 
 Next to the configuration file, a local database is used, saving all executed configurations.
 Those configurations can be loaded (using the api or frontend). 
@@ -132,7 +116,6 @@ it will NOT be overwritten by the `settings.ini` values.
 | HUB_API_ACCESS_TOKEN  | HUB_API_ACCESS_TOKEN= | The api access token of the hub profile [collectu.de](https://collectu.de).              |
 | REPORT_TO_HUB         | REPORT_TO_HUB=0       | Shall this app report and receive tasks from the hub [collectu.de](https://collectu.de). |
 | SEND_USAGE_STATISTICS | SEND_USAGE_STATISTICS=1 | Send anonymous usage statistics to the developer.                                        |
-| GIT_ACCESS_TOKEN      | GIT_ACCESS_TOKEN=     | Allows access to the git repository used for updating.                                   |
 
 ## Features
 
@@ -191,6 +174,8 @@ You have to replace the placeholders with:
 
 ### Frontend
 
+> Not available in collectu-core!
+
 > The frontend provides a user-friendly interface for viewing app information and creating configurations.
 
 The frontend (set environment variable `FRONTEND=1`) is accessible on 
@@ -199,6 +184,8 @@ The frontend (set environment variable `FRONTEND=1`) is accessible on
 ![Configuration](docs/figures/no-code_configuration.png)
 
 ### API
+
+> Not available in collectu-core!
 
 > The REST API enables access to important information and the control of basic app functionalities. 
 
