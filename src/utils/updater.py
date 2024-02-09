@@ -42,12 +42,17 @@ def check_git_access_token() -> bool:
                          "Please clone the project to use the update functionality.")
             valid = False
 
-        if not os.environ.get("GIT_ACCESS_TOKEN", None):
+        if not os.path.isfile('../ssh_key.pub'):
             logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
                          f"You can add your git access token in settings.ini. "
                          f"If you do not have a git access token, please subscribe to a plan or contact: "
                          f"{config.CONTACT}.")
             valid = False
+        else:
+            os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../ssh_key.pub '
+                                             f'-o UserKnownHostsFile=/dev/null '
+                                             f'-o StrictHostKeyChecking=no')
+
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
                      exc_info=config.EXC_INFO)
@@ -84,19 +89,16 @@ def check_for_updates_with_git() -> Optional[int]:
                 submodule_repo = git.Repo(os.path.join("..", submodule.path))
                 submodule_branch = submodule_repo.active_branch
                 commit_count += len(
-                    list(submodule_repo.iter_commits(f"{submodule_branch.name}..origin/{submodule_branch.name}",
-                                                     env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})))
-            except Exception as e:
+                    list(submodule_repo.iter_commits(f"{submodule_branch.name}..origin/{submodule_branch.name}")))
+            except Exception as e1:
                 try:
-                    if os.environ.get("GIT_ACCESS_TOKEN", None):
-                        # Initialize and update submodules.
-                        repo.git.submodule('update', '--init', '--recursive',
-                                           env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
-                except Exception as e:
+                    # Initialize and update submodules.
+                    repo.git.submodule('update', '--init', '--recursive')
+                except Exception as e2:
                     logging.error("Could not initialize submodule '{0}': {1}"
-                                  .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
+                                  .format(submodule.name, str(e2)), exc_info=config.EXC_INFO)
                 logging.error("Could not check for updates for submodule '{0}': {1}"
-                              .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
+                              .format(submodule.name, str(e1)), exc_info=config.EXC_INFO)
     return commit_count
 
 
@@ -117,9 +119,8 @@ def update_app_with_git() -> str:
         else:
             repo = git.Repo("..")
             if os.environ.get("GIT_ACCESS_TOKEN", None):
-                repo.remotes.origin.pull(env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
-                repo.git.submodule('update', '--init', '--recursive', '--remote',
-                                   env={"ACCESS_TOKEN": os.environ.get("GIT_ACCESS_TOKEN")})
+                repo.remotes.origin.pull()
+                repo.git.submodule('update', '--init', '--recursive', '--remote')
             else:
                 repo.remotes.origin.pull()
             if data_layer.statistics:
