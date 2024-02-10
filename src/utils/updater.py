@@ -29,6 +29,13 @@ def restart_application():
     os.execl(sys.executable, '"{}"'.format(sys.executable), *sys.argv)
 
 
+def find_file_by_filename(searched_file):
+    for filename in os.listdir("../"):
+        if filename.startswith(searched_file):
+            return filename
+    return None
+
+
 def check_git_access_token() -> bool:
     """
     Checks if there is a git repository and an access token. But not if the access token is valid.
@@ -42,15 +49,15 @@ def check_git_access_token() -> bool:
                          "Please clone the project to use the update functionality.")
             valid = False
         else:
-            if not os.path.isfile('../ssh_key'):
+            if not find_file_by_filename("git_access_token"):
                 logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
-                             f"You can add your git access token by creating a file named 'ssh_key'. "
+                             f"You can add your git access token by creating a file named 'git_access_token'. "
                              f"If you do not have a git access token, please subscribe to a plan or contact: "
                              f"{config.CONTACT}.")
                 valid = False
             else:
-                os.chmod("../ssh_key", 0o600)
-                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./ssh_key '
+                os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
                                                  f'-o StrictHostKeyChecking=no')
                 valid = True
