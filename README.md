@@ -2,14 +2,10 @@
   Collectu
 </h1>
 
-> Collectu is the open all-in-one solution for your data-driven future.
-
-<p style="text-align: center;">
 Collectu is an open and Python-based no-code platform for fast and flexible data collection, combination, processing, 
 analysis, visualization, and storage. From various data sources to different target systems. 
 Collectu ships with a lot of game-changing advantages and is based on a modular architecture, 
 which makes it easily adjustable and extendable.
-</p>
 
 > Visit [collectu.de](https://collectu.de) for further information.
 

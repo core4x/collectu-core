@@ -79,18 +79,17 @@ def check_for_updates_with_git() -> Optional[int]:
 
     # Open the repository.
     repo = git.Repo("..")
-    current_branch = repo.active_branch
     # Get the commit count of the current branch.
-    commit_count = len(list(repo.iter_commits(f"{current_branch.name}..origin/{current_branch.name}")))
+    commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
 
     if check_git_access_token():
         # Check for updates in submodules.
         for submodule in repo.submodules:
             try:
                 submodule_repo = git.Repo(os.path.join("..", submodule.path))
-                submodule_branch = submodule_repo.active_branch
                 commit_count += len(
-                    list(submodule_repo.iter_commits(f"{submodule_branch.name}..origin/{submodule_branch.name}")))
+                    list(submodule_repo.iter_commits(f"{submodule_repo.active_branch.name}..origin/"
+                                                     f"{submodule_repo.active_branch.name}")))
             except Exception as e1:
                 try:
                     # Initialize and update submodules.
