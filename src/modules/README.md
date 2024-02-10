@@ -28,6 +28,7 @@ Every module has to call the parent initialization method: `super().__init__(con
 
 Please always provide the following information on class level:
 
+- version
 - description
 - author
 - email
@@ -138,20 +139,3 @@ Export the documentation for all modules by running:
 ```
 python src/main.py --d
 ```
-
-## IEC 61499
-
-> The international standard IEC 61499 is addressing the topic of function blocks 
-> for industrial process measurement and control systems. [IEC 61499](https://en.wikipedia.org/wiki/IEC_61499)
-
-This app also supports the implementation of function blocks according to concepts of IEC 61499.
-Those function blocks are realized as modules and are located in `processors`.
-
-A function block in general has the following two main interfaces:
-
-- Event input and output
-- Data input and output
-
-An event is the receiving or sending of a data object. The input data are the contained fields in the data object.
-To define which inputs are required by the function block, the field data requirements functionality (data validation), 
-described in [Data Requirements](processors/README.md), can be used. 
