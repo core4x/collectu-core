@@ -2,6 +2,17 @@
 
 
 
+## v0.0.3 (2024-02-11)
+
+### Fix
+
+* fix: Changed location of Dockerfile. ([`974050f`](https://github.com/core4x/collectu-core/commit/974050ff20b5580cac664b698306579c80733861))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`8059be8`](https://github.com/core4x/collectu-core/commit/8059be81edbde6de1f53aaffc7ddfcc3c313e845))
+
+
 ## v0.0.2 (2024-02-11)
 
 ### Fix
