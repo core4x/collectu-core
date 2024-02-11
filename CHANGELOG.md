@@ -2,6 +2,19 @@
 
 
 
+## v0.0.5 (2024-02-11)
+
+### Fix
+
+* fix: Added default configuration.yml. ([`eb18e24`](https://github.com/core4x/collectu-core/commit/eb18e24296236f84b1ffdb2d96487518471fc408))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`eb92386`](https://github.com/core4x/collectu-core/commit/eb923863878ae0e5d4dba849e902008d8db011f6))
+
+* Update main.yml ([`cb2477f`](https://github.com/core4x/collectu-core/commit/cb2477f83f14cf49c4c7ef17a717e7a2b5085670))
+
+
 ## v0.0.4 (2024-02-11)
 
 ### Fix
