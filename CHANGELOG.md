@@ -2,6 +2,17 @@
 
 
 
+## v0.0.9 (2024-02-11)
+
+### Fix
+
+* fix: Commented git_access_token. ([`da57dd9`](https://github.com/core4x/collectu-core/commit/da57dd9f980f46b62e7cc9c0a2e7581ebf8541b0))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`0676688`](https://github.com/core4x/collectu-core/commit/0676688d1ab47794d076f56986b1d7a4d75e6150))
+
+
 ## v0.0.8 (2024-02-11)
 
 ### Fix
