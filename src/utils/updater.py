@@ -82,6 +82,7 @@ def check_for_updates_with_git() -> Optional[int]:
     Otherwise (something went wrong), None is returned.
     """
     if not os.path.isdir('../.git'):
+        logger.warning('No git repository found. Can not check for updates.')
         return None
 
     # Open the repository.
