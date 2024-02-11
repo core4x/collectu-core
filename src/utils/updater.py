@@ -87,6 +87,7 @@ def check_for_updates_with_git() -> Optional[int]:
 
     # Open the repository.
     repo = git.Repo("..")
+    repo.remotes.origin.fetch()
     # Get the commit count of the current branch.
     commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
 
