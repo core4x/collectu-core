@@ -20,7 +20,7 @@ services:
       - FRONTEND_PORT=8282  # Port of the frontend.
       - MOTHERSHIPS=["http://127.0.0.1:8181"]  # The host addresses of the motherships to report to.
       # - HUB_API_ACCESS_TOKEN=
-      - REPORT_TO_HUB=0
+      - REPORT_TO_HUB=1
       - SEND_USAGE_STATISTICS=1  # Send usage statistics.
       - URL=127.0.0.1  # The address of the application.
       - GIT_DISCOVERY_ACROSS_FILESYSTEM=1  # Required by third party package (GitPython) to access the local repository.
@@ -37,4 +37,4 @@ services:
       - './src:/src'
       - './.git:/.git'
       - './settings.ini:/settings.ini'
-      - './git_access_token.txt/git_access_token.txt'
+      - './git_access_token.txt:/git_access_token.txt'
