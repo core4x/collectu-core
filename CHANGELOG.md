@@ -2,6 +2,21 @@
 
 
 
+## v0.0.7 (2024-02-11)
+
+### Fix
+
+* fix: fixed git_access_token mount. ([`a1617c2`](https://github.com/core4x/collectu-core/commit/a1617c21b56ede6eea06c107e427bab5338984c0))
+
+### Unknown
+
+* feature: git_access_token mount. ([`f701b0e`](https://github.com/core4x/collectu-core/commit/f701b0ea74b21df57307c64553241df1edf9fdac))
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`b3c3482`](https://github.com/core4x/collectu-core/commit/b3c3482802cb01aa44eca52578142f36e37b4945))
+
+* feature: Added warning message if no git was found. ([`84f7e44`](https://github.com/core4x/collectu-core/commit/84f7e445d79ee0af7b26a07d7361bcd55212501a))
+
+
 ## v0.0.6 (2024-02-11)
 
 ### Fix
