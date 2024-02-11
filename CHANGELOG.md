@@ -2,6 +2,19 @@
 
 
 
+## v0.0.6 (2024-02-11)
+
+### Fix
+
+* fix: Adjusted build context. ([`d3ad1f0`](https://github.com/core4x/collectu-core/commit/d3ad1f0cbdc5c90a40ce86f871e2de08ec2729c3))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`129a803`](https://github.com/core4x/collectu-core/commit/129a8038c37451ec93ac2fa98dd792dccf929bc1))
+
+* feature: Receive git_access_token via task from hub. ([`5891a88`](https://github.com/core4x/collectu-core/commit/5891a88c752d4ed5084e957b21919345c8b816d5))
+
+
 ## v0.0.5 (2024-02-11)
 
 ### Fix
