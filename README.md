@@ -28,4 +28,4 @@ which makes it easily adjustable and extendable.
 
 > Collectu-core is licensed under the terms of the Sustainable Use License.
 
-> The collectu interfaces are licensed under the terms of the collectu Enterprise License.
+> The collectu interfaces (frontend and api) are licensed under the terms of the collectu Enterprise License.
