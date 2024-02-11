@@ -253,6 +253,7 @@ def _request_hub_tasks():
     {
     "command": "restart, start, stop, save, load, or update",
     "configuration": [json_config]  # If 'load' or 'save' is the command.
+    "git_access_token": str  # if 'update' is the command. Is optional!
     }
     """
     start_time = datetime.datetime.now()
@@ -308,6 +309,12 @@ def _request_hub_tasks():
                     elif command == "stop":
                         data_layer.configuration.stop()
                     elif command == "update":
+                        git_access_token = task.get("git_access_token", None)
+                        if git_access_token:
+                            # A git access token was passed. Store it as file.
+                            with open("../git_access_token.txt", 'w') as file:
+                                logger.info("Successfully updated git_access_key.txt file with your git token.")
+                                file.write(git_access_token)
                         utils.updater.update_app_with_git()
                     elif command == "load":
                         errors = data_layer.configuration.load_configuration_from_stream(
@@ -394,6 +401,7 @@ def _request_todos(session, mothership):
     {
     "command": "restart, start, save, stop, load, or update",
     "configuration": [json_config]  # If 'load' or 'save' is the command.
+    "git_access_token": str  # if 'update' is the command. Is optional!
     }
 
     :param session: The request session.
@@ -420,6 +428,12 @@ def _request_todos(session, mothership):
                     if command == "stop":
                         data_layer.configuration.stop()
                     if command == "update":
+                        git_access_token = json_response.get("git_access_token", None)
+                        if git_access_token:
+                            # A git access token was passed. Store it as file.
+                            with open("../git_access_token.txt", 'w') as file:
+                                logger.info("Successfully updated git_access_key.txt file with your git token.")
+                                file.write(git_access_token)
                         utils.updater.update_app_with_git()
                     if command == "load":
                         errors = data_layer.configuration.load_configuration_from_stream(
