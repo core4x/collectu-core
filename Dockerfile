@@ -35,6 +35,7 @@ COPY settings.ini .
 COPY LICENSE.md .
 COPY README.md .
 COPY .gitmodules .
+COPY ./configuration/configuration.yml ./configuration
 
 # Set working directory.
 WORKDIR /src
