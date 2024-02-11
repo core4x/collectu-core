@@ -2,6 +2,13 @@
 
 
 
+## v0.0.11 (2024-02-11)
+
+### Fix
+
+* fix: Check for updates for submodules fixed. ([`fa099cf`](https://github.com/core4x/collectu-core/commit/fa099cf6e553a3d4db5a050d5ff028598a6d60c6))
+
+
 ## v0.0.10 (2024-02-11)
 
 ### Fix
