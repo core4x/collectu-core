@@ -18,7 +18,7 @@ services:
       - COLOR_MODE=dark  # Color mode of the frontend: dark or light.
       - FRONTEND_HOST=0.0.0.0  # Host address of the frontend.
       - FRONTEND_PORT=8282  # Port of the frontend.
-      - MOTHERSHIPS=["http://127.0.0.1:8181"]  # The host addresses of the motherships to report to.
+      - MOTHERSHIPS=[]  # The host addresses of the motherships to report to.
       # - HUB_API_ACCESS_TOKEN=
       - REPORT_TO_HUB=1
       - SEND_USAGE_STATISTICS=1  # Send usage statistics.
