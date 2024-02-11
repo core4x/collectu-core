@@ -2,6 +2,13 @@
 
 
 
+## v0.0.8 (2024-02-11)
+
+### Fix
+
+* fix: Fetch before checking for new commits. ([`e2a0e65`](https://github.com/core4x/collectu-core/commit/e2a0e653703d2f6a761af66b1fc42750da8e9a44))
+
+
 ## v0.0.7 (2024-02-11)
 
 ### Fix
