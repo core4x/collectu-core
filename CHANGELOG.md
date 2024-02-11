@@ -2,6 +2,17 @@
 
 
 
+## v0.0.10 (2024-02-11)
+
+### Fix
+
+* fix: Removed default mothership. ([`1b49668`](https://github.com/core4x/collectu-core/commit/1b49668ea843e91a3b8cecfae407e90c365a1c32))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`28e4e2b`](https://github.com/core4x/collectu-core/commit/28e4e2bb287cd2391dc3c023050148bd45a2ad58))
+
+
 ## v0.0.9 (2024-02-11)
 
 ### Fix
