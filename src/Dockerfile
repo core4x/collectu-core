@@ -30,6 +30,13 @@ RUN mkdir /data
 # Copy project.
 COPY ./ /src
 
+# Copy some files.
+COPY ../settings.ini .
+COPY ../LICENSE.md .
+COPY ../README.md .
+COPY ../.gitmodules .
+COPY ../.gitignore .
+
 # Set working directory.
 WORKDIR /src
 
