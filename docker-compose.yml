@@ -1,7 +1,7 @@
 version: '3'
 services:
   collectu:
-    build: src/.
+    build: .
     container_name: collectu-core
     restart: always
     environment:  # Overwrites the settings.ini variables.
@@ -37,4 +37,3 @@ services:
       - './src:/src'
       - './.git:/.git'
       - './settings.ini:/settings.ini'
-      
