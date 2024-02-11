@@ -96,9 +96,9 @@ def check_for_updates_with_git() -> Optional[int]:
         for submodule in repo.submodules:
             try:
                 submodule_repo = git.Repo(os.path.join("..", submodule.path))
-                commit_count += len(
-                    list(submodule_repo.iter_commits(f"{submodule_repo.active_branch.name}..origin/"
-                                                     f"{submodule_repo.active_branch.name}")))
+                # Get the current HEAD commit.
+                head_commit = submodule_repo.head.commit
+                commit_count += len(list(submodule_repo.iter_commits(f"{head_commit}..origin/"f"{head_commit}")))
             except Exception as e1:
                 try:
                     # Initialize and update submodules.
