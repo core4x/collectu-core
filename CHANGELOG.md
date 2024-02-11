@@ -2,6 +2,17 @@
 
 
 
+## v0.0.4 (2024-02-11)
+
+### Fix
+
+* fix: Removed gitignore from Dockerfile. ([`879427c`](https://github.com/core4x/collectu-core/commit/879427cd3ef4d196e20b678a4c8f2a6313c3305e))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`89711c8`](https://github.com/core4x/collectu-core/commit/89711c87cd6d39712afc23e7d514d812a4150a64))
+
+
 ## v0.0.3 (2024-02-11)
 
 ### Fix
