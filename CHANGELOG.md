@@ -2,6 +2,17 @@
 
 
 
+## v0.0.2 (2024-02-11)
+
+### Fix
+
+* fix: Copy some more files. ([`1a26c84`](https://github.com/core4x/collectu-core/commit/1a26c84529db9746b4e0662a076b7ee1afad6d41))
+
+### Unknown
+
+* Update main.yml ([`3febccc`](https://github.com/core4x/collectu-core/commit/3febccccb75d7ee0e5aefecef449f831ab97c082))
+
+
 ## v0.0.1 (2024-02-10)
 
 ### Documentation
