@@ -37,4 +37,4 @@ services:
       - './src:/src'
       - './.git:/.git'
       - './settings.ini:/settings.ini'
-      - './git_access_token.txt:/git_access_token.txt'
+      # - './git_access_token.txt:/git_access_token.txt'
