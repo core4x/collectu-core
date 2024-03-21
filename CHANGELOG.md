@@ -2,6 +2,21 @@
 
 
 
+## v0.0.12 (2024-03-21)
+
+### Documentation
+
+* docs: Specified interfaces as frontend and api. ([`5fd5611`](https://github.com/core4x/collectu-core/commit/5fd561196ec95c388f0d5fd7b5d3dd35b7e74b2b))
+
+### Fix
+
+* fix: Minor fixes. ([`a013ee6`](https://github.com/core4x/collectu-core/commit/a013ee629e50b5bf622d4e8cebae933b69d36c91))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; into main ([`30f7903`](https://github.com/core4x/collectu-core/commit/30f7903522ad45d4ed0712ef09778035e1b2afcf))
+
+
 ## v0.0.11 (2024-02-11)
 
 ### Fix
