@@ -66,7 +66,7 @@ HUB_MODULES_ADDRESS: str = "http://api.collectu.de/api/v1/module"
 HUB_CONFIGURATIONS_ADDRESS: str = "http://api.collectu.de/api/v1/configuration"
 """The endpoint of the api for registering configurations."""
 
-HUB_APP_ADDRESS: str = "http://api.collectu.de/api/v1/apps"
+HUB_APP_ADDRESS: str = "http://api.collectu.de/api/v1/app"
 """The endpoint of the api for reporting app data. Used in utils.mothership_interface."""
 
 HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/task/app_id"
