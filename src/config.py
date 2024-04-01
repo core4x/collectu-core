@@ -60,16 +60,16 @@ REQUEST_INTERVAL: int = 3
 USAGE_STATISTICS_RECEIVER: str = "http://statistics.collectu.de/api/v1/statistic"
 """The receiver address where the usage statistic is send to. Used in utils.usage_statistics."""
 
-HUB_MODULES_ADDRESS: str = "http://api.collectu.de/api/v1/modules"
+HUB_MODULES_ADDRESS: str = "http://api.collectu.de/api/v1/module"
 """The endpoint of the api for registering modules."""
 
-HUB_CONFIGURATIONS_ADDRESS: str = "http://api.collectu.de/api/v1/configurations"
+HUB_CONFIGURATIONS_ADDRESS: str = "http://api.collectu.de/api/v1/configuration"
 """The endpoint of the api for registering configurations."""
 
 HUB_APP_ADDRESS: str = "http://api.collectu.de/api/v1/apps"
 """The endpoint of the api for reporting app data. Used in utils.mothership_interface."""
 
-HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/tasks/app_id"
+HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/task/app_id"
 """The endpoint of the api for requesting tasks. Used in utils.mothership_interface."""
 
 HUB_TEST_TOKEN_ADDRESS: str = "http://api.collectu.de/api/v1/login/test-token"
