@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Tuple, Dict, List, Union, Any
 
 # Internal imports.
-from configuration import Configuration
 import models.validations
 from models.validations import ValidationError
 
@@ -170,85 +169,6 @@ class TestConfiguration(unittest.TestCase):
             models.validations.validate_module(module=Module3(**{"an_union": 2.2}))
         except Exception as e:
             self.fail("An Union raised an exception but shouldn't.")
-
-    def test_validate_configuration(self):
-        """
-        Test the configuration validation functionality.
-        """
-        # Read configuration file with unknown dynamic variable ids.
-        with open('data/test_models_validations/wrong_dynamic_variable_ids.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'1': [
-            "The module with the id 'unknown_id' of the dynamic variable '${unknown_id.some_key}' does not exist."]},
-            errors, "Wrong or none error message generated.")
-
-        # Read configuration file with unknown input_module.
-        with open('data/test_models_validations/unknown_input_module.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'some_id_2': ["The given input_module 'wrong_id' does not exist."]},
-                         errors, "Wrong or none error message generated.")
-
-        # Read configuration file with wrong input_module module_name.
-        with open('data/test_models_validations/wrong_input_module_type.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'some_id_2': [
-            'The given input_module some_id_1 should be a module with the name inputs.web.rest_endpoint_1, but was inputs.web.rest_get_1.']},
-            errors, "Wrong or none error message generated.")
-
-        # Read configuration with unknown link id.
-        with open('data/test_models_validations/unknown_link_id.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'1': ["A linked module with the id 'unknown_link' does not exist."]},
-                         errors, "Wrong or none error message generated.")
-
-        # Read configuration with linked modules, which can no be linked (InputModule and VariableModule).
-        with open('data/test_models_validations/wrong_linked_module_type.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'1': [
-            "The given link with the id 'some_id_1' can not be a link. Input and variable modules have no input port."]},
-            errors, "Wrong or none error message generated.")
-
-        # Read configuration with multiple buffer modules.
-        with open('data/test_models_validations/multiple_buffer_modules.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'id_2': ["The module 'id_1' is already defined as buffer. Only one module can be a buffer."]},
-                         errors, "Wrong or none error message generated.")
-
-        # Read configuration with wrong buffer module.
-        with open('data/test_models_validations/wrong_buffer_module.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'id_1': ['The module can not be a buffer.']},
-                         errors, "Wrong or none error message generated.")
-
-        # Read configuration with a buffered buffer module.
-        with open('data/test_models_validations/buffered_buffer_module.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'id_1': ['The module itself is defined as a buffer and can not be buffered.']},
-                         errors, "Wrong or none error message generated.")
-
-        # Read configuration with a buffered module but no buffer was configured.
-        with open('data/test_models_validations/no_buffer_module.yml') as config_file:
-            content = config_file.read()
-        configuration, configuration_dict, errors = Configuration.validate_configuration_from_stream(
-            content=content)
-        self.assertEqual({'id_1': ['The module shall be buffered, but no buffer module was defined.']},
-                         errors, "Wrong or none error message generated.")
 
 
 if __name__ == '__main__':

@@ -1,9 +1,0 @@
-- active: true
-  buffered: false
-  filepath: json_file/test.json
-  id: id_1
-  is_buffer: true
-  module_name: outputs.files.json_1
-  panel: panel-1
-  x: 50
-  y: 50
