@@ -123,7 +123,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
 
     {"module_name": "module_name",
      "module_type": Union["input", "output", "processor"],
-     "version": "1.0",
+     "version": 1,
      "public": True/False
      "author": "author",
      "email": "email",

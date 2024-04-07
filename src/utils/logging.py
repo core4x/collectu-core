@@ -164,13 +164,13 @@ def start(logger: logging.Logger):
         """Complete format."""
         format_2 = '%(levelname)s - %(name)s:%(lineno)d: %(message)s'
         """Simplified format (without process and thread info)."""
-        format_3 = '%(levelname)s - %(name)s - %(pathname)s:%(lineno)d: %(message)s'
+        format_3 = '%(levelname)s - %(pathname)s:%(lineno)d: %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
         format_4 = '%(levelname)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
         format_5 = '%(levelname)s - %(processName)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        formatter_console = logging.Formatter(format_4)
+        formatter_console = logging.Formatter(format_3)
         console_logging.setFormatter(formatter_console)
         logger.addHandler(console_logging)
         logger.info("Successfully created logger.")

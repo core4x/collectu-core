@@ -1,6 +1,8 @@
 """
 This is the base class for all modules.
 """
+__version__: int = 1
+"""The auto-generated version of the module."""
 from abc import ABC
 import logging
 import os
@@ -50,7 +52,7 @@ class AbstractModule(ABC):
 
     :param configuration: The configuration object of the module.
     """
-    version: str = "1.0"
+    version: int = __version__
     """The version of the module."""
     public: bool = True
     """Is this module public?"""

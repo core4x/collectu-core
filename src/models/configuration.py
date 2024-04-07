@@ -24,6 +24,10 @@ class Module:
         metadata=dict(description="The name of the module.",
                       required=True),
         default=None)
+    version: int = field(
+        metadata=dict(description="The version of the module.",
+                      required=False),
+        default=0)
     active: bool = field(
         metadata=dict(description="Is this module active.",
                       required=False),
