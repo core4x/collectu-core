@@ -60,7 +60,7 @@ def process_commands():
                        help='updates the app and all submodules')
 
     group.add_argument('-l', '--load_modules',
-                       nargs='+',
+                       nargs=1,
                        choices=['all', 'my', 'official'],
                        help='returns all available modules')
 
@@ -191,11 +191,11 @@ def _command_update():
     utils.updater.update_app_with_git()
 
 
-def _command_load_modules(requested_module_types: list[str]):
+def _command_load_modules(requested_module_type: list[str]):
     """
     Loads all official modules from the hub.
     """
-    utils.hub_connection.download_modules(requested_module_types)
+    utils.hub_connection.download_modules(requested_module_type[0])
 
 
 def _command_update_modules(module_name: str):

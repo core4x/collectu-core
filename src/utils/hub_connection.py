@@ -71,17 +71,14 @@ def write_module_to_file(module_name: str, module):
         f.write(content)
 
 
-def download_modules(requested_module_types: list[str] | None = None):
+def download_modules(requested_module_types: str = "all"):
     """
     Download modules from the hub.
 
-    :param requested_module_types: Can be 'all' or 'my'.
+    :param requested_module_types: Can be 'all', 'official', or 'my'.
     """
-    if requested_module_types is None:
-        requested_module_types = ['all']
-
     logger.info("Trying to download {0} modules from {1}."
-                .format(requested_module_types[0], config.HUB_MODULES_ADDRESS))
+                .format(requested_module_types, config.HUB_MODULES_ADDRESS))
     session = requests.Session()
     with session as s:
         # Login.
@@ -97,12 +94,18 @@ def download_modules(requested_module_types: list[str] | None = None):
             return
         try:
             params = {}
-            if "all" in requested_module_types:
+            if "all" == requested_module_types:
                 params["official"] = True
                 params["mine"] = True
-            elif "my" in requested_module_types:
+            elif "my" == requested_module_types:
                 params["official"] = False
                 params["mine"] = True
+            elif "official" == requested_module_types:
+                params["official"] = True
+                params["mine"] = False
+            else:
+                logger.error("Invalid module type: {0}.".format(requested_module_types))
+                return
             response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official_and_mine",
                              params=params,
                              allow_redirects=True)
