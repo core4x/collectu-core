@@ -67,10 +67,10 @@ class Configuration:
             errors = self.load_configuration_from_file()
             if errors:
                 logger.critical("Could not load and start the configuration. "
-                                     "Please fix the configuration file and reload it.")
+                                "Please fix the configuration file and reload it.")
                 logger.critical("The following errors occurred while trying to "
-                                     "deserialize the configuration:\n" +
-                                     "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
+                                "deserialize the configuration:\n" +
+                                "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
 
     @property
     def configuration(self) -> list[Any]:
@@ -89,7 +89,7 @@ class Configuration:
         :param configuration: The configuration.
         """
         logger.error("You can not set the configuration like this. "
-                          "Please use: load_configuration_from_stream.")
+                     "Please use: load_configuration_from_stream.")
 
     @configuration.deleter
     def configuration(self):
@@ -115,7 +115,7 @@ class Configuration:
         :param configuration_dict: The configuration_dict.
         """
         logger.error("You can not set the configuration_dict like this. "
-                          "Please use: load_configuration_from_stream.")
+                     "Please use: load_configuration_from_stream.")
 
     @configuration_dict.deleter
     def configuration_dict(self):
@@ -206,18 +206,18 @@ class Configuration:
                     updates = self.config_db.update(update_dict, tinydb.where('id') == config_id)
                     if len(updates) > 0:
                         logger.debug("Updated entry with the id '{0}' in configuration database."
-                                          .format("config_id"))
+                                     .format("config_id"))
                     else:
                         logger.warning("Could not update entry in configuration database. "
-                                            "Could not find entry with the id '{0}'.".format(config_id))
+                                       "Could not find entry with the id '{0}'.".format(config_id))
                 elif task == "delete":
                     removals = self.config_db.remove(tinydb.where('id') == config_id)
                     if len(removals) > 0:
                         logger.debug("Removed entry with the id '{0}' from configuration database."
-                                          .format(config_id))
+                                     .format(config_id))
                     else:
                         logger.warning("Could not remove entry in configuration database. "
-                                            "Could not find entry with the id '{0}'.".format(config_id))
+                                       "Could not find entry with the id '{0}'.".format(config_id))
                 elif task is not None:
                     logger.error("Unknown task in database query: {0}".format(task))
 
@@ -231,7 +231,7 @@ class Configuration:
 
             except Exception as e:
                 logger.error("Something went wrong while trying to interact with the configuration database: {0}"
-                                  .format(str(e)), exc_info=config.EXC_INFO)
+                             .format(str(e)), exc_info=config.EXC_INFO)
 
     def get_database_entries(self, convert_timestamps: bool = False, config_id: str = None) -> Union[list[dict],
     Optional[dict]]:
@@ -371,12 +371,20 @@ class Configuration:
                         logger.info("Module '{0}' does not exist locally.".format(module_name))
                         not_found = True
                     if getattr(module, "version", None) != version:
-                        logger.info("Module '{0}' with version '{1}' does not exist locally."
-                                    .format(module_name, str(version)))
+                        logger.info("Module '{0}' with version '{1}' does not exist locally. "
+                                    "Your current version is: {2}."
+                                    .format(module_name, str(version), str(getattr(module, "version", "unknown"))))
                         not_found = True
                     if not_found:
+                        if not bool(int(os.environ.get('AUTO_DOWNLOAD', '0'))):
+                            logger.error("Could not automatically search and download '{0}', "
+                                         "since auto_download is disabled in your settings.ini file"
+                                         .format(module_name))
+                            errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}' "
+                                                                               f"or version '{version}'.")
+                            continue
                         # Try to fetch the module from hub.
-                        if not utils.hub_connection.download_module(module_name=module_name, version=version):
+                        elif not utils.hub_connection.download_module(module_name=module_name, version=version):
                             errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}' "
                                                                                f"or version '{version}'.")
                             continue
@@ -425,8 +433,8 @@ class Configuration:
         """
         if bool(int(os.environ.get('TEST', '0'))):
             logger.info("Starting configuration start routine in test mode "
-                             "(output modules will not store data and all modules will be stopped after "
-                             "the start routine)...")
+                        "(output modules will not store data and all modules will be stopped after "
+                        "the start routine)...")
         else:
             logger.info("Starting configuration start routine...")
         success = True
@@ -469,10 +477,10 @@ class Configuration:
                     unsuccessful_modules = "variable" if not unsuccessful_modules else \
                         unsuccessful_modules + ", variable"
                 logger.error("Configuration start routine was not completely successful. "
-                                  "Could not start all {0} modules.".format(unsuccessful_modules))
+                             "Could not start all {0} modules.".format(unsuccessful_modules))
         else:
             logger.info("Successfully finished configuration start routine (started {0} modules)."
-                             .format(len(self.configuration_dict)))
+                        .format(len(self.configuration_dict)))
 
         # If we are in test mode, we now stop all modules and reset the test flag.
         if bool(int(os.environ.get('TEST', '0'))):
@@ -519,9 +527,9 @@ class Configuration:
                     except Exception as e:
                         success = False
                         logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name,
-                                                  module_data.configuration.get("id", "-"),
-                                                  str(e)), exc_info=config.EXC_INFO)
+                                     .format(module_data.module_name,
+                                             module_data.configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
             # However, this does not guarantee all pipelines finished.
@@ -537,9 +545,9 @@ class Configuration:
                     except Exception as e:
                         success = False
                         logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name,
-                                                  module_data.configuration.get("id", "-"),
-                                                  str(e)), exc_info=config.EXC_INFO)
+                                     .format(module_data.module_name,
+                                             module_data.configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
 
             # Stop all input modules.
             for module_id, module_data in data_layer.module_data.items():
@@ -552,9 +560,9 @@ class Configuration:
                     except Exception as e:
                         success = False
                         logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name,
-                                                  module_data.configuration.get("id", "-"),
-                                                  str(e)), exc_info=config.EXC_INFO)
+                                     .format(module_data.module_name,
+                                             module_data.configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
 
             # Stop all processor modules.
             for module_id, module_data in data_layer.module_data.items():
@@ -565,9 +573,9 @@ class Configuration:
                     except Exception as e:
                         success = False
                         logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name,
-                                                  module_data.configuration.get("id", "-"),
-                                                  str(e)), exc_info=config.EXC_INFO)
+                                     .format(module_data.module_name,
+                                             module_data.configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
 
             # Stop all output modules.
             for module_id, module_data in data_layer.module_data.items():
@@ -578,9 +586,9 @@ class Configuration:
                     except Exception as e:
                         success = False
                         logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                          .format(module_data.module_name,
-                                                  module_data.configuration.get("id", "-"),
-                                                  str(e)), exc_info=config.EXC_INFO)
+                                     .format(module_data.module_name,
+                                             module_data.configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
 
             # Reset buffer instance.
             data_layer.buffer_instance = None
@@ -708,20 +716,20 @@ class Configuration:
                                 success = False
                                 data_layer.buffer_instance = None
                                 logger.critical("Could not start buffer module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(buffer_config.module_name, buffer_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(buffer_config.module_name, buffer_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[buffer_config.id]))
                             else:
                                 logger.debug("Successfully started buffer module '{0}' with the id '{1}'."
-                                                  .format(buffer_config.module_name, buffer_config.id))
+                                             .format(buffer_config.module_name, buffer_config.id))
                     except ImportError:
                         success = False
                         logger.critical("Could not start buffer module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(buffer_config.module_name, buffer_config.id))
+                                        "Import of third party packages failed."
+                                        .format(buffer_config.module_name, buffer_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False
@@ -756,20 +764,20 @@ class Configuration:
                             if not output_instance.start():
                                 success.append(False)
                                 logger.critical("Could not start output module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(output_config.module_name, output_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(output_config.module_name, output_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[output_config.id]))
                             else:
                                 logger.debug("Successfully started output module '{0}' with the id '{1}'."
-                                                  .format(output_config.module_name, output_config.id))
+                                             .format(output_config.module_name, output_config.id))
                     except ImportError:
                         success.append(False)
                         logger.critical("Could not start output module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(output_config.module_name, output_config.id))
+                                        "Import of third party packages failed."
+                                        .format(output_config.module_name, output_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False
@@ -803,20 +811,20 @@ class Configuration:
                             if not processor_instance.start():
                                 success.append(False)
                                 logger.critical("Could not start processor module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(processor_config.module_name, processor_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(processor_config.module_name, processor_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[processor_config.id]))
                             else:
                                 logger.debug("Successfully started processor module '{0}' with the id '{1}'."
-                                                  .format(processor_config.module_name, processor_config.id))
+                                             .format(processor_config.module_name, processor_config.id))
                     except ImportError:
                         success.append(False)
                         logger.critical("Could not start processor module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(processor_config.module_name, processor_config.id))
+                                        "Import of third party packages failed."
+                                        .format(processor_config.module_name, processor_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False
@@ -852,20 +860,20 @@ class Configuration:
                             if not input_instance.start():
                                 success.append(False)
                                 logger.critical("Could not start input module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(input_config.module_name, input_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(input_config.module_name, input_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[input_config.id]))
                             else:
                                 logger.debug("Successfully started input module '{0}' with the id '{1}'."
-                                                  .format(input_config.module_name, input_config.id))
+                                             .format(input_config.module_name, input_config.id))
                     except ImportError:
                         success.append(False)
                         logger.critical("Could not start input module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(input_config.module_name, input_config.id))
+                                        "Import of third party packages failed."
+                                        .format(input_config.module_name, input_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False
@@ -906,20 +914,20 @@ class Configuration:
                             if not tag_instance.start():
                                 success.append(False)
                                 logger.critical("Could not start tag module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(tag_config.module_name, tag_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(tag_config.module_name, tag_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[tag_config.id]))
                             else:
                                 logger.debug("Successfully started processor module '{0}' with the id '{1}'."
-                                                  .format(tag_config.module_name, tag_config.id))
+                                             .format(tag_config.module_name, tag_config.id))
                     except ImportError:
                         success.append(False)
                         logger.critical("Could not instantiate tag module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(tag_config.module_name, tag_config.id))
+                                        "Import of third party packages failed."
+                                        .format(tag_config.module_name, tag_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False
@@ -960,20 +968,20 @@ class Configuration:
                             if not variable_instance.start():
                                 success.append(False)
                                 logger.critical("Could not start variable module '{0}' with the id '{1}'. "
-                                                     "Initial connection was not successful. "
-                                                     "Please check the configuration."
-                                                     .format(variable_config.module_name, variable_config.id))
+                                                "Initial connection was not successful. "
+                                                "Please check the configuration."
+                                                .format(variable_config.module_name, variable_config.id))
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[variable_config.id]))
                             else:
                                 logger.debug("Successfully started variable module '{0}' with the id '{1}'."
-                                                  .format(variable_config.module_name, variable_config.id))
+                                             .format(variable_config.module_name, variable_config.id))
                     except ImportError:
                         success.append(False)
                         logger.critical("Could not start variable module '{0}' with the id '{1}'. "
-                                             "Import of third party packages failed."
-                                             .format(variable_config.module_name, variable_config.id))
+                                        "Import of third party packages failed."
+                                        .format(variable_config.module_name, variable_config.id))
         except Exception as e:
             logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
             success = False

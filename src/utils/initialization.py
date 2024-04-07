@@ -50,9 +50,11 @@ def check_installed_app_packages():
                     package=missing_package[0] + "==" + missing_package[1])
 
 
-def load_and_process_settings_file():
+def load_and_process_settings_file() -> bool:
     """
     Load the ini file and set the environment variables (if not already defined by e.g. docker-compose).
+
+    :return: True if the settings file was updated, false otherwise.
     """
     try:
         parser = ConfigParser(comment_prefixes='/', allow_no_value=True)
@@ -88,6 +90,7 @@ def load_and_process_settings_file():
             parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...
 
         logger.info(f"Successfully initialized app using {config.SETTINGS_FILENAME}.")
+        return updated
     except Exception as e:
         logger.error("Could not initialize application: {0}".format(str(e)))
 

@@ -22,6 +22,7 @@ import utils.mothership_interface
 import utils.usage_statistics
 import utils.updater
 import utils.plugin_interface
+import utils.hub_connection
 import models
 
 logger = logging.getLogger(config.APP_NAME.lower())
@@ -59,10 +60,13 @@ if __name__ == "__main__":
     # Check if all requirements of third party packages are met.
     utils.initialization.check_installed_app_packages()
     # Set the default environment variables and install plugins defined in the settings file.
-    utils.initialization.load_and_process_settings_file()
+    settings_updated = utils.initialization.load_and_process_settings_file()
 
     # Check if additional commands are given.
     utils.arg_parser.process_commands()
+
+    if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (settings_updated or len(data_layer.registered_modules)):
+        utils.hub_connection.download_modules()
 
     if bool(int(os.environ.get('API', '1'))):
         # Once we set up the logger and initialized everything, we can import the other things.
