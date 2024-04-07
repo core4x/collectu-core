@@ -59,6 +59,17 @@ def process_commands():
                        action='store_true',
                        help='updates the app and all submodules')
 
+    group.add_argument('-l', '--load_modules',
+                       nargs='+',
+                       choices=['all', 'my', 'official'],
+                       help='returns all available modules')
+
+    group.add_argument('-', '--update_modules',
+                       nargs='?',
+                       const='all',
+                       metavar='send all',
+                       help='updates all or the given modules')
+
     args = parser.parse_args()
 
     if args.modules:
@@ -78,6 +89,12 @@ def process_commands():
         sys.exit(0)
     if args.update:
         _command_update()
+        sys.exit(0)
+    if args.load_modules:
+        _command_load_modules(args.load_modules)
+        sys.exit(0)
+    if args.update_modules:
+        _command_update_modules(args.update_modules)
         sys.exit(0)
 
 
@@ -172,3 +189,21 @@ def _command_update():
     Update the app.
     """
     utils.updater.update_app_with_git()
+
+
+def _command_load_modules(requested_module_types: list[str]):
+    """
+    Loads all official modules from the hub.
+    """
+    utils.hub_connection.download_modules(requested_module_types)
+
+
+def _command_update_modules(module_name: str):
+    """
+    Loads all official modules from the hub.
+    """
+    if module_name == "all":
+        module_names = None
+    else:
+        module_names = [module_name]
+    utils.hub_connection.update_modules(module_names)
