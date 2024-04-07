@@ -65,7 +65,8 @@ if __name__ == "__main__":
     # Check if additional commands are given.
     utils.arg_parser.process_commands()
 
-    if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (settings_updated or len(data_layer.registered_modules)):
+    if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
+            settings_updated or len(data_layer.registered_modules) == 0):
         utils.hub_connection.download_modules()
 
     if bool(int(os.environ.get('API', '1'))):
