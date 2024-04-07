@@ -80,6 +80,8 @@ def download_modules(requested_module_types: list[str] | None = None):
     if requested_module_types is None:
         requested_module_types = ['all']
 
+    logger.info("Trying to download {0} modules from {1}."
+                .format(requested_module_types[0], config.HUB_MODULES_ADDRESS))
     session = requests.Session()
     with session as s:
         # Login.
@@ -205,6 +207,7 @@ def send_modules(module_names: Optional[List[str]] = None):
     :param module_names: A list with modules names to be sent. If no names are given, all registered modules are sent.
     """
     module_names = [] if module_names is None else module_names
+    logger.info("Trying to send {0} modules to {1}.".format(str(len(module_names)), config.HUB_MODULES_ADDRESS))
     session = requests.Session()
     with session as s:
         # Login.
