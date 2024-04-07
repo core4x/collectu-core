@@ -2,6 +2,23 @@
 
 
 
+## v0.0.13 (2024-04-07)
+
+### Fix
+
+* fix: Removed all tests requiring modules. ([`c04d254`](https://github.com/core4x/collectu-core/commit/c04d25465ecc6f027552cde0368faaf60835407f))
+
+### Unknown
+
+* feature: Removed all modules and added module with hub interactions. ([`8ccc7d6`](https://github.com/core4x/collectu-core/commit/8ccc7d67db5498ec43a4103de3d2a3d6381fb721))
+
+* feature: Removed all modules and added module with hub interactions. ([`14abff0`](https://github.com/core4x/collectu-core/commit/14abff0be6f876b69119d06a33271533376f5c0b))
+
+* feature: Changed api links. ([`ad4e3a9`](https://github.com/core4x/collectu-core/commit/ad4e3a96793cc3e5747d08e8c6bcd4bd7a041c12))
+
+* feature: Changed api links. ([`387c9b5`](https://github.com/core4x/collectu-core/commit/387c9b56cf1c184bd4e0f1fde64337f8dd9df81a))
+
+
 ## v0.0.12 (2024-03-21)
 
 ### Documentation
