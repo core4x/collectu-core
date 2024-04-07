@@ -2,6 +2,21 @@
 
 
 
+## v0.0.14 (2024-04-07)
+
+### Fix
+
+* fix: Minor fixes. ([`241db0a`](https://github.com/core4x/collectu-core/commit/241db0a7240aa700a359c6bccf37c88873ba0583))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`04d626f`](https://github.com/core4x/collectu-core/commit/04d626f3328a7feffa802ee490018afefd74669c))
+
+* feature: Added initial_download and auto_download to settings.ini. ([`3a3b6d5`](https://github.com/core4x/collectu-core/commit/3a3b6d589fa692d2f2ae316af8653d9c70d5917e))
+
+* feature: Added initial_download and auto_download to settings.ini. ([`eb8b3a9`](https://github.com/core4x/collectu-core/commit/eb8b3a964dccbfaffc0d58c8b3ac1f56491c8125))
+
+
 ## v0.0.13 (2024-04-07)
 
 ### Fix
