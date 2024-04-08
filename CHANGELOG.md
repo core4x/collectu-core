@@ -2,6 +2,17 @@
 
 
 
+## v0.0.18 (2024-04-08)
+
+### Fix
+
+* fix: Added new env vars. ([`8a34aaa`](https://github.com/core4x/collectu-core/commit/8a34aaadd9e68f198f6d7ae3c0db4edac3c14256))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`f16f18a`](https://github.com/core4x/collectu-core/commit/f16f18a7ee64a5f9b72b442c0ce1cc9dae081383))
+
+
 ## v0.0.17 (2024-04-08)
 
 ### Fix
