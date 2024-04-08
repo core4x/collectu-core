@@ -234,7 +234,7 @@ def send_modules(module_names: Optional[List[str]] = None):
                             "official": False}
 
                     # Check if the module already exists.
-                    response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_my_by_module_name",
+                    response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
                                      params={"module_name": module_name},
                                      allow_redirects=True)
 
