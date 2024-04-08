@@ -11,6 +11,8 @@ services:
       - IGNORE_START_FAIL=1  # Does not stop all modules if one fails initially.
       - AUTO_START=1  # Load configuration file on start-up.
       - AUTO_INSTALL=1  # Automatically install third party requirements.
+      - INITIAL_DOWNLOAD=1  # Automatically download modules from hub during first start.
+      - AUTO_DOWNLOAD=1  # Automatically download modules if they do not exist locally.
       - API=1  # Start the api.
       - API_HOST=0.0.0.0  # Host address of the api.
       - API_PORT=8181  # Port of the api.
