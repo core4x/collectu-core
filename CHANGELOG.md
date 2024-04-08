@@ -2,6 +2,17 @@
 
 
 
+## v0.0.19 (2024-04-08)
+
+### Fix
+
+* fix: Fixed module sending endpoints. ([`22c84de`](https://github.com/core4x/collectu-core/commit/22c84dee7655fa08eafc0a43120ffa99e72ffbfe))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`ea82e01`](https://github.com/core4x/collectu-core/commit/ea82e0145b0ea5e43f3598f84444ce9f2c28d9c5))
+
+
 ## v0.0.18 (2024-04-08)
 
 ### Fix
