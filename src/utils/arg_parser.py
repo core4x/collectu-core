@@ -62,13 +62,13 @@ def process_commands():
     group.add_argument('-l', '--load_modules',
                        nargs=1,
                        choices=['all', 'my', 'official'],
-                       help='returns all available modules')
+                       help='loads modules from the hub')
 
     group.add_argument('-', '--update_modules',
                        nargs='?',
                        const='all',
-                       metavar='send all',
-                       help='updates all or the given modules')
+                       metavar='all or the modules names',
+                       help='updates all or the specified module')
 
     args = parser.parse_args()
 

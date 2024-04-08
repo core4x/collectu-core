@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
             settings_updated or len(data_layer.registered_modules) == 0):
-        utils.hub_connection.download_modules()
+        utils.hub_connection.download_modules(requested_module_types="all")
 
     if bool(int(os.environ.get('API', '1'))):
         # Once we set up the logger and initialized everything, we can import the other things.
