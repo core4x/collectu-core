@@ -113,9 +113,9 @@ def download_modules(requested_module_types: str = "all"):
             modules = response.json()
             for module in modules:
                 if module["module_name"] not in data_layer.registered_modules:
-                    download_module(module_name=module.get('module_name'), version=0)
+                    download_module(module_name=module.get('module_name'), version=0, session=session)
                 elif module["latest"]["version"] != data_layer.registered_modules[module.module_name].version:
-                    download_module(module_name=module.get('module_name'), version=0)
+                    download_module(module_name=module.get('module_name'), version=0, session=session)
                 else:
                     # Module already exists in the latest version.
                     pass
@@ -124,29 +124,32 @@ def download_modules(requested_module_types: str = "all"):
                          exc_info=config.EXC_INFO)
 
 
-def download_module(module_name: Optional[str] = None, version: int = 0) -> bool:
+def download_module(module_name: Optional[str] = None, version: int = 0, session: requests.Session = None) -> bool:
     """
     Retrieve the given module or all from hub.
 
     :param module_name: The module to retrieve.
     :param version: The version to retrieve.
+    :param session: The optional session instance with authorization header.
     :return: True if the import was successful, False otherwise.
     """
     module_name = module_name.replace(".variable", "").replace(".tag", "")
     logger.info("Trying to download {0} from {1}.".format(module_name, config.HUB_MODULES_ADDRESS))
-    session = requests.Session()
+    no_session = True if session is None else False
+    session = session if session else requests.Session()
     with session as s:
-        # Login.
-        session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
-        # Test the token.
-        try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
-            response.raise_for_status()
-        except Exception as e:
-            logger.error("Invalid api access token for {0}: {1}. "
-                         "Please check or create an api access token on your hub profile."
-                         .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
-            return False
+        if no_session:
+            # Login.
+            session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
+            # Test the token.
+            try:
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
+                response.raise_for_status()
+            except Exception as e:
+                logger.error("Invalid api access token for {0}: {1}. "
+                             "Please check or create an api access token on your hub profile."
+                             .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+                return False
         try:
             response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
                              params={"module_name": module_name, "version": version},
