@@ -2,6 +2,23 @@
 
 
 
+## v0.0.20 (2024-04-09)
+
+### Documentation
+
+* docs: Added typing sessions. ([`c1c269e`](https://github.com/core4x/collectu-core/commit/c1c269ec46a6e1aa0162161b69db1b38cea6512b))
+
+### Fix
+
+* fix: Ignore codec errors. ([`04a86ca`](https://github.com/core4x/collectu-core/commit/04a86ca4f59320f234334f3c602eb80fa3a1c668))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`6437618`](https://github.com/core4x/collectu-core/commit/6437618341018dd10e41ccf90300d28303535c9d))
+
+* feature: Keep session if downloading multiple modules. ([`244cf61`](https://github.com/core4x/collectu-core/commit/244cf61637245cc680a8010a881c56fad7de461e))
+
+
 ## v0.0.19 (2024-04-08)
 
 ### Fix
