@@ -67,7 +67,7 @@ def write_module_to_file(module_name: str, module):
     else:
         content = module.get("latest").get("code")
 
-    with open(pathlib.Path(file), 'w', newline='') as f:
+    with open(pathlib.Path(file), 'w', newline='', encoding='utf-8', errors='ignore') as f:
         f.write(content)
 
 
