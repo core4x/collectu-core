@@ -354,7 +354,7 @@ def _request_hub_tasks():
             start_time = datetime.datetime.now()
 
 
-def _report(session, mothership: str):
+def _report(session: requests.Session, mothership: str):
     """
     Sends post request containing current app data cyclically to the mothership.
     This function is called in a separate thread.
@@ -392,7 +392,7 @@ def _report(session, mothership: str):
             start_time = datetime.datetime.now()
 
 
-def _request_todos(session, mothership):
+def _request_todos(session: requests.Session, mothership):
     """
     Send get request (requesting new todos) cyclically to the mothership.
 
