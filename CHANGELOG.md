@@ -2,6 +2,23 @@
 
 
 
+## v0.0.25 (2024-04-16)
+
+### Documentation
+
+* docs: Added two comments. ([`47d56e0`](https://github.com/core4x/collectu-core/commit/47d56e0c2f469bef31d6fa9b7e1f1635a1998815))
+
+### Fix
+
+* fix: Fixed module versioning. ([`4828326`](https://github.com/core4x/collectu-core/commit/4828326b9ed404e5ebe5a67c73670fa22452eeb8))
+
+* fix: Fixed module versioning. ([`dd2c78a`](https://github.com/core4x/collectu-core/commit/dd2c78aaa5b66a0e89fdb2dbe509fb6453d90c59))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`7c73c1a`](https://github.com/core4x/collectu-core/commit/7c73c1af93f8d39993fc48e67428c58040e147e5))
+
+
 ## v0.0.24 (2024-04-16)
 
 ### Fix
