@@ -29,11 +29,32 @@ def restart_application():
     os.execl(sys.executable, '"{}"'.format(sys.executable), *sys.argv)
 
 
-def find_file_by_filename(searched_file):
+def find_file_by_filename(searched_file) -> str | None:
+    """
+    Returns the filename if it exists in the main directory.
+
+    :param searched_file: The filename of the searched file.
+    :return: The filename if found, otherwise none.
+    """
     for filename in os.listdir("../"):
         if filename.startswith(searched_file):
             return filename
     return None
+
+
+def folder_exists_and_empty(path) -> bool:
+    """
+    Checks if the folder for the given path exists and is empty.
+
+    :param path: The path to the folder.
+    :return: True if the folder exists and is empty, false otherwise.
+    """
+    if not os.path.exists(path):
+        return False
+    elif len(os.listdir(path)) == 0:
+        return True
+    else:
+        return False
 
 
 def check_git_access_token() -> bool:
@@ -57,7 +78,7 @@ def check_git_access_token() -> bool:
                 valid = False
             else:
                 os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
-                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
                                                  f'-o StrictHostKeyChecking=no')
                 valid = True
@@ -79,20 +100,23 @@ def check_for_updates_with_git() -> Optional[int]:
 
     :returns: If there are possible updates (commits) the number of open commits is returned.
     If the app is up-to-date, 0 is returned.
-    Otherwise (something went wrong), None is returned.
+    Otherwise, if something went wrong, None is returned.
     """
     if not os.path.isdir('../.git'):
         # But if a git_access_token is given, we can try to clone the interface submodule.
         if find_file_by_filename("git_access_token"):
             try:
-                os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
-                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../{find_file_by_filename("git_access_token")} '
-                                                 f'-o UserKnownHostsFile=/dev/null '
-                                                 f'-o StrictHostKeyChecking=no '
-                                                 f'-o IdentitiesOnly=yes')
-                git.Repo.clone_from(config.GIT_INTERFACE_ADDRESS, "/src/interface")
-                logger.info("Successfully cloned the interface submodule. Restarting...")
-                restart_application()
+                if folder_exists_and_empty("./interface"):
+                    os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
+                    os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../{find_file_by_filename("git_access_token")} '
+                                                     f'-o UserKnownHostsFile=/dev/null '
+                                                     f'-o StrictHostKeyChecking=no '
+                                                     f'-o IdentitiesOnly=yes')
+                    git.Repo.clone_from(config.GIT_INTERFACE_ADDRESS, "/src/interface")
+                    logger.info("Successfully cloned the interface submodule. Restarting...")
+                    restart_application()
+                else:
+                    logger.info("It seems the interface already exists. Skipping cloning procedure...")
             except Exception as e:
                 logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
             finally:

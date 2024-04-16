@@ -137,59 +137,58 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
     logger.info("Trying to download {0} from {1}.".format(module_name, config.HUB_MODULES_ADDRESS))
     no_session = True if session is None else False
     session = session if session else requests.Session()
-    with session as s:
-        if no_session:
-            # Login.
-            session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
-            # Test the token.
-            try:
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
-                response.raise_for_status()
-            except Exception as e:
-                logger.error("Invalid api access token for {0}: {1}. "
-                             "Please check or create an api access token on your hub profile."
-                             .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
-                return False
+    if no_session:
+        # Login.
+        session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
+        # Test the token.
         try:
-            response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
-                             params={"module_name": module_name, "version": version},
-                             allow_redirects=True)
+            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
             response.raise_for_status()
-            logger.info("Successfully loaded module '{0}' with version {1} from {2} with the id: {3}"
-                        .format(module_name,
-                                version,
-                                config.HUB_MODULES_ADDRESS,
-                                str(response.json().get("id"))))
-            module = response.json()
-
-            modname = module_name.lower()
-            write_module_to_file(module_name=modname, module=module)
-
-            # Import the module.
-            imported_module = importlib.import_module("modules." + modname)
-            # Register the module.
-            if modname.startswith("inputs."):
-                if hasattr(imported_module, "InputModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
-                if hasattr(imported_module, "VariableModule"):
-                    data_layer.registered_modules[modname + ".variable"] = getattr(imported_module, "VariableModule")
-                if hasattr(imported_module, "TagModule"):
-                    data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
-            elif modname.startswith("outputs."):
-                if hasattr(imported_module, "OutputModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
-            elif modname.startswith("processors."):
-                if hasattr(imported_module, "ProcessorModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
-            else:
-                logger.error("Unknown module: {0}.".format(modname))
-
-            logger.info("Successfully downloaded, created, and imported {0}".format(module_name))
-            return True
         except Exception as e:
-            logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
-                         exc_info=config.EXC_INFO)
+            logger.error("Invalid api access token for {0}: {1}. "
+                         "Please check or create an api access token on your hub profile."
+                         .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
             return False
+    try:
+        response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
+                               params={"module_name": module_name, "version": version},
+                               allow_redirects=True)
+        response.raise_for_status()
+        logger.info("Successfully loaded module '{0}' with version {1} from {2} with the id: {3}"
+                    .format(module_name,
+                            version,
+                            config.HUB_MODULES_ADDRESS,
+                            str(response.json().get("id"))))
+        module = response.json()
+
+        modname = module_name.lower()
+        write_module_to_file(module_name=modname, module=module)
+
+        # Import the module.
+        imported_module = importlib.import_module("modules." + modname)
+        # Register the module.
+        if modname.startswith("inputs."):
+            if hasattr(imported_module, "InputModule"):
+                data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
+            if hasattr(imported_module, "VariableModule"):
+                data_layer.registered_modules[modname + ".variable"] = getattr(imported_module, "VariableModule")
+            if hasattr(imported_module, "TagModule"):
+                data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
+        elif modname.startswith("outputs."):
+            if hasattr(imported_module, "OutputModule"):
+                data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
+        elif modname.startswith("processors."):
+            if hasattr(imported_module, "ProcessorModule"):
+                data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
+        else:
+            logger.error("Unknown module: {0}.".format(modname))
+
+        logger.info("Successfully downloaded, created, and imported {0}".format(module_name))
+        return True
+    except Exception as e:
+        logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
+                     exc_info=config.EXC_INFO)
+        return False
 
 
 def update_modules(module_names: Optional[List[str]] = None):
