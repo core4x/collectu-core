@@ -370,7 +370,7 @@ class Configuration:
                     if module is None:
                         logger.info("Module '{0}' does not exist locally.".format(module_name))
                         not_found = True
-                    if getattr(module, "version", None) != version:
+                    elif getattr(module, "version", None) != version:
                         logger.info("Module '{0}' with version '{1}' does not exist locally. "
                                     "Your current version is: {2}."
                                     .format(module_name, str(version), str(getattr(module, "version", "unknown"))))
