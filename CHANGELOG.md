@@ -2,6 +2,21 @@
 
 
 
+## v0.0.26 (2024-04-16)
+
+### Fix
+
+* fix: Minor improvements. ([`41f022d`](https://github.com/core4x/collectu-core/commit/41f022dfafcfd19037347975735b579eb4978c80))
+
+* fix: Minor improvements. ([`6e65fb5`](https://github.com/core4x/collectu-core/commit/6e65fb5082893d3af8ffac1d38ff6fbc2a430e6c))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`a09e68b`](https://github.com/core4x/collectu-core/commit/a09e68bb7a015abe44bbceddecf543e7555ee63c))
+
+* feature: Print reason if installing of third party package went wrong. ([`fcc6c94`](https://github.com/core4x/collectu-core/commit/fcc6c94ecccce2565fcef7b4cfbcda15bacc5ca1))
+
+
 ## v0.0.25 (2024-04-16)
 
 ### Documentation
