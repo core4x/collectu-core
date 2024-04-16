@@ -166,7 +166,7 @@ class Configuration:
 
                     self.config_db.insert({"id": config_id,
                                            "title": title if title is not None else "unnamed",
-                                           "version": version if version is not None else "1.0",
+                                           "version": version if version is not None else 1,
                                            "documentation": documentation if documentation is not None else "",
                                            "public": public if public is not None else True,
                                            "created_at": datetime.datetime.utcnow().isoformat(),

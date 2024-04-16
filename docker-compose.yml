@@ -5,7 +5,7 @@ services:
     container_name: collectu-core
     restart: always
     environment:  # Overwrites the settings.ini variables.
-      - APP_DESCRIPTION=My Machine  # The description of the app.
+      - APP_DESCRIPTION=My Collectu  # The description of the app.
       - CONFIG=configuration.yml  # The filepath to the configuration file.
       - TEST=0  # Start the application in test mode.
       - IGNORE_START_FAIL=1  # Does not stop all modules if one fails initially.

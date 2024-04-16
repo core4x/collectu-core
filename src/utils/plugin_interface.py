@@ -1,5 +1,5 @@
 """
-Handles requirements of the the module plugins.
+Handles requirements of the module plugins.
 """
 import subprocess
 import sys
@@ -35,7 +35,7 @@ def install_plugin_requirement(package: str):
         # Check if it is already installed.
         if package not in [installed_package.project_name + "==" + installed_package.version for installed_package in
                            pkg_resources.working_set]:
-            return_code = subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            return_code = subprocess.check_call([sys.executable, "-m", "pip", "install", package], shell=True)
             logger.info("Successfully installed '{0}'.".format(package))
         else:
             logger.info("Package '{0}' already installed.".format(package))
