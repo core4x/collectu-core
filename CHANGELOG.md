@@ -2,6 +2,17 @@
 
 
 
+## v0.0.27 (2024-04-16)
+
+### Fix
+
+* fix: Minor improvements. ([`2a5645f`](https://github.com/core4x/collectu-core/commit/2a5645f48183e8d24234d733eaddf3b7b7bbaee1))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`f00bbc6`](https://github.com/core4x/collectu-core/commit/f00bbc6da4f789437f34686e74837f182969a379))
+
+
 ## v0.0.26 (2024-04-16)
 
 ### Fix
