@@ -41,6 +41,8 @@ def install_plugin_requirement(package: str):
             logger.info("Package '{0}' already installed.".format(package))
             return_code = 0
     except subprocess.CalledProcessError as e:
+        logger.error("Something went wrong while trying to install package '{0}': {1}".format(package, str(e)),
+                     exc_info=config.EXC_INFO)
         return_code = 1
     finally:
         if return_code != 0:
