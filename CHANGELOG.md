@@ -2,6 +2,17 @@
 
 
 
+## v0.0.23 (2024-04-16)
+
+### Fix
+
+* fix: Fixed clone command. ([`aa479ad`](https://github.com/core4x/collectu-core/commit/aa479ade3af6fba4f574dba455bf9b22acf6cdba))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`7cd561b`](https://github.com/core4x/collectu-core/commit/7cd561ba5160b797727751b5f4b8fe837a175288))
+
+
 ## v0.0.22 (2024-04-16)
 
 ### Fix
