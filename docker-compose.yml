@@ -21,8 +21,8 @@ services:
       - FRONTEND_HOST=0.0.0.0  # Host address of the frontend.
       - FRONTEND_PORT=8282  # Port of the frontend.
       - MOTHERSHIPS=[]  # The host addresses of the motherships to report to.
-      # - HUB_API_ACCESS_TOKEN=
-      - REPORT_TO_HUB=1
+      # - HUB_API_ACCESS_TOKEN=  # The api access token of the hub profile collectu.de.
+      - REPORT_TO_HUB=1  # Shall this app report and receive tasks from the hub collectu.de.
       - SEND_USAGE_STATISTICS=1  # Send usage statistics.
       - URL=127.0.0.1  # The address of the application.
       - GIT_DISCOVERY_ACROSS_FILESYSTEM=1  # Required by third party package (GitPython) to access the local repository.
