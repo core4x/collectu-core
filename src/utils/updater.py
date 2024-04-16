@@ -82,8 +82,23 @@ def check_for_updates_with_git() -> Optional[int]:
     Otherwise (something went wrong), None is returned.
     """
     if not os.path.isdir('../.git'):
-        logger.warning('No git repository found. Can not check for updates.')
-        return None
+        # But if a git_access_token is given, we can try to clone the interface submodule.
+        if find_file_by_filename("git_access_token"):
+            try:
+                os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
+                                                 f'-o UserKnownHostsFile=/dev/null '
+                                                 f'-o StrictHostKeyChecking=no '
+                                                 f'-o IdentitiesOnly=yes')
+                os.environ['GIT_SSH_COMMAND'] = f'git clone {config.GIT_INTERFACE_ADDRESS}'
+                logger.info("Successfully cloned the interface submodule.")
+            except Exception as e:
+                logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
+            finally:
+                return None
+        else:
+            logger.warning('No git repository or git access token found. Can not check for updates.')
+            return None
 
     # Open the repository.
     repo = git.Repo("..")
