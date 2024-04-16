@@ -90,8 +90,9 @@ def check_for_updates_with_git() -> Optional[int]:
                                                  f'-o UserKnownHostsFile=/dev/null '
                                                  f'-o StrictHostKeyChecking=no '
                                                  f'-o IdentitiesOnly=yes')
-                git.Repo.clone_from(config.GIT_INTERFACE_ADDRESS, "/interface")
-                logger.info("Successfully cloned the interface submodule.")
+                git.Repo.clone_from(config.GIT_INTERFACE_ADDRESS, "/src/interface")
+                logger.info("Successfully cloned the interface submodule. Restarting...")
+                restart_application()
             except Exception as e:
                 logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
             finally:
