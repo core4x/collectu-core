@@ -27,15 +27,18 @@ RUN mkdir /configuration
 RUN mkdir /logs
 RUN mkdir /data
 
-# Copy project.
-COPY src /src
+# Clone project.
+RUN git clone https://github.com/core4x/collectu-core.git
+
+# Copy project files
+# COPY src /src
 
 # Copy some files.
-COPY settings.ini .
-COPY LICENSE.md .
-COPY README.md .
-COPY .gitmodules .
-COPY ./configuration/configuration.yml ./configuration
+# COPY settings.ini .
+# COPY LICENSE.md .
+# COPY README.md .
+# COPY .gitmodules .
+# COPY ./configuration/configuration.yml ./configuration
 
 # Set working directory.
 WORKDIR /src
