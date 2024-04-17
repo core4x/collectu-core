@@ -78,7 +78,7 @@ def check_git_access_token() -> bool:
                 valid = False
             else:
                 os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
-                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../{find_file_by_filename("git_access_token")} '
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
                                                  f'-o StrictHostKeyChecking=no')
                 valid = True
