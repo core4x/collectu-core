@@ -117,6 +117,8 @@ def check_for_updates_with_git() -> Optional[int]:
     if check_git_access_token():
         if not folder_exists_and_empty("./interface"):
             # Check for updates in submodules.
+            repo = git.Repo("..")
+            repo.git.submodule('sync')
             for submodule in repo.submodules:
                 try:
                     submodule_repo = git.Repo(os.path.join("..", submodule.path))
