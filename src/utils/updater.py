@@ -127,6 +127,17 @@ def check_for_updates_with_git() -> Optional[int]:
     return commit_count
 
 
+def create_interface() -> None:
+    """
+    Pulls the interface (frontend and api) if it does not exist.
+    """
+    if folder_exists_and_empty("./interface") and check_git_access_token():
+        # Initialize and update submodules.
+        repo = git.Repo("..")
+        repo.git.submodule('update', '--init', '--recursive')
+        logger.info("Successfully cloned submodule.")
+
+
 def update_app_with_git() -> str:
     """
     Update the app using git pull.
@@ -134,6 +145,7 @@ def update_app_with_git() -> str:
     :returns: A message containing information about the update process.
     """
     try:
+        create_interface()
         possible_updates = check_for_updates_with_git()
         if possible_updates == 0:
             message = f"Cancelled update procedure. {config.APP_NAME} is already up to date."
