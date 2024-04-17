@@ -97,6 +97,7 @@ def check_git_access_token() -> bool:
 def check_for_updates_with_git() -> Optional[int]:
     """
     Check for new commits in the online repository.
+    If a git access token is provided and the interface module is empty, it is initially pulled.
 
     :returns: If there are possible updates (commits) the number of open commits is returned.
     If the app is up-to-date, 0 is returned.
@@ -126,10 +127,15 @@ def check_for_updates_with_git() -> Optional[int]:
                     logging.error("Could not check for updates for submodule '{0}': {1}"
                                   .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
         else:
-            # Initialize and update submodules.
-            repo = git.Repo("..")
-            repo.git.submodule('update', '--init', '--recursive')
-            logger.info("Successfully cloned submodule.")
+            try:
+                logger.info("While checking for updates, we identified an empty interface folder. "
+                            "Trying to clone interface submodule...")
+                repo = git.Repo("..")
+                repo.git.submodule('update', '--init', '--recursive')
+                logger.info("Successfully cloned interface submodule.")
+                restart_application()
+            except Exception as e:
+                logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
     return commit_count
 
 
