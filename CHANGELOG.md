@@ -2,6 +2,17 @@
 
 
 
+## v0.0.35 (2024-04-17)
+
+### Fix
+
+* fix: Fixed update behaviour. ([`9e417c9`](https://github.com/core4x/collectu-core/commit/9e417c9353a8cc4c8571d1cad0d2e628245b20e1))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`cbded46`](https://github.com/core4x/collectu-core/commit/cbded46aa2555f38c6f97775354d324cef69f5f2))
+
+
 ## v0.0.34 (2024-04-17)
 
 ### Fix
