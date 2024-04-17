@@ -2,6 +2,19 @@
 
 
 
+## v0.0.29 (2024-04-17)
+
+### Fix
+
+* fix: Changed workdir. ([`7d7b88a`](https://github.com/core4x/collectu-core/commit/7d7b88aeb87b33fff1f2cee72935d94ea138ff28))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`ffb6bce`](https://github.com/core4x/collectu-core/commit/ffb6bce25f76c8f04029725fb223253796d22db2))
+
+* feature: We do not copy the source code into the container image, we now clone it. ([`50638d5`](https://github.com/core4x/collectu-core/commit/50638d585c17c88ff9531374eb2271d10df0881d))
+
+
 ## v0.0.28 (2024-04-17)
 
 ### Fix
