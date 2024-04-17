@@ -116,8 +116,9 @@ def check_for_updates_with_git() -> Optional[int]:
 
     if check_git_access_token():
         if not folder_exists_and_empty("./interface"):
+            pass
+            """ TODO: This is currently not working:  stderr: 'fatal: bad revision '2436a5c27e92e27e0545c7cf11ee5f7660fe9016..origin/2436a5c27e92e27e0545c7cf11ee5f7660fe9016'
             # Check for updates in submodules.
-            repo = git.Repo("..")
             repo.git.submodule('sync')
             repo.git.submodule('foreach', 'git', 'config', '--get', 'remote.origin.fetch')
             for submodule in repo.submodules:
@@ -129,6 +130,7 @@ def check_for_updates_with_git() -> Optional[int]:
                 except Exception as e:
                     logging.error("Could not check for updates for submodule '{0}': {1}"
                                   .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
+            """
         else:
             try:
                 logger.info("While checking for updates, we identified an empty interface folder. "
