@@ -156,7 +156,7 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
         response.raise_for_status()
         logger.info("Successfully loaded module '{0}' with version {1} from {2} with the id: {3}"
                     .format(module_name,
-                            version,
+                            version if version != 0 else "latest",
                             config.HUB_MODULES_ADDRESS,
                             str(response.json().get("id"))))
         module = response.json()

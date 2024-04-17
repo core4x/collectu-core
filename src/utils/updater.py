@@ -131,6 +131,7 @@ def check_for_updates_with_git() -> Optional[int]:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
                 repo = git.Repo("..")
+                repo.git.submodule('sync')
                 repo.git.submodule('update', '--init', '--recursive')
                 logger.info("Successfully cloned interface submodule.")
                 restart_application()
