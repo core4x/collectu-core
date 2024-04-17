@@ -119,6 +119,7 @@ def check_for_updates_with_git() -> Optional[int]:
             # Check for updates in submodules.
             repo = git.Repo("..")
             repo.git.submodule('sync')
+            repo.git.submodule('foreach', 'git', 'config', '--get', 'remote.origin.fetch')
             for submodule in repo.submodules:
                 try:
                     submodule_repo = git.Repo(os.path.join("..", submodule.path))
@@ -133,7 +134,6 @@ def check_for_updates_with_git() -> Optional[int]:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
                 repo = git.Repo("..")
-                repo.git.submodule('sync')
                 repo.git.submodule('update', '--init', '--recursive')
                 logger.info("Successfully cloned interface submodule.")
                 restart_application()
