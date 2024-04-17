@@ -2,6 +2,21 @@
 
 
 
+## v0.0.30 (2024-04-17)
+
+### Documentation
+
+* docs: Changed some comments. ([`300e23a`](https://github.com/core4x/collectu-core/commit/300e23aaf58cc489a22da376bdbd558194a0fd8a))
+
+### Fix
+
+* fix: Replacing .tag and .variable now by rstrip and no longer by replace, since this caused a bug for some filter module names. ([`b28b326`](https://github.com/core4x/collectu-core/commit/b28b326ca83dd57245dbbedd193cdf023d26267f))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`82031b9`](https://github.com/core4x/collectu-core/commit/82031b9b6640c1a7ca8b9cf3aecf1806420cca1f))
+
+
 ## v0.0.29 (2024-04-17)
 
 ### Fix
