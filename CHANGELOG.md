@@ -2,6 +2,17 @@
 
 
 
+## v0.0.31 (2024-04-17)
+
+### Fix
+
+* fix: Fixed path to git_access_token_file. ([`7f12bbc`](https://github.com/core4x/collectu-core/commit/7f12bbcc473545b06e0330cd078d5b6274c0d51a))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`428e073`](https://github.com/core4x/collectu-core/commit/428e0735c305a36535da651dbf6d4a160c495bad))
+
+
 ## v0.0.30 (2024-04-17)
 
 ### Documentation
