@@ -102,29 +102,10 @@ def check_for_updates_with_git() -> Optional[int]:
     If the app is up-to-date, 0 is returned.
     Otherwise, if something went wrong, None is returned.
     """
-    # There should always be a git folder... Only not, if some downloaded the zip.
+    # There should always be a git folder...
     if not os.path.isdir('../.git'):
-        # But if a git_access_token is given, we can try to clone the interface submodule.
-        if find_file_by_filename("git_access_token"):
-            try:
-                if folder_exists_and_empty("./interface"):
-                    os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
-                    os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ../{find_file_by_filename("git_access_token")} '
-                                                     f'-o UserKnownHostsFile=/dev/null '
-                                                     f'-o StrictHostKeyChecking=no '
-                                                     f'-o IdentitiesOnly=yes')
-                    git.Repo.clone_from(config.GIT_INTERFACE_ADDRESS, "/src/interface")
-                    logger.info("Successfully cloned the interface submodule. Restarting...")
-                    restart_application()
-                else:
-                    logger.info("It seems the interface already exists. Skipping cloning procedure...")
-            except Exception as e:
-                logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
-            finally:
-                return None
-        else:
-            logger.warning('No git repository or git access token found. Can not check for updates.')
-            return None
+        logger.warning('No git repository found. Can not check for updates.')
+        return None
 
     # Open the repository.
     repo = git.Repo("..")
@@ -140,17 +121,9 @@ def check_for_updates_with_git() -> Optional[int]:
                 # Get the current HEAD commit.
                 head_commit = submodule_repo.head.commit
                 commit_count += len(list(submodule_repo.iter_commits(f"{head_commit}..origin/"f"{head_commit}")))
-            except Exception as e1:
-                try:
-                    # Initialize and update submodules.
-                    repo.git.submodule('update', '--init', '--recursive')
-                    logger.info("Successfully cloned submodule: {0}".format(submodule.name))
-                    return commit_count
-                except Exception as e2:
-                    logging.error("Could not initialize submodule '{0}': {1}"
-                                  .format(submodule.name, str(e2)), exc_info=config.EXC_INFO)
+            except Exception as e:
                 logging.error("Could not check for updates for submodule '{0}': {1}"
-                              .format(submodule.name, str(e1)), exc_info=config.EXC_INFO)
+                              .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
     return commit_count
 
 

@@ -75,9 +75,6 @@ HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/task/app_id"
 HUB_TEST_TOKEN_ADDRESS: str = "http://api.collectu.de/api/v1/login/test-token"
 """The endpoint of the api for testing the api access token."""
 
-GIT_INTERFACE_ADDRESS: str = "git@github.com:core4x/interface.git"
-"""The address of the git repository that contains the interface module."""
-
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10
 """The interval in seconds in which error messages are logged 
 if the sending or receiving process with the external api fails."""
