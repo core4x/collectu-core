@@ -35,7 +35,9 @@ def install_plugin_requirement(package: str):
         # Check if it is already installed.
         if package not in [installed_package.project_name + "==" + installed_package.version for installed_package in
                            pkg_resources.working_set]:
-            return_code = subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            result = subprocess.run([sys.executable, "-m", "pip", "install", package],
+                                    capture_output=True, text=True, check=True)
+            return_code = result.returncode
             logger.info("Successfully installed '{0}'.".format(package))
         else:
             logger.info("Package '{0}' already installed.".format(package))
