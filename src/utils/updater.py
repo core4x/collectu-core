@@ -102,6 +102,7 @@ def check_for_updates_with_git() -> Optional[int]:
     If the app is up-to-date, 0 is returned.
     Otherwise, if something went wrong, None is returned.
     """
+    # There should always be a git folder... Only not, if some downloaded the zip.
     if not os.path.isdir('../.git'):
         # But if a git_access_token is given, we can try to clone the interface submodule.
         if find_file_by_filename("git_access_token"):

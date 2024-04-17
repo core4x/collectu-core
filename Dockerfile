@@ -22,27 +22,10 @@ EXPOSE ${FRONTEND_PORT}
 # Update everything.
 RUN pip install --upgrade pip
 
-# Create empty directories which are mapped to the local file system when using docker-compose.
-RUN mkdir /configuration
-RUN mkdir /logs
-RUN mkdir /data
-
 # Clone project.
 RUN git clone https://github.com/core4x/collectu-core.git
 
-
-# Copy project files
-# COPY src /src
-
-# Copy some files.
-# COPY settings.ini .
-# COPY LICENSE.md .
-# COPY README.md .
-# COPY .gitmodules .
-# COPY ./configuration/configuration.yml ./configuration
-
 # Set working directory.
-# WORKDIR /src
 WORKDIR /collectu-core/src
 
 # Install requirements.
