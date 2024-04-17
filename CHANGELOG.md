@@ -2,6 +2,13 @@
 
 
 
+## v0.0.28 (2024-04-17)
+
+### Fix
+
+* fix: Updated subprocess call (from check_call to run) for installing third party packages. ([`97cb562`](https://github.com/core4x/collectu-core/commit/97cb562f457d126f6cfb1a4a9be544aacbe08ed8))
+
+
 ## v0.0.27 (2024-04-16)
 
 ### Fix
