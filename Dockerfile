@@ -30,6 +30,7 @@ RUN mkdir /data
 # Clone project.
 RUN git clone https://github.com/core4x/collectu-core.git
 
+
 # Copy project files
 # COPY src /src
 
@@ -41,7 +42,8 @@ RUN git clone https://github.com/core4x/collectu-core.git
 # COPY ./configuration/configuration.yml ./configuration
 
 # Set working directory.
-WORKDIR /src
+# WORKDIR /src
+WORKDIR /collectu-core/src
 
 # Install requirements.
 RUN pip install -r requirements.txt
