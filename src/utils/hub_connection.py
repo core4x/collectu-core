@@ -133,7 +133,7 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
     :param session: The optional session instance with authorization header.
     :return: True if the import was successful, False otherwise.
     """
-    module_name = module_name.replace(".variable", "").replace(".tag", "")
+    module_name = module_name.rstrip(".variable").rstrip(".tag")
     logger.info("Trying to download {0} from {1}.".format(module_name, config.HUB_MODULES_ADDRESS))
     no_session = True if session is None else False
     session = session if session else requests.Session()
