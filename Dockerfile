@@ -23,7 +23,7 @@ EXPOSE ${FRONTEND_PORT}
 RUN pip install --upgrade pip
 
 # Clone project.
-RUN git clone https://github.com/core4x/collectu-core.git
+RUN git clone git@github.com:core4x/collectu-core.git
 
 # Set working directory.
 WORKDIR /collectu-core/src
