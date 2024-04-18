@@ -2,6 +2,17 @@
 
 
 
+## v0.0.49 (2024-04-18)
+
+### Fix
+
+* fix: Disabled strict host key checking while cloning. ([`8fc44fc`](https://github.com/core4x/collectu-core/commit/8fc44fcf35eef35bea27d33f1befef2fb5df25fd))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`72efe85`](https://github.com/core4x/collectu-core/commit/72efe854634895106625463b7e813b4e6a944b4e))
+
+
 ## v0.0.48 (2024-04-18)
 
 ### Fix
