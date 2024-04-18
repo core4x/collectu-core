@@ -2,6 +2,17 @@
 
 
 
+## v0.0.48 (2024-04-18)
+
+### Fix
+
+* fix: Cloning using ssh and not https since this destroyed latter update behaviour for submodules. ([`a1c57c3`](https://github.com/core4x/collectu-core/commit/a1c57c3f7698ff7b10b24c1d0e620fc0693b4530))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`3d05e16`](https://github.com/core4x/collectu-core/commit/3d05e16ba7294ab27f323320c72e4f50a1295507))
+
+
 ## v0.0.47 (2024-04-18)
 
 ### Fix
