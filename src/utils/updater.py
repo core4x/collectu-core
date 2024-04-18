@@ -80,7 +80,8 @@ def check_git_access_token() -> bool:
                 os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
                 os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
-                                                 f'-o StrictHostKeyChecking=no')
+                                                 f'-o StrictHostKeyChecking=no '
+                                                 f'-o IdentitiesOnly=yes')
                 valid = True
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
@@ -131,7 +132,7 @@ def check_for_updates_with_git() -> Optional[int]:
             try:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
-                repo.git.submodule('update', '--init', '--recursive')
+                repo.git.submodule('update', '--init', '--recursive', '--remote')
                 logger.info("Successfully cloned interface submodule.")
                 restart_application()
             except Exception as e:
