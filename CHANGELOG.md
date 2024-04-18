@@ -2,6 +2,13 @@
 
 
 
+## v0.0.47 (2024-04-18)
+
+### Fix
+
+* fix: Fixed update behaviour. ([`6d4b896`](https://github.com/core4x/collectu-core/commit/6d4b89603d2b0bd5bb1b5774c03a5f5ba194d80e))
+
+
 ## v0.0.46 (2024-04-18)
 
 ### Fix
