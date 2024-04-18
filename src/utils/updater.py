@@ -120,10 +120,9 @@ def check_for_updates_with_git() -> Optional[int]:
             # Check for updates in submodules.
             for submodule in repo.submodules:
                 try:
-                    submodule_repo = submodule.module()
-                    submodule_repo.remotes.origin.fetch()
-                    commit_count += len(list(submodule_repo.iter_commits(
-                        f"{submodule_repo.active_branch.name}..origin/{submodule_repo.active_branch.name}")))
+                    submodule_repo = git.Repo(os.path.join("..", submodule.path))
+                    head_commit = submodule_repo.head.commit
+                    commit_count += len(list(submodule_repo.iter_commits(f"{head_commit}..origin/"f"{head_commit}")))
                 except Exception as e:
                     logging.error("Could not check for updates for submodule '{0}': {1}"
                                   .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
@@ -131,7 +130,7 @@ def check_for_updates_with_git() -> Optional[int]:
             try:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
-                repo.git.submodule('update', '--init', '--recursive', '--remote')
+                repo.git.submodule('update', '--init', '--recursive')
                 logger.info("Successfully cloned interface submodule.")
                 restart_application()
             except Exception as e:
