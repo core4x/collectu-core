@@ -80,8 +80,7 @@ def check_git_access_token() -> bool:
                 os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
                 os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
-                                                 f'-o StrictHostKeyChecking=no '
-                                                 f'-o IdentitiesOnly=yes')
+                                                 f'-o StrictHostKeyChecking=no')
                 valid = True
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
@@ -124,7 +123,7 @@ def check_for_updates_with_git() -> Optional[int]:
                     submodule_repo = submodule.module()
                     submodule_repo.remotes.origin.fetch()
                     commit_count += len(list(submodule_repo.iter_commits(
-                        f"{submodule_repo.active_branch}..origin/{submodule_repo.active_branch}")))
+                        f"{submodule_repo.active_branch.name}..origin/{submodule_repo.active_branch.name}")))
                 except Exception as e:
                     logging.error("Could not check for updates for submodule '{0}': {1}"
                                   .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
