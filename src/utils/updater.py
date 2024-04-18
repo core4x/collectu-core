@@ -121,6 +121,10 @@ def check_for_updates_with_git() -> Optional[int]:
             for submodule in repo.submodules:
                 try:
                     submodule_repo = submodule.module()
+                    submodule_repo.git.update_environment(
+                        GIT_SSH_COMMAND=f'ssh -i ./{find_file_by_filename("git_access_token")} '
+                                        f'-o UserKnownHostsFile=/dev/null '
+                                        f'-o StrictHostKeyChecking=no')
                     submodule_repo.remotes.origin.fetch()
                     commit_count += len(list(submodule_repo.iter_commits(
                         f"{repo.active_branch.name}..origin/{submodule_repo.active_branch.name}")))
