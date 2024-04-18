@@ -127,7 +127,7 @@ def check_for_updates_with_git() -> Optional[int]:
                                         f'-o StrictHostKeyChecking=no')
                     submodule_repo.remotes.origin.fetch()
                     commit_count += len(list(submodule_repo.iter_commits(
-                        f"{repo.active_branch.name}..origin/{submodule_repo.active_branch.name}")))
+                        f"{submodule_repo.active_branch.name}..origin/{submodule_repo.active_branch.name}")))
                 except Exception as e:
                     logging.error("Could not check for updates for submodule '{0}': {1}"
                                   .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
