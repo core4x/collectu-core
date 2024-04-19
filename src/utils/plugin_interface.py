@@ -38,7 +38,10 @@ def install_plugin_requirement(package: str):
             result = subprocess.run([sys.executable, "-m", "pip", "install", package],
                                     capture_output=True, text=True, check=True)
             return_code = result.returncode
-            logger.info("Successfully installed '{0}'.".format(package))
+            if return_code != 0:
+                logger.error("Could not install package '{0}': {1}".format(package, str(result.stderr)))
+            else:
+                logger.info("Successfully installed '{0}'.".format(package))
         else:
             logger.info("Package '{0}' already installed.".format(package))
             return_code = 0
@@ -47,8 +50,6 @@ def install_plugin_requirement(package: str):
                      exc_info=config.EXC_INFO)
         return_code = 1
     finally:
-        if return_code != 0:
-            logger.error("Could not install package '{0}'.".format(package))
         return return_code
 
 
