@@ -26,7 +26,8 @@ def restart_application():
     Restarts the application.
     """
     logger.info("Restarting application...")
-    os.execl(sys.executable, '"{}"'.format(sys.executable), *sys.argv)
+    # os.execl(sys.executable, '"{}"'.format(sys.executable), *sys.argv)
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 
 def find_file_by_filename(searched_file) -> str | None:
