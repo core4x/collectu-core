@@ -114,26 +114,15 @@ def check_for_updates_with_git() -> Optional[int]:
     # Get the commit count of the current branch.
     commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
 
-    if check_git_access_token():
-        if not folder_exists_and_empty("./interface"):
-            # Check for updates in submodules.
-            for submodule in repo.submodules:
-                try:
-                    submodule_repo = submodule.module()
-                    submodule_repo.remotes.origin.fetch()
-                    commit_count += len(list(submodule_repo.iter_commits(f"HEAD..origin/main")))
-                except Exception as e:
-                    logging.error("Could not check for updates for submodule '{0}': {1}"
-                                  .format(submodule.name, str(e)), exc_info=config.EXC_INFO)
-        else:
-            try:
-                logger.info("While checking for updates, we identified an empty interface folder. "
-                            "Trying to clone interface submodule...")
-                repo.git.submodule('update', '--init', '--recursive')
-                logger.info("Successfully cloned interface submodule.")
-                restart_application()
-            except Exception as e:
-                logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
+    if check_git_access_token() and folder_exists_and_empty("./interface"):
+        try:
+            logger.info("While checking for updates, we identified an empty interface folder. "
+                        "Trying to clone interface submodule...")
+            repo.git.submodule('update', '--init', '--recursive')
+            logger.info("Successfully cloned interface submodule.")
+            restart_application()
+        except Exception as e:
+            logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
     return commit_count
 
 
@@ -144,24 +133,16 @@ def update_app_with_git() -> str:
     :returns: A message containing information about the update process.
     """
     try:
-        possible_updates = check_for_updates_with_git()
-        if possible_updates == 0:
-            message = f"Cancelled update procedure. {config.APP_NAME} is already up to date."
-            logger.info(message)
-            return message
-        elif not possible_updates:
-            raise Exception("Cancelled update procedure. Please check the logs for further information.")
+        repo = git.Repo("..")
+        if check_git_access_token() and not folder_exists_and_empty("./interface"):
+            repo.remotes.origin.pull(recurse_submodules=True)
         else:
-            repo = git.Repo("..")
-            if os.environ.get("GIT_ACCESS_TOKEN", None):
-                repo.remotes.origin.pull(recurse_submodules=True)
-            else:
-                repo.remotes.origin.pull()
-            if data_layer.statistics:
-                data_layer.statistics.send_successful_update()
-            message = "Successfully finished update. Please restart the app."
-            logger.info(message)
-            return message
+            repo.remotes.origin.pull()
+        if data_layer.statistics:
+            data_layer.statistics.send_successful_update()
+        message = "Successfully finished update. Please restart the app."
+        logger.info(message)
+        return message
     except Exception as e:
         # We send a notification if the usage statistic sender was instantiated.
         if data_layer.statistics:
