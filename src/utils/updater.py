@@ -133,6 +133,7 @@ def update_app_with_git() -> str:
     :returns: A message containing information about the update process.
     """
     try:
+        check_for_updates_with_git()
         repo = git.Repo("..")
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
             repo.remotes.origin.pull(recurse_submodules=True)
