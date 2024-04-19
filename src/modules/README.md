@@ -1,15 +1,9 @@
 # Modules
 
-A list of all available modules and general information can be found in [modules](/docs/MODULES.md).
-
-## Table of Contents
-
 > * [Structure](#structure)
 > * [Configuration](#configuration)
 >   * [Nested Configuration](#nested-configuration)
 >   * [Dynamic Variables](#dynamic-variables)
-> * [Export the Documentation](#export-the-documentation)
-> * [IEC 61499](#iec-61499)
 
 ## Structure
 
@@ -127,15 +121,3 @@ Examples for nested modules:
 - inputs.ads_client_struct_2
 
 **Note:** Nested configurations are currently not supported on the frontend.
-
-## Export the Documentation
-
-The module documentation and further files (e.g. displayed on the front end) can be auto-generated.
-
-**Note:** All existing documents are overwritten.
-
-Export the documentation for all modules by running:
-
-```
-python src/main.py --d
-```

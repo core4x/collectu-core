@@ -64,7 +64,7 @@ def process_commands():
                        choices=['all', 'my', 'official'],
                        help='loads modules from the hub')
 
-    group.add_argument('-', '--update_modules',
+    group.add_argument('-d', '--update_modules',
                        nargs='?',
                        const='all',
                        metavar='all or the modules names',
