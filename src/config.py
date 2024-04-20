@@ -6,15 +6,6 @@ from typing import Any, Optional
 APP_NAME: str = "Collectu"
 """The application name."""
 
-VERSION: str = "1.0"
-"""The version of the application."""
-
-LICENSE: str = "Sustainable Use License"
-"""The license of this application."""
-
-AUTHOR: str = "Colin Reiff"
-"""The author of this application."""
-
 CONTACT: str = "info@collectu.de"
 """The e-mail address of the creator."""
 

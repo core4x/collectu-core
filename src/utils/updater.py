@@ -5,7 +5,7 @@ This will only work, if the app was checked-out via git (and not downloaded).
 import os
 import sys
 import logging
-from typing import Optional
+import subprocess
 
 # Internal imports.
 import config
@@ -95,7 +95,7 @@ def check_git_access_token() -> bool:
         return valid
 
 
-def check_for_updates_with_git() -> Optional[int]:
+def check_for_updates_with_git() -> int | None:
     """
     Check for new commits in the online repository.
     If a git access token is provided and the interface module is empty, it is initially pulled.
@@ -111,6 +111,12 @@ def check_for_updates_with_git() -> Optional[int]:
 
     # Open the repository.
     repo = git.Repo("..")
+
+    # Get the current version.
+    result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
+                            stdout=subprocess.PIPE, shell=True, universal_newlines=True)
+    data_layer.version = result.stdout.strip()
+
     repo.remotes.origin.fetch()
     # Get the commit count of the current branch.
     commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))

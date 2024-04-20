@@ -78,13 +78,13 @@ class Statistics:
         data: models.Data = models.Data(
             measurement="status",
             fields={"running": 1,
-                    "version": config.VERSION,
+                    "version": data_layer.version,
                     "app_id": os.environ.get("APP_ID", "undefined"),
                     "app_name": config.APP_NAME,
                     "hostname": socket.gethostname(),
                     "running_modules_count": len(data_layer.module_data.keys()),
                     "git_access_token": os.environ.get("GIT_ACCESS_TOKEN", "undefined")},
-            tags={"version": config.VERSION,
+            tags={"version": data_layer.version,
                   "app_id": os.environ.get("APP_ID", "undefined"),
                   "app_name": config.APP_NAME,
                   "hostname": socket.gethostname(),
@@ -111,11 +111,11 @@ class Statistics:
                 if not last_without_time.count(hashed_fields) > 2:
                     # Overwrite the measurement name.
                     log.measurement = "logs"
-                    log.tags["version"] = config.VERSION
+                    log.tags["version"] = data_layer.version
                     log.tags["app_id"] = os.environ.get("APP_ID", "undefined")
                     log.tags["app_name"] = config.APP_NAME
                     log.tags["hostname"] = socket.gethostname()
-                    log.fields["version"] = config.VERSION
+                    log.fields["version"] = data_layer.version
                     log.fields["app_id"] = os.environ.get("APP_ID", "undefined")
                     log.fields["app_name"] = config.APP_NAME
                     log.fields["hostname"] = socket.gethostname()
@@ -134,12 +134,12 @@ class Statistics:
         """
         data: models.Data = models.Data(
             measurement="invalid_update_attempt",
-            fields={"version": config.VERSION,
+            fields={"version": data_layer.version,
                     "app_id": os.environ.get("APP_ID", "undefined"),
                     "app_name": config.APP_NAME,
                     "hostname": socket.gethostname(),
                     "git_access_token": os.environ.get("GIT_ACCESS_TOKEN", "undefined")},
-            tags={"version": config.VERSION,
+            tags={"version": data_layer.version,
                   "app_id": os.environ.get("APP_ID", "undefined"),
                   "app_name": config.APP_NAME,
                   "hostname": socket.gethostname(),
@@ -153,12 +153,12 @@ class Statistics:
         """
         data: models.Data = models.Data(
             measurement="valid_update",
-            fields={"version": config.VERSION,
+            fields={"version": data_layer.version,
                     "app_id": os.environ.get("APP_ID", "undefined"),
                     "app_name": config.APP_NAME,
                     "hostname": socket.gethostname(),
                     "git_access_token": os.environ.get("GIT_ACCESS_TOKEN", "undefined")},
-            tags={"version": config.VERSION,
+            tags={"version": data_layer.version,
                   "app_id": os.environ.get("APP_ID", "undefined"),
                   "app_name": config.APP_NAME,
                   "hostname": socket.gethostname(),

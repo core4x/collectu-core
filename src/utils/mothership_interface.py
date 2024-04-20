@@ -152,7 +152,7 @@ def _get_report_data() -> Dict[str, Any]:
     mothership_data = {
         # Determine the status of the app (check if modules are configured).
         "status": "running" if len(data_layer.module_data) > 0 else "inactive",
-        "version": config.VERSION,
+        "version": data_layer.version,
         "description": os.environ.get("APP_DESCRIPTION", "-"),
         "configuration": getattr(data_layer.configuration, "configuration_dict", [])
     }

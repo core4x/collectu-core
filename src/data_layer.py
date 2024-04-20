@@ -17,6 +17,9 @@ import utils.usage_statistics
 # If you want to access data from another process, you have to use the multiprocessing objects
 # (e.g. managers) defined in main.py (see below).
 
+version: str = "unknown"
+"""The version of the application."""
+
 running = True
 """A flag which is set to false, if the app has to be stopped."""
 

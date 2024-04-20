@@ -123,9 +123,7 @@ def _command_about():
     Prints some general information about the app.
     """
     sys.stdout.write(f"{config.APP_NAME}\n")
-    sys.stdout.write(f"Version {config.VERSION}\n")
-    sys.stdout.write(f"Made by: {config.AUTHOR} ({config.CONTACT})\n")
-    sys.stdout.write(f"{config.LICENSE}\n")
+    sys.stdout.write(f"{config.CONTACT})\n")
 
 
 def _command_cold():
