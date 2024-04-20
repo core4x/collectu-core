@@ -2,6 +2,27 @@
 
 
 
+## v0.0.50 (2024-04-20)
+
+### Fix
+
+* fix: Apps are now sending the correct version. ([`5917f9c`](https://github.com/core4x/collectu-core/commit/5917f9c1f13f51e994438adc44f89afe8dc334ff))
+
+### Unknown
+
+* feature: Changed location of module base classes. ([`3a0659d`](https://github.com/core4x/collectu-core/commit/3a0659d1dee4138b6fb13928feeadf7c281e9c79))
+
+* feature: Updates. ([`7be7a59`](https://github.com/core4x/collectu-core/commit/7be7a5948eddf5668c058a2c7b64806e79a9e7db))
+
+* feature: Updates. ([`e9cf482`](https://github.com/core4x/collectu-core/commit/e9cf482b0399f6a0aa1dc988a27b056f93c2faff))
+
+* feature: Updates. ([`43c2a72`](https://github.com/core4x/collectu-core/commit/43c2a72e82ab84b292590b4f554a01fba4749a85))
+
+* feature: Updates. ([`8b6c849`](https://github.com/core4x/collectu-core/commit/8b6c849e15fec23bf2317733836c01da8f4935e5))
+
+* feature: Updates. ([`b3d3e7c`](https://github.com/core4x/collectu-core/commit/b3d3e7ca06294237dbaf4a53a00a6c16499b9b09))
+
+
 ## v0.0.49 (2024-04-18)
 
 ### Fix
