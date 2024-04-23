@@ -81,7 +81,8 @@ def check_git_access_token() -> bool:
                 os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
                 os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
-                                                 f'-o StrictHostKeyChecking=no')
+                                                 f'-o StrictHostKeyChecking=no '
+                                                 f'-o IdentitiesOnly=yes')
                 valid = True
     except Exception as e:
         logger.error("Could not check git update functionality requirements: {0}".format(str(e)),
@@ -148,6 +149,8 @@ def update_app_with_git() -> str:
         else:
             logger.info("Updating app...")
             repo.remotes.origin.pull()
+        # Update the version.
+        check_for_updates_with_git()
         if data_layer.statistics:
             data_layer.statistics.send_successful_update()
         message = "Successfully finished update. Please restart the app."
