@@ -134,7 +134,8 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
     :return: True if the import was successful, False otherwise.
     """
     module_name = module_name.rstrip(".variable").rstrip(".tag")
-    logger.info("Trying to download {0} from {1}.".format(module_name, config.HUB_MODULES_ADDRESS))
+    logger.info("Trying to download {0} with version {1} from {2}."
+                .format(module_name, version, config.HUB_MODULES_ADDRESS))
     no_session = True if session is None else False
     session = session if session else requests.Session()
     if no_session:
@@ -183,7 +184,8 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
         else:
             logger.error("Unknown module: {0}.".format(modname))
 
-        logger.info("Successfully downloaded, created, and imported {0}".format(module_name))
+        logger.info("Successfully downloaded, created, and imported {0} with version: {1}."
+                    .format(module_name, imported_module.__version__))
         return True
     except Exception as e:
         logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
