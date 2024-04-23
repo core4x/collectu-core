@@ -143,8 +143,10 @@ def update_app_with_git() -> str:
         check_for_updates_with_git()
         repo = git.Repo("..")
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
+            logger.info("Updating app and submodules...")
             repo.remotes.origin.pull(recurse_submodules=True)
         else:
+            logger.info("Updating app...")
             repo.remotes.origin.pull()
         if data_layer.statistics:
             data_layer.statistics.send_successful_update()
