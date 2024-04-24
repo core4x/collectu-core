@@ -145,12 +145,12 @@ def update_app_with_git() -> str:
         repo = git.Repo("..")
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
             logger.info("Updating app and submodules...")
-            # TODO: Test this.
             repo.git.submodule("update", "--init", "--recursive")
+            repo.remotes.origin.pull()
+            # The following is not working...
             # repo.remotes.origin.pull(recurse_submodules=True)
         else:
             logger.info("Updating app...")
-            # TODO: Test this without git access token.
             repo.remotes.origin.pull()
         # Update the version.
         check_for_updates_with_git()
