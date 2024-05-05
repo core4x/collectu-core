@@ -2,6 +2,17 @@
 
 
 
+## v0.0.52 (2024-05-05)
+
+### Fix
+
+* fix: Changed logo. ([`ccc9b58`](https://github.com/core4x/collectu-core/commit/ccc9b58b62678892be5f56c93db2c6db0584ba69))
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`d93ab5b`](https://github.com/core4x/collectu-core/commit/d93ab5ba3e6fc86dada008aad43cbf8def97d803))
+
+
 ## v0.0.51 (2024-05-05)
 
 ### Fix
