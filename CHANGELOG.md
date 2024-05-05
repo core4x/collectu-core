@@ -2,6 +2,25 @@
 
 
 
+## v0.0.51 (2024-05-05)
+
+### Fix
+
+* fix: Changed logo. ([`df5ce95`](https://github.com/core4x/collectu-core/commit/df5ce95bba77814abdfb72c7525b0ee97c222cfc))
+
+### Unknown
+
+* feature: Fixed pulling. ([`0f03291`](https://github.com/core4x/collectu-core/commit/0f03291210f4f991660bb57a1cd261959746f0a6))
+
+* feature: Fixed pulling. ([`10de72f`](https://github.com/core4x/collectu-core/commit/10de72f90f2c62fecc3c2051f7624855eaa2e504))
+
+* feature: Added version update after pull. ([`54f667f`](https://github.com/core4x/collectu-core/commit/54f667f6c531f4196f79cc8b28d8aea6161977f2))
+
+* feature: Added versions in logging during module download. ([`369a5e6`](https://github.com/core4x/collectu-core/commit/369a5e65f61652f9afe20623d4f82a8d5f08bb1f))
+
+* feature: Added versions in logging during module download. ([`02ba631`](https://github.com/core4x/collectu-core/commit/02ba6319877ceb21e1f65b7e8f48320789295972))
+
+
 ## v0.0.50 (2024-04-20)
 
 ### Fix
