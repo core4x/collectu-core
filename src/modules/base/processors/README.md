@@ -1,7 +1,6 @@
 # Processors
 
 Processors provide functionality to manipulate the given data object.
-A list of all available processor modules and general information can be found in [modules](/docs/MODULES.md).
 
 ## Table of Contents
 

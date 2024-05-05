@@ -11,10 +11,6 @@ which makes it easily adjustable and extendable.
 
 --------
 
-<p style="text-align: center;">
-  <img src="docs/figures/overview_interfaces.png" alt="interfaces">
-</p>
-
 ## Quick Start Guide
 
 > Please check [collectu.de/docs](https://collectu.de/docs)

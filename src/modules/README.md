@@ -14,10 +14,6 @@ or `ProcessorModule`.
 
 > Please mention the naming convention of modules (ending with the version of the module, e.g. `_1`).
 
-The following figure shows the class diagram for the modules.
-
-![Classes](../../docs/figures/classes.png)
-
 Every module has to call the parent initialization method: `super().__init__(configuration)`.
 
 Please always provide the following information on class level:
