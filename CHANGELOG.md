@@ -2,6 +2,13 @@
 
 
 
+## v0.0.54 (2024-05-06)
+
+### Fix
+
+* fix: Fixed downloading. ([`0b0f21e`](https://github.com/core4x/collectu-core/commit/0b0f21e5e10b17f703eff5d5aaa71db14669556c))
+
+
 ## v0.0.53 (2024-05-05)
 
 ### Fix
