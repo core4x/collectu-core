@@ -112,9 +112,9 @@ def download_modules(requested_module_types: str = "all"):
             response.raise_for_status()
             modules = response.json()
             for module in modules:
-                if module["module_name"] not in data_layer.registered_modules:
+                if module.get('module_name') not in data_layer.registered_modules:
                     download_module(module_name=module.get('module_name'), version=0, session=session)
-                elif module["latest"]["version"] != data_layer.registered_modules[module.module_name].version:
+                elif module.get("latest").get("version") != data_layer.registered_modules[module.get('module_name')].version:
                     download_module(module_name=module.get('module_name'), version=0, session=session)
                 else:
                     # Module already exists in the latest version.
