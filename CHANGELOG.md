@@ -2,6 +2,13 @@
 
 
 
+## v0.0.55 (2024-05-07)
+
+### Fix
+
+* fix: Fixed error message generation. ([`37b4995`](https://github.com/core4x/collectu-core/commit/37b49958e934bcf75ee396544c1ddec2e28f86ef))
+
+
 ## v0.0.54 (2024-05-06)
 
 ### Fix
