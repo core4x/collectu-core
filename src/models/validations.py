@@ -371,7 +371,7 @@ class Regex(Validation):
 
     def __init__(self, regex: Union[str, bytes, Pattern], flags=0, error: Optional[str] = None):
         self.regex = (re.compile(regex, flags) if isinstance(regex, (str, bytes)) else regex)
-        self.error = error or "{value} does not match expected pattern {regex}."
+        self.error = error or "{input} does not match expected pattern {regex}."
 
     def validate(self, field_name: str, value: Any):
         """
