@@ -2,6 +2,13 @@
 
 
 
+## v0.0.56 (2024-05-09)
+
+### Fix
+
+* fix: Always reload module after import, in the case it already exists before downloading a new version. ([`c3def21`](https://github.com/core4x/collectu-core/commit/c3def211a21f07f1487be8759269ff8624a65c29))
+
+
 ## v0.0.55 (2024-05-07)
 
 ### Fix
