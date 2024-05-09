@@ -167,6 +167,8 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
 
         # Import the module.
         imported_module = importlib.import_module("modules." + modname)
+        # If the module already exists before updating, we have to reload it.
+        imported_module = importlib.reload(imported_module)
         # Register the module.
         if modname.startswith("inputs."):
             if hasattr(imported_module, "InputModule"):
