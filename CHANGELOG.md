@@ -2,11 +2,20 @@
 
 
 
+## v0.0.58 (2024-05-22)
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`6e554d4`](https://github.com/core4x/collectu-core/commit/6e554d4470874c6999ad8b541930898a1a5c0a42))
+
+
 ## v0.0.57 (2024-05-22)
 
 ### Fix
 
 * fix: Catch errors preventing complete start due to update failure. ([`68a8cc5`](https://github.com/core4x/collectu-core/commit/68a8cc5d83df5ab2c6ac170aaa5607d6e9953d7f))
+
+* fix: Catch errors preventing complete start due to update failure. ([`f649d0f`](https://github.com/core4x/collectu-core/commit/f649d0f93797d1accc7c398cc401aef5457fa8c0))
 
 
 ## v0.0.56 (2024-05-09)
