@@ -2,6 +2,13 @@
 
 
 
+## v0.0.57 (2024-05-22)
+
+### Fix
+
+* fix: Catch errors preventing complete start due to update failure. ([`68a8cc5`](https://github.com/core4x/collectu-core/commit/68a8cc5d83df5ab2c6ac170aaa5607d6e9953d7f))
+
+
 ## v0.0.56 (2024-05-09)
 
 ### Fix
