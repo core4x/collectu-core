@@ -105,33 +105,39 @@ def check_for_updates_with_git() -> int | None:
     If the app is up-to-date, 0 is returned.
     Otherwise, if something went wrong, None is returned.
     """
-    # There should always be a git folder...
-    if not os.path.isdir('../.git'):
-        logger.warning('No git repository found. Can not check for updates.')
-        return None
+    commit_count = 0
+    try:
+        # There should always be a git folder...
+        if not os.path.isdir('../.git'):
+            logger.warning('No git repository found. Can not check for updates.')
+            return None
 
-    # Open the repository.
-    repo = git.Repo("..")
+        # Open the repository.
+        repo = git.Repo("..")
 
-    # Get the current version.
-    result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
-                            stdout=subprocess.PIPE, shell=True, universal_newlines=True)
-    data_layer.version = result.stdout.strip()
+        # Get the current version.
+        result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
+                                stdout=subprocess.PIPE, shell=True, universal_newlines=True)
+        data_layer.version = result.stdout.strip()
 
-    repo.remotes.origin.fetch()
-    # Get the commit count of the current branch.
-    commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
+        repo.remotes.origin.fetch()
+        # Get the commit count of the current branch.
+        commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
 
-    if check_git_access_token() and folder_exists_and_empty("./interface"):
-        try:
-            logger.info("While checking for updates, we identified an empty interface folder. "
-                        "Trying to clone interface submodule...")
-            repo.git.submodule('update', '--init', '--recursive')
-            logger.info("Successfully cloned interface submodule.")
-            restart_application()
-        except Exception as e:
-            logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
-    return commit_count
+        if check_git_access_token() and folder_exists_and_empty("./interface"):
+            try:
+                logger.info("While checking for updates, we identified an empty interface folder. "
+                            "Trying to clone interface submodule...")
+                repo.git.submodule('update', '--init', '--recursive')
+                logger.info("Successfully cloned interface submodule.")
+                restart_application()
+            except Exception as e:
+                logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
+    except Exception as e:
+        logger.error("Could not check for updates. Something unexpected went wrong: {0}".format(str(e)),
+                     exc_info=config.EXC_INFO)
+    finally:
+        return commit_count
 
 
 def update_app_with_git() -> str:
