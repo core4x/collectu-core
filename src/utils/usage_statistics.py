@@ -2,7 +2,7 @@
 Functions for sending usage statistics.
 """
 import os
-import socket
+import json
 import logging
 import time
 from threading import Thread
@@ -40,10 +40,12 @@ class Statistics:
             try:
                 response = self.session.post(url=config.USAGE_STATISTICS_RECEIVER,
                                              # verify=False,  # Disable SSL verification.
-                                             json={"version": data_layer.version,
-                                                   "app_id": os.environ.get("APP_ID", "undefined"),
-                                                   "app_name": config.APP_NAME,
-                                                   "running_modules_count": len(data_layer.module_data.keys())},
+                                             data=json.dumps({
+                                                 "version": data_layer.version,
+                                                 "app_id": os.environ.get("APP_ID"),
+                                                 "app_description": os.environ.get("APP_DESCRIPTION", "-"),
+                                                 "running_modules_count": len(data_layer.module_data.keys())},
+                                                 default=str),
                                              allow_redirects=True)
                 response.raise_for_status()
             except Exception as e:
