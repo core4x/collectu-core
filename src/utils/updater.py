@@ -89,10 +89,6 @@ def check_git_access_token() -> bool:
                      exc_info=config.EXC_INFO)
         valid = False
     finally:
-        if not valid:
-            # We send a notification if the usage statistic sender was instantiated.
-            if data_layer.statistics:
-                data_layer.statistics.send_invalid_update_attempt()
         return valid
 
 
@@ -160,15 +156,10 @@ def update_app_with_git() -> str:
             repo.remotes.origin.pull()
         # Update the version.
         check_for_updates_with_git()
-        if data_layer.statistics:
-            data_layer.statistics.send_successful_update()
         message = "Successfully finished update. Please restart the app."
         logger.info(message)
         return message
     except Exception as e:
-        # We send a notification if the usage statistic sender was instantiated.
-        if data_layer.statistics:
-            data_layer.statistics.send_invalid_update_attempt()
         message = "Could not update app: {0}".format(str(e))
         logger.error(message, exc_info=config.EXC_INFO)
         return message

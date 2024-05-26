@@ -4,18 +4,12 @@ The data layer holds all global data objects of the main process.
 from typing import Any, Deque, Optional
 import collections
 import datetime
-import multiprocessing
 
 # Internal imports.
 import config
 from configuration import Configuration
 import models
 import utils.usage_statistics
-
-# CAUTION!!!
-# The following objects are only accessible by the main process!!!
-# If you want to access data from another process, you have to use the multiprocessing objects
-# (e.g. managers) defined in main.py (see below).
 
 version: str = "unknown"
 """The version of the application."""
@@ -46,9 +40,6 @@ dashboard_modules: list[Any] = []
 mothership_data: dict[str, models.MothershipData] = {}
 """The received mothership data with the app_id as key."""
 
-statistics: Optional[utils.usage_statistics.Statistics] = None
-"""The usage statistic sender if SEND_USAGE_STATISTICS is enabled."""
-
 latest_logs: Deque[models.Data] = collections.deque(maxlen=config.NUMBER_OF_BUFFERED_LOGS)
 """Deque containing the latest (maxlen) captured logs."""
 
@@ -59,6 +50,3 @@ if the sending process to the mothership api failed."""
 last_mothership_receiving_error_log: dict[str, datetime.datetime] = {}
 """A dictionary with the receiving address as key and the timestamp as value of the last error logging 
 if the task receiving process failed."""
-
-last_statistics_sending_error_log: Optional[datetime.datetime] = None
-"""The timestamp of the last error logging if the sending process to the statistics api failed."""

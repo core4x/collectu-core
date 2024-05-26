@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     # Initialize the usage statistic sender.
     if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
-        data_layer.statistics = utils.usage_statistics.Statistics(send_logs=True)
+        utils.usage_statistics.Statistics()
 
     commits = utils.updater.check_for_updates_with_git()
     if commits:
@@ -116,17 +116,13 @@ if __name__ == "__main__":
 
     # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
     timer: int = 60
-    """Time in seconds to send the alive status."""
+    """Time in seconds a function below will be called."""
     counter: int = timer
-    """Counter holding the currently slept time."""
     while data_layer.running:
         try:
             if counter >= timer:
                 counter = 0
                 # This is called every 'timer' seconds.
-                # We send a notification if the usage statistic sender was instantiated.
-                if data_layer.statistics:
-                    data_layer.statistics.send_status()
             counter += 1
             time.sleep(1)
         except KeyboardInterrupt:

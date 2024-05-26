@@ -33,7 +33,7 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 
 class DatabaseWorker:
     """
-    A data base worker to be thread safe during the file operations.
+    A database worker to be thread safe during the file operations.
     This worker continuously checks data_layer.mothership_data for changes and applies them to the db file.
     """
 

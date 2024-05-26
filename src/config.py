@@ -40,7 +40,7 @@ STOP_LIMIT: int = 10000
 """Do not store elements in the queue of an output module as long as there are more elements then STOP_LIMIT."""
 
 REPORT_INTERVAL: int = 3
-"""The interval in seconds for sending the app info to the mothership."""
+"""The interval in seconds for sending the app info to the mothership and the statistics endpoint."""
 
 REPORTER_TIMEOUT: int = 9
 """The time in seconds, when we will reset the db entry of a reporter to unknown."""
@@ -48,7 +48,7 @@ REPORTER_TIMEOUT: int = 9
 REQUEST_INTERVAL: int = 3
 """The interval in seconds for requesting todos from the mothership."""
 
-USAGE_STATISTICS_RECEIVER: str = "http://statistics.collectu.de/api/v1/statistic"
+USAGE_STATISTICS_RECEIVER: str = "http://api.collectu.de/api/v1/statistic"
 """The receiver address where the usage statistic is send to. Used in utils.usage_statistics."""
 
 HUB_MODULES_ADDRESS: str = "http://api.collectu.de/api/v1/module"
@@ -65,10 +65,6 @@ HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/task/app_id"
 
 HUB_TEST_TOKEN_ADDRESS: str = "http://api.collectu.de/api/v1/login/test-token"
 """The endpoint of the api for testing the api access token."""
-
-STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10
-"""The interval in seconds in which error messages are logged 
-if the sending or receiving process with the external api fails."""
 
 CHECK_VALUE: str = "jkhdegkjhedlkl"
 """A check value."""
