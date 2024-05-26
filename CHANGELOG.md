@@ -2,6 +2,17 @@
 
 
 
+## v0.0.59 (2024-05-26)
+
+### Fix
+
+* fix: Replaced app_name with app_description. ([`b6eb499`](https://github.com/core4x/collectu-core/commit/b6eb4992ab64fa0b151ece7bfb0ae6b65c02ab0e))
+
+### Unknown
+
+* feature: Replaced statistic endpoint. ([`2f9c8d1`](https://github.com/core4x/collectu-core/commit/2f9c8d164eb2dfd2a7a94fb64e314b2f98873302))
+
+
 ## v0.0.58 (2024-05-22)
 
 ### Unknown
