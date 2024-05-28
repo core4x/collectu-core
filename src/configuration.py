@@ -515,6 +515,7 @@ class Configuration:
 
             # Stop all running retry classes.
             for retry_class in self.retries:
+                logger.debug("Trying to stop retry instance: {0}".format(str(retry_class.module.module_name)))
                 retry_class.stop()
             self.retries = []
 
@@ -522,6 +523,8 @@ class Configuration:
             for module_id, module_data in data_layer.module_data.items():
                 if module_data.module_name.startswith("inputs.") and module_data.module_name.endswith(".variable"):
                     try:
+                        logger.debug("Trying to stop variable module ({0}): {1}"
+                                     .format(str(module_id), str(module_data.module_name)))
                         module_data.instance.active = False
                         module_data.instance.stop()
                     except Exception as e:
@@ -540,6 +543,8 @@ class Configuration:
             for module_id, module_data in data_layer.module_data.items():
                 if module_data.module_name.startswith("inputs.") and module_data.module_name.endswith(".tag"):
                     try:
+                        logger.debug("Trying to stop tag module ({0}): {1}"
+                                     .format(str(module_id), str(module_data.module_name)))
                         module_data.instance.active = False
                         module_data.instance.stop()
                     except Exception as e:
@@ -555,6 +560,8 @@ class Configuration:
                         not module_data.module_name.endswith(".variable") and \
                         not module_data.module_name.endswith(".tag"):
                     try:
+                        logger.debug("Trying to stop input module ({0}): {1}"
+                                     .format(str(module_id), str(module_data.module_name)))
                         module_data.instance.active = False
                         module_data.instance.stop()
                     except Exception as e:
@@ -568,6 +575,8 @@ class Configuration:
             for module_id, module_data in data_layer.module_data.items():
                 if module_data.module_name.startswith("processors."):
                     try:
+                        logger.debug("Trying to stop processor module ({0}): {1}"
+                                     .format(str(module_id), str(module_data.module_name)))
                         module_data.instance.active = False
                         module_data.instance.stop()
                     except Exception as e:
@@ -581,6 +590,8 @@ class Configuration:
             for module_id, module_data in data_layer.module_data.items():
                 if module_data.module_name.startswith("outputs."):
                     try:
+                        logger.debug("Trying to stop output module ({0}): {1}"
+                                     .format(str(module_id), str(module_data.module_name)))
                         module_data.instance.active = False
                         module_data.instance.stop()
                     except Exception as e:
