@@ -2,6 +2,17 @@
 
 
 
+## v0.0.60 (2024-05-29)
+
+### Fix
+
+* fix: Added accidentally deleted constant. ([`099111d`](https://github.com/core4x/collectu-core/commit/099111dc3480fc9e559841d02c28b7280da70fae))
+
+### Unknown
+
+* feature: Added debug messages for stopping procedure. ([`1177ab1`](https://github.com/core4x/collectu-core/commit/1177ab1f22c978e4b7449896b2560b16b6155d0e))
+
+
 ## v0.0.59 (2024-05-26)
 
 ### Fix
