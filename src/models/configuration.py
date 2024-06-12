@@ -101,6 +101,14 @@ class VariableModule(Module):
         metadata=dict(description="The measurement name.",
                       required=False),
         default="test")
+    start_priority: int = field(
+        metadata=dict(description="The start (and stop) priority. "
+                                  "A module with greater priority is started before (and stopped after) "
+                                  "a module with a lower priority. "
+                                  "If the start priority is 0, the regular starting order is used.",
+                      required=False,
+                      validate=models.validations.Range(min=0, exclusive=False)),
+        default=0)
 
 
 @dataclass

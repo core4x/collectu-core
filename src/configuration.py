@@ -519,20 +519,23 @@ class Configuration:
                 retry_class.stop()
             self.retries = []
 
+            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
+                             v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")}
+            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
+
             # Stop all variable modules by setting self.active to false and calling the stop method.
-            for module_id, module_data in data_layer.module_data.items():
-                if module_data.module_name.startswith("inputs.") and module_data.module_name.endswith(".variable"):
-                    try:
-                        logger.debug("Trying to stop variable module ({0}): {1}"
-                                     .format(str(module_id), str(module_data.module_name)))
-                        module_data.instance.active = False
-                        module_data.instance.stop()
-                    except Exception as e:
-                        success = False
-                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                     .format(module_data.module_name,
-                                             module_data.configuration.get("id", "-"),
-                                             str(e)), exc_info=config.EXC_INFO)
+            for module_id, module_data in sorted_dict.items():
+                try:
+                    logger.debug("Trying to stop variable module ({0}): {1}"
+                                 .format(str(module_id), str(module_data.module_name)))
+                    module_data.instance.active = False
+                    module_data.instance.stop()
+                except Exception as e:
+                    success = False
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(module_data.module_name,
+                                         module_data.configuration.get("id", "-"),
+                                         str(e)), exc_info=config.EXC_INFO)
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
             # However, this does not guarantee all pipelines finished.
@@ -957,7 +960,8 @@ class Configuration:
                                 variable_config.module_name.endswith(".variable") and
                                 variable_config.module_name.startswith("inputs.") and
                                 not variable_config.module_name.endswith(".tag")]
-            for variable_config in variable_configs:
+            for variable_config in sorted(variable_configs, key=lambda variable_config: variable_config.start_priority,
+                                          reverse=True):
                 # Check if this module is already instantiated.
                 if variable_config.id not in data_layer.module_data:
                     # Get the according module.
