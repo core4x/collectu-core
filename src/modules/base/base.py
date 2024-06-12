@@ -233,16 +233,40 @@ class AbstractModule(ABC):
                     if module_id == "local":
                         if getattr(self, "current_input_data", None) is not None:
                             data = self.current_input_data
+                            # Check if the key is in the fields dict.
+                            value = data.fields.get(key, None)
+                            if value is None:
+                                # If it was not in the fields dict, we check if the key is in the tags dict.
+                                value = data.tags.get(key, None)
+                            if value is None:
+                                raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
+                                                               "Could not find key '{1}' in fields or tags."
+                                                               .format(input_string, key))
                         else:
                             raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
                                                            "Referenced module has no latest data. "
                                                            "Only tag, output, and processor modules support 'local'."
                                                            .format(input_string))
+                    elif module_id == "env":
+                        value = os.getenv(key, None)
+                        if value is None:
+                            raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
+                                                           "Could not find key '{1}' in environment variables."
+                                                           .format(input_string, key))
                     else:
                         module_entry = data_layer.module_data.get(module_id, None)
                         if module_entry is not None:
                             if module_entry.latest_data is not None:
                                 data = module_entry.latest_data
+                                # Check if the key is in the fields dict.
+                                value = data.fields.get(key, None)
+                                if value is None:
+                                    # If it was not in the fields dict, we check if the key is in the tags dict.
+                                    value = data.tags.get(key, None)
+                                if value is None:
+                                    raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
+                                                                   "Could not find key '{1}' in fields or tags."
+                                                                   .format(input_string, key))
                             else:
                                 raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
                                                                "Referenced module has no latest data."
@@ -252,25 +276,15 @@ class AbstractModule(ABC):
                                                            "Could not find module with the id '{1}'."
                                                            .format(input_string, module_id))
 
-                    # Check if the key is in the fields dict.
-                    value = data.fields.get(key, None)
-                    if value is None:
-                        # If it was not in the fields dict, we check if the key is in the tags dict.
-                        value = data.tags.get(key, None)
-                    if value is None:
-                        raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
-                                                       "Could not find key '{1}' in fields or tags."
-                                                       .format(input_string, key))
+                    # Replace the input with the value.
+                    if len(extracted_variables) == 1 and input_string.startswith(
+                            "${") and input_string.endswith("}"):
+                        # If it was only one dynamic variable, we keep the data type of the input.
+                        processed_input_string = value
                     else:
-                        # Replace the input with the value.
-                        if len(extracted_variables) == 1 and input_string.startswith(
-                                "${") and input_string.endswith("}"):
-                            # If it was only one dynamic variable, we keep the data type of the input.
-                            processed_input_string = value
-                        else:
-                            # We have to convert it to a string.
-                            processed_input_string = processed_input_string.replace(
-                                "${" + variable_text + "}", str(value))
+                        # We have to convert it to a string.
+                        processed_input_string = processed_input_string.replace(
+                            "${" + variable_text + "}", str(value))
 
             # Try to convert to the given data type.
             successfully_converted: bool = False
