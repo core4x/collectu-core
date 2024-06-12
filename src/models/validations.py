@@ -186,7 +186,7 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
                 if extracted_variables:
                     for variable_text in extracted_variables:
                         module_id = variable_text.split('.', 1)[0]
-                        if module_id not in module_ids and module_id != "local":
+                        if module_id not in module_ids and module_id != "local" and module_id != "env":
                             errors[getattr(module, "id", "-")].append(f"The module with the id '{module_id}' of the "
                                                                       f"dynamic variable '{value}' does not exist.")
 
