@@ -1,6 +1,20 @@
 # CHANGELOG
 
+## v0.1.0 (2024-06-18)
 
+### Feature
+
+* feat: Added hint for further info. ([`c3964e2`](https://github.com/core4x/collectu-core/commit/c3964e2823695b593e20f89080b911f89a7937e9))
+
+### Unknown
+
+* feature: Added text dashboard. ([`f645901`](https://github.com/core4x/collectu-core/commit/f645901b2d42490f0d54736d2ab222c6605fdf69))
+
+* feature: Added parameter start_priority to variable modules. ([`83cd26b`](https://github.com/core4x/collectu-core/commit/83cd26ba9b4e4cdb74672444ea5438cc5de6c6b6))
+
+* feature: Dynamic variables can now be environment variables using env.key. ([`0e1684a`](https://github.com/core4x/collectu-core/commit/0e1684ae29febe4a99f0171613c96ccfc1ea7f90))
+
+* feature: Dynamic variables can now be environment variables using env.key. ([`d1006e9`](https://github.com/core4x/collectu-core/commit/d1006e9405e7430ef9818ad77f2d606f608f04fa))
 
 ## v0.0.60 (2024-05-29)
 
@@ -12,7 +26,6 @@
 
 * feature: Added debug messages for stopping procedure. ([`1177ab1`](https://github.com/core4x/collectu-core/commit/1177ab1f22c978e4b7449896b2560b16b6155d0e))
 
-
 ## v0.0.59 (2024-05-26)
 
 ### Fix
@@ -23,13 +36,11 @@
 
 * feature: Replaced statistic endpoint. ([`2f9c8d1`](https://github.com/core4x/collectu-core/commit/2f9c8d164eb2dfd2a7a94fb64e314b2f98873302))
 
-
 ## v0.0.58 (2024-05-22)
 
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`6e554d4`](https://github.com/core4x/collectu-core/commit/6e554d4470874c6999ad8b541930898a1a5c0a42))
-
 
 ## v0.0.57 (2024-05-22)
 
@@ -39,13 +50,11 @@
 
 * fix: Catch errors preventing complete start due to update failure. ([`f649d0f`](https://github.com/core4x/collectu-core/commit/f649d0f93797d1accc7c398cc401aef5457fa8c0))
 
-
 ## v0.0.56 (2024-05-09)
 
 ### Fix
 
 * fix: Always reload module after import, in the case it already exists before downloading a new version. ([`c3def21`](https://github.com/core4x/collectu-core/commit/c3def211a21f07f1487be8759269ff8624a65c29))
-
 
 ## v0.0.55 (2024-05-07)
 
@@ -53,13 +62,11 @@
 
 * fix: Fixed error message generation. ([`37b4995`](https://github.com/core4x/collectu-core/commit/37b49958e934bcf75ee396544c1ddec2e28f86ef))
 
-
 ## v0.0.54 (2024-05-06)
 
 ### Fix
 
 * fix: Fixed downloading. ([`0b0f21e`](https://github.com/core4x/collectu-core/commit/0b0f21e5e10b17f703eff5d5aaa71db14669556c))
-
 
 ## v0.0.53 (2024-05-05)
 
@@ -71,7 +78,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`e183140`](https://github.com/core4x/collectu-core/commit/e1831404f4611c5a45c302a351c455b08ba8937e))
 
-
 ## v0.0.52 (2024-05-05)
 
 ### Fix
@@ -81,7 +87,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`d93ab5b`](https://github.com/core4x/collectu-core/commit/d93ab5ba3e6fc86dada008aad43cbf8def97d803))
-
 
 ## v0.0.51 (2024-05-05)
 
@@ -100,7 +105,6 @@
 * feature: Added versions in logging during module download. ([`369a5e6`](https://github.com/core4x/collectu-core/commit/369a5e65f61652f9afe20623d4f82a8d5f08bb1f))
 
 * feature: Added versions in logging during module download. ([`02ba631`](https://github.com/core4x/collectu-core/commit/02ba6319877ceb21e1f65b7e8f48320789295972))
-
 
 ## v0.0.50 (2024-04-20)
 
@@ -122,7 +126,6 @@
 
 * feature: Updates. ([`b3d3e7c`](https://github.com/core4x/collectu-core/commit/b3d3e7ca06294237dbaf4a53a00a6c16499b9b09))
 
-
 ## v0.0.49 (2024-04-18)
 
 ### Fix
@@ -132,7 +135,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`72efe85`](https://github.com/core4x/collectu-core/commit/72efe854634895106625463b7e813b4e6a944b4e))
-
 
 ## v0.0.48 (2024-04-18)
 
@@ -144,20 +146,17 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`3d05e16`](https://github.com/core4x/collectu-core/commit/3d05e16ba7294ab27f323320c72e4f50a1295507))
 
-
 ## v0.0.47 (2024-04-18)
 
 ### Fix
 
 * fix: Fixed update behaviour. ([`6d4b896`](https://github.com/core4x/collectu-core/commit/6d4b89603d2b0bd5bb1b5774c03a5f5ba194d80e))
 
-
 ## v0.0.46 (2024-04-18)
 
 ### Fix
 
 * fix: Fixed update behaviour. ([`b6355b2`](https://github.com/core4x/collectu-core/commit/b6355b23abdf752075d9e339b037878c5a924c38))
-
 
 ## v0.0.45 (2024-04-18)
 
@@ -169,7 +168,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`a57e899`](https://github.com/core4x/collectu-core/commit/a57e899e2cadc3c6f6dd549c537d0afa46fe7dc9))
 
-
 ## v0.0.44 (2024-04-18)
 
 ### Fix
@@ -179,7 +177,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`5f99abd`](https://github.com/core4x/collectu-core/commit/5f99abd5201fccbe22d507585362d58f92e67347))
-
 
 ## v0.0.43 (2024-04-18)
 
@@ -191,7 +188,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`eaaf7f5`](https://github.com/core4x/collectu-core/commit/eaaf7f57b247dcb5955f56529edcc6390219eba0))
 
-
 ## v0.0.42 (2024-04-18)
 
 ### Fix
@@ -201,7 +197,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`0b47cb2`](https://github.com/core4x/collectu-core/commit/0b47cb29e0bc2f6bcf76123ca21475cb456236e7))
-
 
 ## v0.0.41 (2024-04-18)
 
@@ -213,7 +208,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`341ba16`](https://github.com/core4x/collectu-core/commit/341ba16635cfa7bc7320b2ef0510797403d6f8da))
 
-
 ## v0.0.40 (2024-04-18)
 
 ### Fix
@@ -223,7 +217,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`d33af16`](https://github.com/core4x/collectu-core/commit/d33af161b6fae919b1cd662ade6bac9f0bb0491d))
-
 
 ## v0.0.39 (2024-04-18)
 
@@ -235,7 +228,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`afce19b`](https://github.com/core4x/collectu-core/commit/afce19bb2fa360f625319e39bed14ec6c0d9fb6d))
 
-
 ## v0.0.38 (2024-04-17)
 
 ### Fix
@@ -245,7 +237,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`e843815`](https://github.com/core4x/collectu-core/commit/e8438152662d9ab2d26efbe6e047ebc93bf0093a))
-
 
 ## v0.0.37 (2024-04-17)
 
@@ -257,13 +248,11 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`9ffa082`](https://github.com/core4x/collectu-core/commit/9ffa082dbc655b3992924be3c44a31bb11d629ed))
 
-
 ## v0.0.36 (2024-04-17)
 
 ### Fix
 
 * fix: Fixed update behaviour. ([`f43a203`](https://github.com/core4x/collectu-core/commit/f43a2039ff794be44ea46247227194a6b025dce9))
-
 
 ## v0.0.35 (2024-04-17)
 
@@ -275,7 +264,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`cbded46`](https://github.com/core4x/collectu-core/commit/cbded46aa2555f38c6f97775354d324cef69f5f2))
 
-
 ## v0.0.34 (2024-04-17)
 
 ### Fix
@@ -286,7 +274,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`8793f16`](https://github.com/core4x/collectu-core/commit/8793f16442e8d19105ca4933b24b97a2f74d705e))
 
-
 ## v0.0.33 (2024-04-17)
 
 ### Fix
@@ -296,7 +283,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`f793c2f`](https://github.com/core4x/collectu-core/commit/f793c2f8b3d4bc44e639ad7ab643818f43903f41))
-
 
 ## v0.0.32 (2024-04-17)
 
@@ -310,7 +296,6 @@
 
 * feature: Cleaned update functionality. ([`ad18451`](https://github.com/core4x/collectu-core/commit/ad1845186b8e27cff81f6d93da96d6b349844931))
 
-
 ## v0.0.31 (2024-04-17)
 
 ### Fix
@@ -320,7 +305,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`428e073`](https://github.com/core4x/collectu-core/commit/428e0735c305a36535da651dbf6d4a160c495bad))
-
 
 ## v0.0.30 (2024-04-17)
 
@@ -336,7 +320,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`82031b9`](https://github.com/core4x/collectu-core/commit/82031b9b6640c1a7ca8b9cf3aecf1806420cca1f))
 
-
 ## v0.0.29 (2024-04-17)
 
 ### Fix
@@ -349,13 +332,11 @@
 
 * feature: We do not copy the source code into the container image, we now clone it. ([`50638d5`](https://github.com/core4x/collectu-core/commit/50638d585c17c88ff9531374eb2271d10df0881d))
 
-
 ## v0.0.28 (2024-04-17)
 
 ### Fix
 
 * fix: Updated subprocess call (from check_call to run) for installing third party packages. ([`97cb562`](https://github.com/core4x/collectu-core/commit/97cb562f457d126f6cfb1a4a9be544aacbe08ed8))
-
 
 ## v0.0.27 (2024-04-16)
 
@@ -366,7 +347,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`f00bbc6`](https://github.com/core4x/collectu-core/commit/f00bbc6da4f789437f34686e74837f182969a379))
-
 
 ## v0.0.26 (2024-04-16)
 
@@ -381,7 +361,6 @@
 * Merge remote-tracking branch &#39;origin/main&#39; ([`a09e68b`](https://github.com/core4x/collectu-core/commit/a09e68bb7a015abe44bbceddecf543e7555ee63c))
 
 * feature: Print reason if installing of third party package went wrong. ([`fcc6c94`](https://github.com/core4x/collectu-core/commit/fcc6c94ecccce2565fcef7b4cfbcda15bacc5ca1))
-
 
 ## v0.0.25 (2024-04-16)
 
@@ -399,7 +378,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`7c73c1a`](https://github.com/core4x/collectu-core/commit/7c73c1af93f8d39993fc48e67428c58040e147e5))
 
-
 ## v0.0.24 (2024-04-16)
 
 ### Fix
@@ -409,7 +387,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`3270e4b`](https://github.com/core4x/collectu-core/commit/3270e4b28556ea78a9c0061d2eac2bff21de9752))
-
 
 ## v0.0.23 (2024-04-16)
 
@@ -421,7 +398,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`7cd561b`](https://github.com/core4x/collectu-core/commit/7cd561ba5160b797727751b5f4b8fe837a175288))
 
-
 ## v0.0.22 (2024-04-16)
 
 ### Fix
@@ -431,7 +407,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`af9dc97`](https://github.com/core4x/collectu-core/commit/af9dc97bf6f7e056503310071554c5c3941354e8))
-
 
 ## v0.0.21 (2024-04-16)
 
@@ -444,7 +419,6 @@
 * Merge remote-tracking branch &#39;origin/main&#39; ([`2cc9dea`](https://github.com/core4x/collectu-core/commit/2cc9dea207352b08031ffa0a4a2471a118cd5eea))
 
 * feature: Trying to clone interface module in container. ([`b96a893`](https://github.com/core4x/collectu-core/commit/b96a893e268f5be0eaf97a8344060f7b817775da))
-
 
 ## v0.0.20 (2024-04-09)
 
@@ -462,7 +436,6 @@
 
 * feature: Keep session if downloading multiple modules. ([`244cf61`](https://github.com/core4x/collectu-core/commit/244cf61637245cc680a8010a881c56fad7de461e))
 
-
 ## v0.0.19 (2024-04-08)
 
 ### Fix
@@ -472,7 +445,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`ea82e01`](https://github.com/core4x/collectu-core/commit/ea82e0145b0ea5e43f3598f84444ce9f2c28d9c5))
-
 
 ## v0.0.18 (2024-04-08)
 
@@ -484,7 +456,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`f16f18a`](https://github.com/core4x/collectu-core/commit/f16f18a7ee64a5f9b72b442c0ce1cc9dae081383))
 
-
 ## v0.0.17 (2024-04-08)
 
 ### Fix
@@ -494,7 +465,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`41c8216`](https://github.com/core4x/collectu-core/commit/41c8216b2f058bd8b1f7077d1eb0bac63a5a6162))
-
 
 ## v0.0.16 (2024-04-08)
 
@@ -506,7 +476,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`69068de`](https://github.com/core4x/collectu-core/commit/69068de8eb1f3d8b29d6eeecbd5bfcf88e1b1b38))
 
-
 ## v0.0.15 (2024-04-07)
 
 ### Fix
@@ -516,7 +485,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; ([`256c6e5`](https://github.com/core4x/collectu-core/commit/256c6e51720d053bcbea9002466e8cf2043cbf7a))
-
 
 ## v0.0.14 (2024-04-07)
 
@@ -531,7 +499,6 @@
 * feature: Added initial_download and auto_download to settings.ini. ([`3a3b6d5`](https://github.com/core4x/collectu-core/commit/3a3b6d589fa692d2f2ae316af8653d9c70d5917e))
 
 * feature: Added initial_download and auto_download to settings.ini. ([`eb8b3a9`](https://github.com/core4x/collectu-core/commit/eb8b3a964dccbfaffc0d58c8b3ac1f56491c8125))
-
 
 ## v0.0.13 (2024-04-07)
 
@@ -549,7 +516,6 @@
 
 * feature: Changed api links. ([`387c9b5`](https://github.com/core4x/collectu-core/commit/387c9b56cf1c184bd4e0f1fde64337f8dd9df81a))
 
-
 ## v0.0.12 (2024-03-21)
 
 ### Documentation
@@ -564,13 +530,11 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`30f7903`](https://github.com/core4x/collectu-core/commit/30f7903522ad45d4ed0712ef09778035e1b2afcf))
 
-
 ## v0.0.11 (2024-02-11)
 
 ### Fix
 
 * fix: Check for updates for submodules fixed. ([`fa099cf`](https://github.com/core4x/collectu-core/commit/fa099cf6e553a3d4db5a050d5ff028598a6d60c6))
-
 
 ## v0.0.10 (2024-02-11)
 
@@ -582,7 +546,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`28e4e2b`](https://github.com/core4x/collectu-core/commit/28e4e2bb287cd2391dc3c023050148bd45a2ad58))
 
-
 ## v0.0.9 (2024-02-11)
 
 ### Fix
@@ -593,13 +556,11 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`0676688`](https://github.com/core4x/collectu-core/commit/0676688d1ab47794d076f56986b1d7a4d75e6150))
 
-
 ## v0.0.8 (2024-02-11)
 
 ### Fix
 
 * fix: Fetch before checking for new commits. ([`e2a0e65`](https://github.com/core4x/collectu-core/commit/e2a0e653703d2f6a761af66b1fc42750da8e9a44))
-
 
 ## v0.0.7 (2024-02-11)
 
@@ -615,7 +576,6 @@
 
 * feature: Added warning message if no git was found. ([`84f7e44`](https://github.com/core4x/collectu-core/commit/84f7e445d79ee0af7b26a07d7361bcd55212501a))
 
-
 ## v0.0.6 (2024-02-11)
 
 ### Fix
@@ -627,7 +587,6 @@
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`129a803`](https://github.com/core4x/collectu-core/commit/129a8038c37451ec93ac2fa98dd792dccf929bc1))
 
 * feature: Receive git_access_token via task from hub. ([`5891a88`](https://github.com/core4x/collectu-core/commit/5891a88c752d4ed5084e957b21919345c8b816d5))
-
 
 ## v0.0.5 (2024-02-11)
 
@@ -641,7 +600,6 @@
 
 * Update main.yml ([`cb2477f`](https://github.com/core4x/collectu-core/commit/cb2477f83f14cf49c4c7ef17a717e7a2b5085670))
 
-
 ## v0.0.4 (2024-02-11)
 
 ### Fix
@@ -651,7 +609,6 @@
 ### Unknown
 
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`89711c8`](https://github.com/core4x/collectu-core/commit/89711c87cd6d39712afc23e7d514d812a4150a64))
-
 
 ## v0.0.3 (2024-02-11)
 
@@ -663,7 +620,6 @@
 
 * Merge remote-tracking branch &#39;origin/main&#39; into main ([`8059be8`](https://github.com/core4x/collectu-core/commit/8059be81edbde6de1f53aaffc7ddfcc3c313e845))
 
-
 ## v0.0.2 (2024-02-11)
 
 ### Fix
@@ -673,7 +629,6 @@
 ### Unknown
 
 * Update main.yml ([`3febccc`](https://github.com/core4x/collectu-core/commit/3febccccb75d7ee0e5aefecef449f831ab97c082))
-
 
 ## v0.0.1 (2024-02-10)
 
