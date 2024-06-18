@@ -18,7 +18,7 @@ which makes it easily adjustable and extendable.
 ## Development
 
 > Further information about developing new modules can be found in `src/modules/README.md` and 
-> `src/modules/processors/README.md`
+> `src/modules/base/processors/README.md`
 
 ## License
 
