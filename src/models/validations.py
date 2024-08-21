@@ -33,8 +33,8 @@ def validate_module(module):
     for field in fields(module):
         value = getattr(module, field.name)
         if ("${" in str(value) and "}" in str(value)) and field.metadata.get('dynamic', False):
-            # We can not type check dynamic variables.
-            pass
+            # Make them always a string.
+            setattr(module, field.name, str(value))
         elif field.type in [str, int, bool, float]:
             # We check if we can type check the field.
             # This is required, since typing types (e.g. List[], Dict[], etc.) can not be checked using isinstance.
@@ -121,8 +121,8 @@ def validate_module(module):
         validation_class: Validation = field.metadata.get('validate', None)
         if validation_class is not None:
             if ("${" in str(value) and "}" in str(value)) and field.metadata.get('dynamic', False):
-                # We can not validate values, which are dynamic variables.
-                pass
+                # Make them always a string.
+                setattr(module, field.name, str(value))
             else:
                 try:
                     validation_class.validate(field_name=field.name, value=value)
