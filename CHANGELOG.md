@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.1.2 (2024-08-22)
+
+### Fix
+
+* fix: Config fields with dynamic variables are no longer Json parsed after saving. By doing so, they are treated as string. ([`9077391`](https://github.com/core4x/collectu-core/commit/907739166c66eabbf53cf1e3d2d5da7b5e2edb54))
+
 ## v0.1.1 (2024-08-21)
 
 ### Fix
