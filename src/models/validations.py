@@ -145,9 +145,13 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
     """
     import data_layer
     errors = defaultdict(list)
+    """All occurred errors with the module id as key and a list of error messages as strings."""
 
     module_ids: list[str] = [getattr(module, "id", "-") for module in configuration]
     """A list with all configured module ids."""
+
+    versions = defaultdict(list)
+    """All module versions with the module_name as key and the list of versions as integers."""
 
     buffer_module = None
     """Is a buffer module defined?"""
@@ -249,6 +253,15 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
         if getattr(module, "buffered", False) and buffer_module is None:
             errors[getattr(module, "id", "-")].append(f"The module shall be buffered, "
                                                       f"but no buffer module was defined.")
+        # Check if modules of the same type, have the same version. If not, use the latest version.
+        if getattr(module, "version", 0):
+            module_name = getattr(module, 'module_name', 'undefined').rstrip('.tag').rstrip('.variable')
+            versions[module_name].append(getattr(module, "version"))
+
+    for module_name, version_list in versions.items():
+        if len(set(version_list)) > 1:
+            errors["-"].append(f"Your configuration contains different versions of a module type ({module_name}). "
+                               f"Please use only one version for modules of the same type.")
 
     return dict(errors.items())
 
