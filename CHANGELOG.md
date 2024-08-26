@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.2.0 (2024-08-26)
+
+### Feature
+
+* feat: Added log messages about which configuration file was loaded. ([`fc2dc83`](https://github.com/core4x/collectu-core/commit/fc2dc833c5bb62cbf778aa6c313f3936dec15956))
+
+* feat: Added check that all versions of a module type are the same. ([`0453a28`](https://github.com/core4x/collectu-core/commit/0453a28f55b8148497643d95d59b5163d2835db6))
+
 ## v0.1.2 (2024-08-22)
 
 ### Fix
