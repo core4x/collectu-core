@@ -296,6 +296,7 @@ class Configuration:
             # Read the file.
             with open(file) as content:
                 content = content.read().strip()
+            logger.info(f'Loading configuration from {filename}.')
             # Load the configuration file defined in the environment variable.
             errors = self.load_configuration_from_stream(content=content)
         except Exception as e:
