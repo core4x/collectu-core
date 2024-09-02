@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.2.1 (2024-09-02)
+
+### Fix
+
+* fix: Removed unnecessary imports. ([`e6a27c5`](https://github.com/core4x/collectu-core/commit/e6a27c55b4e36b330c392e8ccdc679c0c6ffd435))
+
+* fix: Added timeout for requests. ([`aa400d5`](https://github.com/core4x/collectu-core/commit/aa400d5fdc575338fbde7738fec3dc1b2860cf97))
+
 ## v0.2.0 (2024-08-26)
 
 ### Feature
