@@ -85,7 +85,7 @@ def download_modules(requested_module_types: str = "all"):
         session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
         # Test the token.
         try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
+            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
             response.raise_for_status()
         except Exception as e:
             logger.error("Invalid api access token for {0}: {1}. "
@@ -107,8 +107,7 @@ def download_modules(requested_module_types: str = "all"):
                 logger.error("Invalid module type: {0}.".format(requested_module_types))
                 return
             response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official_and_mine",
-                             params=params,
-                             allow_redirects=True)
+                             params=params, allow_redirects=True, timeout=(5, 5))
             response.raise_for_status()
             modules = response.json()
             for module in modules:
@@ -153,7 +152,7 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
     try:
         response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
                                params={"module_name": module_name, "version": version},
-                               allow_redirects=True)
+                               allow_redirects=True, timeout=(5, 5))
         response.raise_for_status()
         logger.info("Successfully loaded module '{0}' with version {1} from {2} with the id: {3}"
                     .format(module_name,
@@ -223,7 +222,7 @@ def send_modules(module_names: Optional[List[str]] = None):
         session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
         # Test the token.
         try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
+            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
             response.raise_for_status()
         except Exception as e:
             logger.error("Invalid api access token for {0}: {1}. "
@@ -242,7 +241,7 @@ def send_modules(module_names: Optional[List[str]] = None):
                     # Check if the module already exists.
                     response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
                                      params={"module_name": module_name},
-                                     allow_redirects=True)
+                                     allow_redirects=True, timeout=(5, 5))
 
                     module_exists = False
                     if response.ok:
@@ -256,7 +255,7 @@ def send_modules(module_names: Optional[List[str]] = None):
                         # Update the module in the hub.
                         response = s.put(url=f"{config.HUB_MODULES_ADDRESS}/{module.get('id')}",
                                          data=json.loads(json.dumps(json.dumps(data))),
-                                         allow_redirects=True)
+                                         allow_redirects=True, timeout=(5, 5))
                         response.raise_for_status()
                         logger.info("Successfully updated module '{0}' on {1}: {2}"
                                     .format(module_name,
@@ -266,7 +265,7 @@ def send_modules(module_names: Optional[List[str]] = None):
                         # Create the module in the hub.
                         response = s.post(url=config.HUB_MODULES_ADDRESS,
                                           data=json.loads(json.dumps(json.dumps(data | {"module_name": module_name}))),
-                                          allow_redirects=True)
+                                          allow_redirects=True, timeout=(5, 5))
                         response.raise_for_status()
                         logger.info("Successfully created module '{0}' on {1}: {2}"
                                     .format(module_name,

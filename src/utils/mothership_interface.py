@@ -191,7 +191,7 @@ def _report_hub():
                                         "Content-Type": "application/json",
                                         "Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
                 # Test the token.
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
                 response.raise_for_status()
             except Exception as e:
                 send = False
@@ -217,6 +217,7 @@ def _report_hub():
                 json_data = _get_report_data()
                 json_data["app_id"] = os.environ.get("APP_ID")
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
+                                        timeout=(5, 5),
                                         # verify=False,  # Disable SSL verification.
                                         json=json.loads(json.dumps(json_data, default=str)))
                 response.raise_for_status()
@@ -270,7 +271,7 @@ def _request_hub_tasks():
                                         "Content-Type": "application/json",
                                         "Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
                 # Test the token.
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
                 response.raise_for_status()
             except Exception as e:
                 send = False
@@ -294,6 +295,7 @@ def _request_hub_tasks():
         if logged_in:
             try:
                 response = session.get(url=f'{config.HUB_TASK_ADDRESS}/{os.environ.get("APP_ID")}',
+                                       timeout=(5, 5),
                                        # verify=False  # Disable SSL verification.
                                        )
                 response.raise_for_status()
@@ -367,6 +369,7 @@ def _report(session: requests.Session, mothership: str):
     while data_layer.running and session:
         try:
             response = session.post(url=f"{mothership}/api/v1/mothership/report/{os.environ.get('APP_ID')}",
+                                    timeout=(5, 5),
                                     # verify=False,  # Disable SSL verification.
                                     json=json.dumps(_get_report_data(), default=str))
             response.raise_for_status()
@@ -411,6 +414,7 @@ def _request_todos(session: requests.Session, mothership):
     while data_layer.running and session:
         try:
             response = session.get(url=f"{mothership}/api/v1/mothership/todo/{os.environ.get('APP_ID')}",
+                                   timeout=(5, 5),
                                    # verify=False,  # Disable SSL verification.
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
 

@@ -46,7 +46,8 @@ class Statistics:
                                                  "app_description": os.environ.get("APP_DESCRIPTION", "-"),
                                                  "running_modules_count": len(data_layer.module_data.keys())},
                                                  default=str),
-                                             allow_redirects=True)
+                                             allow_redirects=True,
+                                             timeout=(3, 3))
                 response.raise_for_status()
             except Exception as e:
                 logger.error("Something unexpected went wrong while trying to send usage statistics: {0}"
