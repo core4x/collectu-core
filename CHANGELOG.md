@@ -1,10 +1,20 @@
 # CHANGELOG
 
+## v0.3.1 (2024-09-03)
+
+### Unknown
+
+* Merge remote-tracking branch &#39;origin/main&#39; ([`b6b6536`](https://github.com/core4x/collectu-core/commit/b6b65365bf4137d53a89d7fd319684e953363a23))
+
 ## v0.3.0 (2024-09-02)
 
 ### Feature
 
 * feat: The version of a module can now be changed. ([`1232e3d`](https://github.com/core4x/collectu-core/commit/1232e3dfb8e6b31071640bd027d194fe17ce6691))
+
+### Fix
+
+* fix: Now, if the config of a module was changed (without executing) it will be shown, when newly opening the config modal. ([`b88c853`](https://github.com/core4x/collectu-core/commit/b88c85322d72f9c1b25da58fc503f81467d6ea08))
 
 ## v0.2.1 (2024-09-02)
 
