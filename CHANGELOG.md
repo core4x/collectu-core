@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.3.0 (2024-09-02)
+
+### Feature
+
+* feat: The version of a module can now be changed. ([`1232e3d`](https://github.com/core4x/collectu-core/commit/1232e3dfb8e6b31071640bd027d194fe17ce6691))
+
 ## v0.2.1 (2024-09-02)
 
 ### Fix
