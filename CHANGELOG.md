@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.3.2 (2024-09-04)
+
+### Fix
+
+* fix: Added tag for module cards and now check if a card is a module by this tag and no longer by checking if a footer exists. ([`4d2b5e6`](https://github.com/core4x/collectu-core/commit/4d2b5e669b99af19a325c7fc2ebff611916785d6))
+
 ## v0.3.1 (2024-09-03)
 
 ### Unknown
