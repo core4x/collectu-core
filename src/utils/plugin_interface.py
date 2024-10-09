@@ -159,7 +159,7 @@ def load_modules():
 
                     if modname in data_layer.registered_modules:
                         logger.warning("A module with the name {0} was already registered and "
-                                       "is now overwritten with the one in your custom module folder: {1}"
+                                       "is now overwritten with the one in your custom module folder ({1})."
                                        .format(modname, os.environ.get("CUSTOM_MODULE_FOLDER")))
                     if modname.startswith("inputs."):
                         if hasattr(module, "InputModule"):
@@ -167,13 +167,13 @@ def load_modules():
                         if hasattr(module, "VariableModule"):
                             if modname + ".variable" in data_layer.registered_modules:
                                 logger.warning("A module with the name {0} was already registered and "
-                                               "is now overwritten with the one in your custom module folder: {1}"
+                                               "is now overwritten with the one in your custom module folder ({1})."
                                                .format(modname + ".variable", os.environ.get("CUSTOM_MODULE_FOLDER")))
                             data_layer.registered_modules[modname + ".variable"] = getattr(module, "VariableModule")
                         if hasattr(module, "TagModule"):
                             if modname + ".tag" in data_layer.registered_modules:
                                 logger.warning("A module with the name {0} was already registered and "
-                                               "is now overwritten with the one in your custom module folder: {1}"
+                                               "is now overwritten with the one in your custom module folder ({1})."
                                                .format(modname + ".tag", os.environ.get("CUSTOM_MODULE_FOLDER")))
                             data_layer.registered_modules[modname + ".tag"] = getattr(module, "TagModule")
                     elif modname.startswith("outputs."):
