@@ -21,6 +21,24 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
 
+def create_authenticated_session() -> requests.Session | None:
+    """
+
+    """
+    session = requests.Session()
+    # Login.
+    session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
+    # Test the token.
+    try:
+        response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+        response.raise_for_status()
+        return session
+    except Exception as e:
+        logger.error("Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
+                     "Please check or create an api access token on your hub profile."
+                     .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+
+
 def write_module_to_file(module_name: str, module) -> str:
     """
     Write the given module to file, or update the existing file.
@@ -112,19 +130,11 @@ def download_modules(requested_module_types: str = "all"):
     """
     logger.info("Trying to download {0} modules from {1}."
                 .format(requested_module_types, config.HUB_MODULES_ADDRESS))
-    session = requests.Session()
+    session = create_authenticated_session()
+    if session is None:
+        logger.error("Could not download modules because no valid session could be established.")
+        return
     with session as s:
-        # Login.
-        session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
-        # Test the token.
-        try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
-            response.raise_for_status()
-        except Exception as e:
-            logger.error("Invalid api access token for {0}: {1}. "
-                         "Please check or create an api access token on your hub profile."
-                         .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
-            return
         try:
             params = {}
             if "all" == requested_module_types:
@@ -144,24 +154,13 @@ def download_modules(requested_module_types: str = "all"):
             response.raise_for_status()
             modules = response.json()
             for module in modules:
-                if module.get('module_name') not in [
-                    registered_module[:-len(".variable")] if registered_module.endswith(
-                            ".variable") else registered_module[:-len(".tag")] if registered_module.endswith(
-                            ".tag") else registered_module for registered_module in data_layer.registered_modules]:
-                    download_module(module_name=module.get('module_name'), version=0, session=session)
-                elif module.get("latest").get("version") != next(
-                        (value for module_name, value in list(data_layer.registered_modules.items()) if
-                         module_name.startswith(module.get('module_name'))), None).version:
-                    download_module(module_name=module.get('module_name'), version=0, session=session)
-                else:
-                    # Module already exists in the latest version.
-                    pass
+                download_module(module_name=module.get('module_name'), version=0, session=s)
         except Exception as e:
             logger.error("Could not download modules: {0}.".format(str(e)),
                          exc_info=config.EXC_INFO)
 
 
-def download_module(module_name: Optional[str] = None, version: int = 0, session: requests.Session = None) -> bool:
+def download_module(module_name: str, version: int = 0, session: requests.Session = None) -> bool:
     """
     Retrieve the given module or all from hub.
 
@@ -173,62 +172,64 @@ def download_module(module_name: Optional[str] = None, version: int = 0, session
     module_name = module_name.rstrip(".variable").rstrip(".tag")
     logger.info("Trying to download {0} with version {1} from {2}."
                 .format(module_name, version, config.HUB_MODULES_ADDRESS))
-    no_session = True if session is None else False
-    session = session if session else requests.Session()
-    if no_session:
-        # Login.
-        session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
-        # Test the token.
-        try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS)
-            response.raise_for_status()
-        except Exception as e:
-            logger.error("Invalid api access token for {0}: {1}. "
-                         "Please check or create an api access token on your hub profile."
-                         .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
-            return False
+
+    session = session if session else create_authenticated_session()
+    if session is None:
+        logger.error("Could not download module because no valid session could be established.")
+        return False
+
     try:
         response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
                                params={"module_name": module_name, "version": version},
                                allow_redirects=True, timeout=(5, 5))
         response.raise_for_status()
-        logger.info("Successfully loaded module '{0}' with version {1} from {2} with the id: {3}"
+        logger.info("Successfully downloaded module '{0}' with version {1} from {2} with the id: {3}"
                     .format(module_name,
                             version if version != 0 else "latest",
                             config.HUB_MODULES_ADDRESS,
                             str(response.json().get("id"))))
         module = response.json()
 
-        modname = module_name.lower()
-        relative_filepath = write_module_to_file(module_name=modname, module=module)
+        if module.get('module_name') not in [registered_module.rstrip(".variable").rstrip(".tag") for
+                                             registered_module in data_layer.registered_modules] or module.get(
+            "version").get("version") > next(
+            (value for module_name, value in list(data_layer.registered_modules.items()) if
+             module_name.startswith(module.get('module_name'))), None).version:
+            modname = module_name.lower()
+            relative_filepath = write_module_to_file(module_name=modname, module=module)
 
-        # Import the module.
-        module_path = relative_filepath.replace(os.sep, '.')
-        if module_path.endswith(".py"):
-            module_path = module_path[:-3]
-        imported_module = importlib.import_module(module_path)
-        # If the module already exists before updating, we have to reload it.
-        imported_module = importlib.reload(imported_module)
-        # Register the module.
-        if modname.startswith("inputs."):
-            if hasattr(imported_module, "InputModule"):
-                data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
-            if hasattr(imported_module, "VariableModule"):
-                data_layer.registered_modules[modname + ".variable"] = getattr(imported_module, "VariableModule")
-            if hasattr(imported_module, "TagModule"):
-                data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
-        elif modname.startswith("outputs."):
-            if hasattr(imported_module, "OutputModule"):
-                data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
-        elif modname.startswith("processors."):
-            if hasattr(imported_module, "ProcessorModule"):
-                data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
+            # Import the module.
+            module_path = relative_filepath.replace(os.sep, '.')
+            if module_path.endswith(".py"):
+                module_path = module_path[:-3]
+            imported_module = importlib.import_module(module_path)
+            # If the module already exists before updating, we have to reload it.
+            imported_module = importlib.reload(imported_module)
+            # Register the module.
+            if modname.startswith("inputs."):
+                if hasattr(imported_module, "InputModule"):
+                    data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
+                if hasattr(imported_module, "VariableModule"):
+                    data_layer.registered_modules[modname + ".variable"] = getattr(imported_module,
+                                                                                   "VariableModule")
+                if hasattr(imported_module, "TagModule"):
+                    data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
+            elif modname.startswith("outputs."):
+                if hasattr(imported_module, "OutputModule"):
+                    data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
+            elif modname.startswith("processors."):
+                if hasattr(imported_module, "ProcessorModule"):
+                    data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
+            else:
+                logger.error("Unknown module: {0}.".format(modname))
+
+            logger.info("Successfully imported {0} with version: {1}."
+                        .format(module_name, imported_module.__version__))
+            return True
         else:
-            logger.error("Unknown module: {0}.".format(modname))
-
-        logger.info("Successfully imported {0} with version: {1}."
-                    .format(module_name, imported_module.__version__))
-        return True
+            logger.info("Module '{0}' already exists in the latest version. "
+                        "Skipping update procedure...".format(module_name))
+            return True
     except Exception as e:
         logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
                      exc_info=config.EXC_INFO)
@@ -241,12 +242,17 @@ def update_modules(module_names: Optional[List[str]] = None):
 
     :param module_names: A list with modules names to be updated. If none is given, all modules are updated.
     """
+    session = create_authenticated_session()
+    if session is None:
+        logger.error("Could not update modules because no valid session could be established.")
+        return None
     if module_names is None:
-        for keys in data_layer.registered_modules:
-            download_module(keys)
+        for module_name in list(
+                set([module_name.rstrip(".variable").rstrip(".tag") for module_name in data_layer.registered_modules])):
+            download_module(module_name=module_name, session=session)
     else:
         for module_name in module_names:
-            download_module(module_name)
+            download_module(module_name=module_name, session=session)
 
 
 def send_modules(module_names: List[str]):
@@ -269,21 +275,14 @@ def send_modules(module_names: List[str]):
         return
 
     logger.info("Trying to send {0} to {1}.".format(
-        str(len(module_names)) + " module(s)" if module_names else "all modules in your custom module folder",
+        str(len(module_names)) + " module(s)" if module_names else f"all modules in your custom module folder "
+                                                                   f"({os.environ.get('CUSTOM_MODULE_FOLDER')})",
         config.HUB_MODULES_ADDRESS))
-    session = requests.Session()
+
+    session = create_authenticated_session()
+    if session is None:
+        logger.error("Could not send modules because no valid session could be established.")
     with session as s:
-        # Login.
-        session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
-        # Test the token.
-        try:
-            response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
-            response.raise_for_status()
-        except Exception as e:
-            logger.error("Invalid api access token for {0}: {1}. "
-                         "Please check or create an api access token on your hub profile."
-                         .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
-            return
 
         def find_file(full_relative_path: str, search_dir: str | pathlib.Path = "modules") -> pathlib.Path | None:
             """

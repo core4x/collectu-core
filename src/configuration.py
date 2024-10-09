@@ -386,8 +386,9 @@ class Configuration:
                             continue
                         # Try to fetch the module from hub.
                         elif not utils.hub_connection.download_module(module_name=module_name, version=version):
-                            errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}' "
-                                                                               f"or version '{version}'.")
+                            errors[module_configuration.get("id", "-")].append(
+                                f"Unknown module_name '{module_name}', version '{version}', "
+                                f"or communication with the hub has failed for other reasons. Please check the logs.")
                             continue
                         else:
                             module = data_layer.registered_modules.get(module_name, None)

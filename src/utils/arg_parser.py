@@ -49,7 +49,7 @@ def process_commands():
                        help='executes the application in test mode for a given configuration filename '
                             '(default: configuration.yml)')
 
-    group.add_argument('-s', '--send',
+    group.add_argument('-s', '--send_modules',
                        nargs='?',
                        const='all',
                        metavar='send all',
@@ -59,10 +59,10 @@ def process_commands():
                        action='store_true',
                        help='updates the app and all submodules')
 
-    group.add_argument('-l', '--load_modules',
+    group.add_argument('-l', '--download_modules',
                        nargs=1,
                        choices=['all', 'my', 'official'],
-                       help='loads modules from the hub')
+                       help='downloads modules from the hub')
 
     group.add_argument('-d', '--update_modules',
                        nargs='?',
@@ -84,14 +84,14 @@ def process_commands():
         _command_cold()
     if args.test:
         _command_test(args.test)
-    if args.send:
-        _command_send(args.send)
+    if args.send_modules:
+        _command_send_modules(args.send_modules)
         sys.exit(0)
     if args.update:
         _command_update()
         sys.exit(0)
-    if args.load_modules:
-        _command_load_modules(args.load_modules)
+    if args.download_modules:
+        _command_download_modules(args.download_modules)
         sys.exit(0)
     if args.update_modules:
         _command_update_modules(args.update_modules)
@@ -169,7 +169,7 @@ def _command_test(filename: str):
         sys.exit(1)
 
 
-def _command_send(module_name: str):
+def _command_send_modules(module_name: str):
     """
     Sends all registered modules to the hub.
 
@@ -189,7 +189,7 @@ def _command_update():
     utils.updater.update_app_with_git()
 
 
-def _command_load_modules(requested_module_type: list[str]):
+def _command_download_modules(requested_module_type: list[str]):
     """
     Loads all official modules from the hub.
     """
