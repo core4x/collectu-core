@@ -32,7 +32,7 @@ def write_module_to_file(module_name: str, module) -> str:
     of the written module.
     """
     # Check if a custom module folder exists.
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", None))).is_dir() and os.environ.get(
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
             "CUSTOM_MODULE_FOLDER", None):
         custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
     else:
@@ -144,8 +144,10 @@ def download_modules(requested_module_types: str = "all"):
             response.raise_for_status()
             modules = response.json()
             for module in modules:
-                if module.get('module_name') not in [registered_module.replace(".variable", "").replace(".tag", "") for
-                                                     registered_module in data_layer.registered_modules]:
+                if module.get('module_name') not in [
+                    registered_module[:-len(".variable")] if registered_module.endswith(
+                            ".variable") else registered_module[:-len(".tag")] if registered_module.endswith(
+                            ".tag") else registered_module for registered_module in data_layer.registered_modules]:
                     download_module(module_name=module.get('module_name'), version=0, session=session)
                 elif module.get("latest").get("version") != next(
                         (value for module_name, value in list(data_layer.registered_modules.items()) if
