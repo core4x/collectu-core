@@ -6,7 +6,7 @@ from configparser import ConfigParser
 import os
 import logging
 import uuid
-import pkg_resources
+import importlib.metadata
 
 # Internal imports.
 import config
@@ -23,14 +23,15 @@ def check_installed_app_packages():
     If a package is missing, an exception is raised. If a version differs, a critical log message is printed.
     """
     # Get all installed packages.
-    installed_packages = dict([(package.project_name, package.version)
-                               for package in pkg_resources.working_set])
+    installed_packages = {pkg.metadata['Name']: pkg.version for pkg in importlib.metadata.distributions()}
+
     # Get all required packages from requirements.txt.
     required_packages = {}
     with open("requirements.txt", "r") as requirements_file:
         for line in requirements_file.read().splitlines():
-            package_name, version = line.split("==", 1)
-            required_packages[package_name] = version
+            if "==" in line:
+                package_name, version = line.split("==", 1)
+                required_packages[package_name] = version
 
     # Compare the installed and required packages.
     not_installed_required_packages = set(required_packages.items()) - set(installed_packages.items())
@@ -38,14 +39,14 @@ def check_installed_app_packages():
         # Check if the package is missing, or installed in another version.
         for missing_package in not_installed_required_packages:
             if next(iter(missing_package)) not in installed_packages.keys():
-                logger.critical("Missing package installation: {0}. Trying to install missing package..."
-                                .format(missing_package))
+                logger.critical("Missing package installation: {0}=={1}. Trying to install missing package..."
+                                .format(missing_package[0], missing_package[1]))
                 utils.plugin_interface.install_plugin_requirement(
                     package=missing_package[0] + "==" + missing_package[1])
             else:
-                logger.error("Package version differs from the one defined in requirements.txt: {0}. "
+                logger.error("Package version differs from the one defined in requirements.txt: {0}=={1}. "
                              "Trying to install required package..."
-                             .format(missing_package))
+                             .format(missing_package[0], missing_package[1]))
                 utils.plugin_interface.install_plugin_requirement(
                     package=missing_package[0] + "==" + missing_package[1])
 
