@@ -124,7 +124,8 @@ def load_modules():
             pass
 
     # Second: Load (and overwrite if it already exists) all modules from the custom module folder if defined.
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", None))).is_dir():
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
+            "CUSTOM_MODULE_FOLDER", None):
         package_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"))).resolve()
         sys.path.append(str(package_path))
         try:

@@ -32,12 +32,10 @@ def write_module_to_file(module_name: str, module) -> str:
     of the written module.
     """
     # Check if a custom module folder exists.
-    try:
-        if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", None))).is_dir():
-            custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
-        else:
-            custom_folder_path = None
-    except TypeError as e:
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", None))).is_dir() and os.environ.get(
+            "CUSTOM_MODULE_FOLDER", None):
+        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
+    else:
         custom_folder_path = None
 
     # This is the file path including the file name.
@@ -256,12 +254,10 @@ def send_modules(module_names: List[str]):
     :param module_names: A list with modules names to be sent.
     If no names are given, all registered modules in the custom module folder are sent.
     """
-    try:
-        if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", None))).is_dir():
-            custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
-        else:
-            custom_folder_path = None
-    except TypeError as e:
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
+            "CUSTOM_MODULE_FOLDER", None):
+        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
+    else:
         custom_folder_path = None
 
     if custom_folder_path is None and not module_names:
