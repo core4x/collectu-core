@@ -1,7 +1,18 @@
 # CHANGELOG
 
 
+## v0.4.4 (2024-10-09)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`7f829fd`](https://github.com/core4x/collectu-core/commit/7f829fdc839a3418ffd607a3e40d30bd61a9f974))
+
+
 ## v0.4.3 (2024-10-09)
+
+### Fixes
+
+* fix: Fixed some things to improve the hub interaction. ([`b7dbad2`](https://github.com/core4x/collectu-core/commit/b7dbad2172c47569cea6730d16e58c3de89eb095))
 
 ### Unknown
 
