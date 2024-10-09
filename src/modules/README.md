@@ -113,7 +113,8 @@ Examples for nested modules:
 
 - inputs.general.user_input_1
 - processors.dashboard.threshold_1
-- inputs.ads_client_struct_1
-- inputs.ads_client_struct_2
+- processors.opcua.ads_2_opcua_server_1
+- inputs.control.ads_client_struct_1
+- inputs.control.ads_client_struct_2
 
 **Note:** Nested configurations are currently not supported on the frontend.
