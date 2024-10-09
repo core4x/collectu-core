@@ -176,7 +176,7 @@ def _command_send(module_name: str):
     :param module_name: The module to be sent.
     """
     if module_name == "all":
-        module_name = None
+        module_name = []
     else:
         module_name = [module_name]
     utils.hub_connection.send_modules(module_name)
