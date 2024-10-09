@@ -54,13 +54,13 @@ if __name__ == "__main__":
     # Exit handler.
     atexit.register(exit_handler)
 
-    # Load all available modules.
-    utils.plugin_interface.load_modules()
-
     # Check if all requirements of third party packages are met.
     utils.initialization.check_installed_app_packages()
     # Set the default environment variables and install plugins defined in the settings file.
     settings_updated = utils.initialization.load_and_process_settings_file()
+
+    # Load all available modules.
+    utils.plugin_interface.load_modules()
 
     # Check if additional commands are given.
     utils.arg_parser.process_commands()
