@@ -1,7 +1,18 @@
 # CHANGELOG
 
 
+## v0.4.3 (2024-10-09)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`297fa0d`](https://github.com/core4x/collectu-core/commit/297fa0d9f227053cf306d7d258b0b47434e2a605))
+
+
 ## v0.4.2 (2024-10-09)
+
+### Fixes
+
+* fix: Fixed check if module already exists. ([`81624f8`](https://github.com/core4x/collectu-core/commit/81624f8a75c356676f68201a94c03b24e484f7d4))
 
 ### Unknown
 
