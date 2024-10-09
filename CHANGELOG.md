@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.4.1 (2024-10-09)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`173caf4`](https://github.com/core4x/collectu-core/commit/173caf4190570278b4e9f59a71b74bbf31187f7a))
+
+
 ## v0.4.0 (2024-10-09)
 
 ### Features
@@ -10,6 +17,8 @@
 * feat: Added custom_module_folder variable. ([`46a4924`](https://github.com/core4x/collectu-core/commit/46a492415812fd63fa3dc9cac3b31e92fba370ac))
 
 ### Fixes
+
+* fix: Removed unnecessary files. ([`c7aae26`](https://github.com/core4x/collectu-core/commit/c7aae26cce96a76653eda5c795910b29c838f247))
 
 * fix: If all modules shall be sent, leave the list empty and not None. ([`03a611c`](https://github.com/core4x/collectu-core/commit/03a611cab9c904bcef60bac7241506cc6e5eef4e))
 
