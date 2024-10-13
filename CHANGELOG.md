@@ -1,7 +1,26 @@
 # CHANGELOG
 
 
+## v0.5.0 (2024-10-13)
+
+### Documentation
+
+* docs: Extended nested modules list. ([`b6e2abc`](https://github.com/core4x/collectu-core/commit/b6e2abcd2e967d10888b7bd42f0f2a428f543866))
+
+### Features
+
+* feat: Added shell scripts for linux. ([`49b0df2`](https://github.com/core4x/collectu-core/commit/49b0df27af4468490703322e9f1fc9df9593c681))
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`359ebdc`](https://github.com/core4x/collectu-core/commit/359ebdced3ff54e7a386a0b1ce7b4fb9d2ac6a2a))
+
+
 ## v0.4.4 (2024-10-09)
+
+### Documentation
+
+* docs: Improved log message. ([`0f14184`](https://github.com/core4x/collectu-core/commit/0f14184d78f819d15d834feee2c8dea9491867d7))
 
 ### Unknown
 
