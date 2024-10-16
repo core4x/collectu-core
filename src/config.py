@@ -1,7 +1,7 @@
 """
 The config file holds all global constants.
 """
-from typing import Any, Optional
+from typing import Optional
 
 APP_NAME: str = "Collectu"
 """The application name."""
@@ -48,22 +48,22 @@ REPORTER_TIMEOUT: int = 9
 REQUEST_INTERVAL: int = 3
 """The interval in seconds for requesting todos from the mothership."""
 
-USAGE_STATISTICS_RECEIVER: str = "http://api.collectu.de/api/v1/statistic"
+USAGE_STATISTICS_RECEIVER: str = "https://api.collectu.de/api/v1/statistic"
 """The receiver address where the usage statistic is send to. Used in utils.usage_statistics."""
 
-HUB_MODULES_ADDRESS: str = "http://api.collectu.de/api/v1/module"
+HUB_MODULES_ADDRESS: str = "https://api.collectu.de/api/v1/module"
 """The endpoint of the api for registering modules."""
 
-HUB_CONFIGURATIONS_ADDRESS: str = "http://api.collectu.de/api/v1/configuration"
+HUB_CONFIGURATIONS_ADDRESS: str = "https://api.collectu.de/api/v1/configuration"
 """The endpoint of the api for registering configurations."""
 
-HUB_APP_ADDRESS: str = "http://api.collectu.de/api/v1/app"
+HUB_APP_ADDRESS: str = "https://api.collectu.de/api/v1/app"
 """The endpoint of the api for reporting app data. Used in utils.mothership_interface."""
 
-HUB_TASK_ADDRESS: str = "http://api.collectu.de/api/v1/task/app_id"
+HUB_TASK_ADDRESS: str = "https://api.collectu.de/api/v1/task/app_id"
 """The endpoint of the api for requesting tasks. Used in utils.mothership_interface."""
 
-HUB_TEST_TOKEN_ADDRESS: str = "http://api.collectu.de/api/v1/login/test-token"
+HUB_TEST_TOKEN_ADDRESS: str = "https://api.collectu.de/api/v1/login/test-token"
 """The endpoint of the api for testing the api access token."""
 
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10

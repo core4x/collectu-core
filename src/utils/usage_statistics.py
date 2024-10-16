@@ -39,7 +39,6 @@ class Statistics:
         while data_layer.running:
             try:
                 response = self.session.post(url=config.USAGE_STATISTICS_RECEIVER,
-                                             # verify=False,  # Disable SSL verification.
                                              data=json.dumps({
                                                  "version": data_layer.version,
                                                  "app_id": os.environ.get("APP_ID"),

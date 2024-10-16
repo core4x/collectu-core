@@ -1,6 +1,6 @@
 """
 The mothership functionality provides an interface to other apps,
-which allow a to check the current status or remote control of this app.
+which allow to check the current status or remote control of this app.
 """
 import os
 from typing import List, Dict, Any
@@ -20,12 +20,7 @@ import utils.plugin_interface
 
 # Third party imports.
 import requests
-# from urllib3.exceptions import InsecureRequestWarning
 import tinydb
-
-# Suppress the insecure request (SSL) without verification (verify=False).
-# Caution: The warning message is disabled system-wide.
-# requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
@@ -218,7 +213,6 @@ def _report_hub():
                 json_data["app_id"] = os.environ.get("APP_ID")
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
                                         timeout=(5, 5),
-                                        # verify=False,  # Disable SSL verification.
                                         json=json.loads(json.dumps(json_data, default=str)))
                 response.raise_for_status()
             except Exception as e:
@@ -295,9 +289,7 @@ def _request_hub_tasks():
         if logged_in:
             try:
                 response = session.get(url=f'{config.HUB_TASK_ADDRESS}/{os.environ.get("APP_ID")}',
-                                       timeout=(5, 5),
-                                       # verify=False  # Disable SSL verification.
-                                       )
+                                       timeout=(5, 5))
                 response.raise_for_status()
                 json_response = response.json()
 
@@ -370,7 +362,6 @@ def _report(session: requests.Session, mothership: str):
         try:
             response = session.post(url=f"{mothership}/api/v1/mothership/report/{os.environ.get('APP_ID')}",
                                     timeout=(5, 5),
-                                    # verify=False,  # Disable SSL verification.
                                     json=json.dumps(_get_report_data(), default=str))
             response.raise_for_status()
         except Exception as e:
@@ -415,7 +406,6 @@ def _request_todos(session: requests.Session, mothership):
         try:
             response = session.get(url=f"{mothership}/api/v1/mothership/todo/{os.environ.get('APP_ID')}",
                                    timeout=(5, 5),
-                                   # verify=False,  # Disable SSL verification.
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
 
             if response.status_code != 404:
