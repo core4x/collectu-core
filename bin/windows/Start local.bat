@@ -1,5 +1,5 @@
 @echo off
-call cd .. && ^
+call cd .. && cd .. && ^
 call cd src && ^
 :loop
 echo App is starting... && ^

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd .. || { echo "Failed to change directory."; exit 1; }
+cd ../.. || { echo "Failed to change directory."; exit 1; }
 
 echo "Creating virtual environment 'venv'."
 python3 -m venv venv || { echo "Failed to create virtual environment."; exit 1; }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd .. || { echo "Failed to change directory."; exit 1; }
+cd ../.. || { echo "Failed to change directory."; exit 1; }
 
 cd src || { echo "Failed to change to 'src' directory."; exit 1; }
 
