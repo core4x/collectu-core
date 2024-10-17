@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.6.1 (2024-10-17)
+
+### Fixes
+
+* fix: Adjusted directories since we moved the files into subfolders. ([`b52985e`](https://github.com/core4x/collectu-core/commit/b52985e33273aff3d41b47826de4cf634f8da5fd))
+
+
 ## v0.6.0 (2024-10-16)
 
 ### Documentation
