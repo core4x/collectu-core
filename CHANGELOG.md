@@ -1,7 +1,18 @@
 # CHANGELOG
 
 
+## v0.6.4 (2024-10-18)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`d84e7db`](https://github.com/core4x/collectu-core/commit/d84e7db94f20274b6b95b460b6f1a21a81a808d5))
+
+
 ## v0.6.3 (2024-10-18)
+
+### Bug Fixes
+
+* fix: Changed endpoint from get_public_by_module_name to get_by_module_name. ([`9abf3df`](https://github.com/core4x/collectu-core/commit/9abf3df1b2ec35998b41954f77026b497d65efe8))
 
 ### Unknown
 
