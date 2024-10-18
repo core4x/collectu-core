@@ -146,8 +146,11 @@ def update_app_with_git() -> str:
         check_for_updates_with_git()
         repo = git.Repo("..")
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
-            logger.info("Updating app and submodules...")
-            repo.git.submodule("update", "--init", "--recursive")
+            logger.info("Updating app and interface submodule...")
+            try:
+                repo.git.submodule("update", "--init", "--recursive")
+            except Exception as e:
+                logger.error("Could not update interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
             repo.remotes.origin.pull()
             # The following is not working...
             # repo.remotes.origin.pull(recurse_submodules=True)
