@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.6.1 (2024-10-17)
+
+### Fixes
+
+* fix: Adjusted directories since we moved the files into subfolders. ([`b52985e`](https://github.com/core4x/collectu-core/commit/b52985e33273aff3d41b47826de4cf634f8da5fd))
+
+
+## v0.6.0 (2024-10-16)
+
+### Documentation
+
+* docs: Added todo. ([`ffd2b92`](https://github.com/core4x/collectu-core/commit/ffd2b92c72eb44c2dd2a31e968531397d7c7af73))
+
+### Features
+
+* feat: Added ssl support for hub communication. ([`007f78c`](https://github.com/core4x/collectu-core/commit/007f78cb0ed4164f6d11d39266b2b19ebf189a62))
+
+
 ## v0.5.0 (2024-10-13)
 
 ### Documentation

@@ -1,5 +1,5 @@
 @echo off
-call cd .. && ^
+call cd .. && cd .. && ^
 if NOT ["%errorlevel%"]==["0"] pause
 echo Create virtual environment 'venv'. && ^
 if NOT ["%errorlevel%"]==["0"] pause
