@@ -179,7 +179,7 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
         return False
 
     try:
-        response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
+        response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_by_module_name",
                                params={"module_name": module_name, "version": version},
                                allow_redirects=True, timeout=(5, 5))
         response.raise_for_status()
@@ -313,7 +313,7 @@ def send_modules(module_names: List[str]):
                 data = {"code": open(found_path, encoding="utf-8").read(),
                         "official": False}
                 # Check if the module already exists.
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_public_by_module_name",
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_by_module_name",
                                  params={"module_name": module_name},
                                  allow_redirects=True, timeout=(5, 5))
 
