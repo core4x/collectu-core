@@ -92,11 +92,12 @@ def check_git_access_token() -> bool:
         return valid
 
 
-def check_for_updates_with_git() -> int | None:
+def check_for_updates_with_git(with_submodule: bool = True) -> int | None:
     """
     Check for new commits in the online repository.
     If a git access token is provided and the interface module is empty, it is initially pulled.
 
+    :param with_submodule: Check for an empty submodule (interface) folder and clone it if necessary.
     :returns: If there are possible updates (commits) the number of open commits is returned.
     If the app is up-to-date, 0 is returned.
     Otherwise, if something went wrong, None is returned.
@@ -120,7 +121,7 @@ def check_for_updates_with_git() -> int | None:
         # Get the commit count of the current branch.
         commit_count = len(list(repo.iter_commits(f"{repo.active_branch.name}..origin/{repo.active_branch.name}")))
 
-        if check_git_access_token() and folder_exists_and_empty("./interface"):
+        if check_git_access_token() and folder_exists_and_empty("./interface") and with_submodule:
             try:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
@@ -158,7 +159,7 @@ def update_app_with_git() -> str:
             logger.info("Updating app...")
             repo.remotes.origin.pull()
         # Update the version.
-        check_for_updates_with_git()
+        check_for_updates_with_git(with_submodule=False)
         message = "Successfully finished update. Please restart the app."
         logger.info(message)
         return message
