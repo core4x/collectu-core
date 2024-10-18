@@ -1,7 +1,18 @@
 # CHANGELOG
 
 
+## v0.6.3 (2024-10-18)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`f0efd7e`](https://github.com/core4x/collectu-core/commit/f0efd7e04a47348adfa3b0197febf195410d2e57))
+
+
 ## v0.6.2 (2024-10-18)
+
+### Bug Fixes
+
+* fix: Prevent updater from tyring to clone interface submodule if not wanted. ([`dffe900`](https://github.com/core4x/collectu-core/commit/dffe900e324467538f35e0a0fc3fa77b92e22a52))
 
 ### Unknown
 
