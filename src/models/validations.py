@@ -107,6 +107,10 @@ def validate_module(module):
                 if can_be_none and value is None:
                     pass
                 elif type(value) not in known_types:
+                    if value is None and field.metadata.get('required', False):
+                        # If value is None, but it is required, it is an error.
+                        errors.append(f'Missing value for field {field.name} '
+                                      f'({field.metadata.get("description", "no description")}).')
                     # Try to convert using the first known data type.
                     # This is helpful for e.g.: Optional[float] if we received an integer.
                     try:
