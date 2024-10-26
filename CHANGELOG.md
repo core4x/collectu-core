@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.6.5 (2024-10-26)
+
+### Bug Fixes
+
+* fix: If None is given for a mandatory field of type union, we raise an error instead of converting. ([`2327b8e`](https://github.com/core4x/collectu-core/commit/2327b8eddff160db70849371cc1096c5608e2d8e))
+
+
 ## v0.6.4 (2024-10-18)
 
 ### Unknown
