@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.7.0 (2024-10-29)
+
+### Features
+
+* feat: Check for updates after loading configuration. ([`4bdaa6e`](https://github.com/core4x/collectu-core/commit/4bdaa6e627dcb19a234e1e731ce814bd51662905))
+
+
 ## v0.6.5 (2024-10-26)
 
 ### Bug Fixes
