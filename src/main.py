@@ -105,14 +105,14 @@ if __name__ == "__main__":
     if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
         utils.usage_statistics.Statistics()
 
+    # Initialize the configuration.
+    configuration.Configuration()
+
     commits = utils.updater.check_for_updates_with_git()
     if commits:
         logger.warning(f"{commits} update(s) can be applied.")
     elif commits == 0:
         logger.info(f"{config.APP_NAME} is up to date.")
-
-    # Initialize the configuration.
-    configuration.Configuration()
 
     # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
     timer: int = 60
