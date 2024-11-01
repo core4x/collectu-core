@@ -5,6 +5,9 @@ The derived child class has to be named 'ProcessorModule'.
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+import threading
+import queue
+import time
 
 # Internal imports.
 import config
@@ -39,10 +42,64 @@ class AbstractProcessorModule(AbstractModule):
         """
         pass
 
-    def __init__(self, configuration: Configuration):
+    def __init__(self, configuration: Configuration, thread_safe: bool = False):
         super().__init__(configuration=configuration)
         self.current_input_data: Optional[models.Data] = None
         """The currently received data object. Used for replacing dynamic variables with local data."""
+        self.queue: queue.Queue = queue.Queue()
+        """A queue containing all the received data to be processed."""
+        self._thread_safe = thread_safe
+        """If enabled, _run is only called by one thread like for output modules. 
+        This has to be set before the execution of the start method."""
+
+    def start(self) -> bool:
+        """
+        Method for starting the module. Is called by the main thread or the retry class.
+
+        :returns: True if successfully started, otherwise false.
+        """
+        try:
+            if self._thread_safe:
+                # Start the queue processing for storing incoming data.
+                threading.Thread(target=self._process_queue,
+                                 daemon=False,
+                                 name="Queue_Worker_{0}".format(self.configuration.id)).start()
+            return True
+        except Exception as e:
+            self.logger.critical("Something went wrong while trying to start module: {0}".format(str(e)),
+                                 exc_info=config.EXC_INFO)
+            return False
+
+    def _process_queue(self):
+        """
+        Call this method during start-up in a separate thread.
+        """
+        while self.active:
+            try:
+                data = self.queue.get(block=True, timeout=1)  # This blocks until timeout.
+                self.queue.task_done()
+            except queue.Empty:
+                time.sleep(0)
+                continue
+            # Set the last received data for dynamic variables.
+            self.current_input_data = data
+            # We do not thread, since the output modules may not be thread safe.
+            try:
+                data = self._run(data=data)
+                if data.fields and data.measurement:
+                    # During the stopping procedure, it could happen, that the entry does no longer exist.
+                    # We catch it here.
+                    if self.configuration.id not in data_layer.module_data:
+                        self.logger.error("Could not find module '{0}' in data layer."
+                                          .format(str(self.configuration.id)))
+                    else:
+                        # Store the data in the latest data entry.
+                        data_layer.module_data[self.configuration.id].latest_data = data
+                    # Call the subsequent links.
+                    self._call_links(data)
+            except Exception as e:
+                self.logger.error("Something unexpected went wrong while trying to process data: {0}"
+                                  .format(str(e)), exc_info=config.EXC_INFO)
 
     def run(self, data: models.Data):
         """
@@ -68,21 +125,30 @@ class AbstractProcessorModule(AbstractModule):
                     messages = utils.data_validation.format_message(field_validation_messages)
                     raise utils.data_validation.ValidationError(
                         "Invalid tag input data: {0}".format(" ".join(messages)))
-                # Execute the actual module.
-                data = self._run(data)
+
                 if data.fields and data.measurement:
-                    # During the stopping procedure, it could happen, that the entry does no longer exist.
-                    # We catch it here.
-                    if self.configuration.id not in data_layer.module_data:
-                        self.logger.error("Could not find module '{0}' in data layer."
-                                          .format(str(self.configuration.id)))
+                    if self._thread_safe:
+                        if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
+                            self.logger.warning("You are probably trying to store more data then we can process. "
+                                                "We have currently '{0}' elements in our queue to store."
+                                                .format(str(self.queue.qsize())))
+                        if self.queue.qsize() < config.STOP_LIMIT:
+                            # Queue the data to be stored.
+                            self.queue.put(data)
                     else:
-                        # Store the data in the latest data entry.
-                        data_layer.module_data[self.configuration.id].latest_data = data
-                    # Call the subsequent links.
-                    self._call_links(data)
-                # Reset the current data object.
-                self.current_input_data = None
+                        # Execute the actual module.
+                        data = self._run(data)
+                        if data.fields and data.measurement:
+                            # During the stopping procedure, it could happen, that the entry does no longer exist.
+                            # We catch it here.
+                            if self.configuration.id not in data_layer.module_data:
+                                self.logger.error("Could not find module '{0}' in data layer."
+                                                  .format(str(self.configuration.id)))
+                            else:
+                                # Store the data in the latest data entry.
+                                data_layer.module_data[self.configuration.id].latest_data = data
+                            # Call the subsequent links.
+                            self._call_links(data)
         except Exception as e:
             self.logger.error("Something went wrong while executing processor module: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
@@ -102,7 +168,7 @@ class AbstractProcessorModule(AbstractModule):
     def get_test_data(cls) -> list[dict]:
         """
         Provides the test data for processor modules.
-        A processor modules does not has to provide test data.
+        A processor module does not have to provide test data.
         If test data is provided, the _run method is executed without calling other methods like start or stop.
         The validation functionality (field and tag requirements) is skipped during the test phase.
 
