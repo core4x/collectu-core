@@ -85,8 +85,8 @@ class AbstractOutputModule(AbstractModule):
                                       "We have currently '{0}' elements in our queue to store."
                                       .format(str(self.queue.qsize())))
 
-                # Store the data in the latest data entry if fields are given.
-                if data.fields:
+                # Store the data in the latest data entry if fields and a measurement are given.
+                if data.fields and data.measurement:
                     # During the stopping procedure, it could happen, that the entry does no longer exist.
                     # We catch it here.
                     if self.configuration.id not in data_layer.module_data:
@@ -95,8 +95,8 @@ class AbstractOutputModule(AbstractModule):
                     else:
                         data_layer.module_data[self.configuration.id].latest_data = data
 
-                # We store data only, if we are not in test mode and fields are given.
-                if not bool(int(os.environ.get('TEST', '0'))) and data.fields:
+                # We store data only, if we are not in test mode, fields and a measurement are given.
+                if not bool(int(os.environ.get('TEST', '0'))) and data.fields and data.measurement:
                     if self.queue.qsize() < config.STOP_LIMIT:
                         # Queue the data to be stored.
                         self.queue.put(data)
