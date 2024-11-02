@@ -56,9 +56,18 @@ class RetryStart:
         while self.running and data_layer.running:
             logger.info("Trying to start '{0}' in the {1} attempt..."
                         .format(self.module.module_name, attempt_counter))
-            if self.module.instance.start():
+            try:
+                self.module.instance.start()
+            except Exception as e:
+                logger.error("Could not start module '{0}' with the id '{1}': {2}"
+                             .format(self.module.module_name, self.module.configuration.id, str(e)),
+                             exc_info=config.EXC_INFO)
+            else:
                 # Start was successful.
+                logger.info("Successfully started '{0}' with the id '{1}'."
+                            .format(self.module.module_name, self.module.configuration.id))
                 self.running = False
+                data_layer.configuration.retries.remove(self)
 
             if self.max_attempts is not None:
                 if attempt_counter >= self.max_attempts:

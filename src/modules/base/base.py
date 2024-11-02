@@ -121,22 +121,13 @@ class AbstractModule(ABC):
         """
         return {}
 
-    def start(self) -> bool:
+    def start(self):
         """
         Method for starting the module. Is called by the main thread or the retry class.
         InputModules and OutputModules normally connect to a data source. VariableModules start a subscription.
         The start method is only called if the module is active (self.configuration.active).
-        TagModules and ProcessorModules do (normally) not need to implement a start routine.
-
-        :returns: True if successfully started, otherwise false.
         """
-        try:
-            ...
-            return True
-        except Exception as e:
-            self.logger.critical("Something went wrong while trying to start module: {0}".format(str(e)),
-                                 exc_info=config.EXC_INFO)
-            return False
+        ...
 
     def stop(self):
         """

@@ -60,6 +60,7 @@ class TestProcessors(unittest.TestCase):
             test_data = module.get_test_data()
             for index, data in enumerate(test_data):
                 processor_instance = module(configuration=data.get("module_config"))
+                processor_instance.start()
                 processed_data = processor_instance._run(data.get("input_data"))
                 self.assertEqual(getattr(processed_data, "fields"),
                                  getattr(data.get("output_data"), "fields"),
@@ -70,6 +71,7 @@ class TestProcessors(unittest.TestCase):
                 self.assertEqual(getattr(processed_data, "measurement"),
                                  getattr(data.get("output_data"), "measurement"),
                                  f"Test number '{index}' of '{modname}' failed.")
+                processor_instance.stop()
 
 
 if __name__ == '__main__':

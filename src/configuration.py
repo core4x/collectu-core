@@ -679,7 +679,13 @@ class Configuration:
                     if getattr(data_layer.module_data[module_id].configuration, "is_buffer", False):
                         data_layer.buffer_instance = None
                     data_layer.module_data[module_id].instance.active = False
-                    data_layer.module_data[module_id].instance.stop()
+                    try:
+                        data_layer.module_data[module_id].instance.stop()
+                    except Exception as e:
+                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                     .format(data_layer.module_data[module_id].module_name,
+                                             data_layer.module_data[module_id].configuration.get("id", "-"),
+                                             str(e)), exc_info=config.EXC_INFO)
                     data_layer.module_data.pop(module_id)
                     for dashboard_module in data_layer.dashboard_modules:
                         if dashboard_module.configuration.id == module_id:
@@ -728,13 +734,14 @@ class Configuration:
                             configuration=buffer_config,
                             module_name=buffer_config.module_name)
                         if buffer_config.active:
-                            if not data_layer.buffer_instance.start():
+                            try:
+                                data_layer.buffer_instance.start()
+                            except Exception as e:
                                 success = False
                                 data_layer.buffer_instance = None
-                                logger.critical("Could not start buffer module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(buffer_config.module_name, buffer_config.id))
+                                logger.error("Could not start buffer module '{0}' with the id '{1}': {2}"
+                                             .format(buffer_config.module_name, buffer_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[buffer_config.id]))
@@ -777,12 +784,13 @@ class Configuration:
                             configuration=output_config,
                             module_name=output_config.module_name)
                         if output_config.active:
-                            if not output_instance.start():
+                            try:
+                                output_instance.start()
+                            except Exception as e:
                                 success.append(False)
-                                logger.critical("Could not start output module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(output_config.module_name, output_config.id))
+                                logger.error("Could not start output module '{0}' with the id '{1}': {2}"
+                                             .format(output_config.module_name, output_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[output_config.id]))
@@ -824,12 +832,13 @@ class Configuration:
                             configuration=processor_config,
                             module_name=processor_config.module_name)
                         if processor_config.active:
-                            if not processor_instance.start():
+                            try:
+                                processor_instance.start()
+                            except Exception as e:
                                 success.append(False)
-                                logger.critical("Could not start processor module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(processor_config.module_name, processor_config.id))
+                                logger.error("Could not start processor module '{0}' with the id '{1}': {2}"
+                                             .format(processor_config.module_name, processor_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[processor_config.id]))
@@ -873,12 +882,13 @@ class Configuration:
                             configuration=input_config,
                             module_name=input_config.module_name)
                         if input_config.active:
-                            if not input_instance.start():
+                            try:
+                                input_instance.start()
+                            except Exception as e:
                                 success.append(False)
-                                logger.critical("Could not start input module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(input_config.module_name, input_config.id))
+                                logger.error("Could not start input module '{0}' with the id '{1}': {2}"
+                                             .format(input_config.module_name, input_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[input_config.id]))
@@ -927,12 +937,13 @@ class Configuration:
                             configuration=tag_config,
                             module_name=tag_config.module_name)
                         if tag_config.active:
-                            if not tag_instance.start():
+                            try:
+                                tag_instance.start()
+                            except Exception as e:
                                 success.append(False)
-                                logger.critical("Could not start tag module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(tag_config.module_name, tag_config.id))
+                                logger.error("Could not start tag module '{0}' with the id '{1}' {2}"
+                                             .format(tag_config.module_name, tag_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[tag_config.id]))
@@ -982,12 +993,13 @@ class Configuration:
                             configuration=variable_config,
                             module_name=variable_config.module_name)
                         if variable_config.active:
-                            if not variable_instance.start():
+                            try:
+                                variable_instance.start()
+                            except Exception as e:
                                 success.append(False)
-                                logger.critical("Could not start variable module '{0}' with the id '{1}'. "
-                                                "Initial connection was not successful. "
-                                                "Please check the configuration."
-                                                .format(variable_config.module_name, variable_config.id))
+                                logger.error("Could not start variable module '{0}' with the id '{1}': {2}"
+                                             .format(variable_config.module_name, variable_config.id, str(e)),
+                                             exc_info=config.EXC_INFO)
                                 if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
                                     self.retries.append(
                                         utils.retrying.RetryStart(module=data_layer.module_data[variable_config.id]))
