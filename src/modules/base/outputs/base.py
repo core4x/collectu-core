@@ -47,29 +47,8 @@ class AbstractOutputModule(AbstractModule):
         """A queue containing all the received data to be stored."""
         self.current_input_data: Optional[models.Data] = None
         """The currently received data object. Used for replacing dynamic variables with local data."""
-
-    def start(self) -> bool:
-        """
-        Method for starting the module. Is called by the main thread or the retry class.
-
-        :returns: True if successfully started, otherwise false.
-        """
-        try:
-            # Start the queue processing for storing incoming data.
-            threading.Thread(target=self._process_queue,
-                             daemon=False,
-                             name="Queue_Worker_{0}".format(self.configuration.id)).start()
-            return True
-        except Exception as e:
-            self.logger.critical("Something went wrong while trying to start module: {0}".format(str(e)),
-                                 exc_info=config.EXC_INFO)
-            return False
-
-    def stop(self):
-        """
-        Method for stopping the output module. Is called by the main thread.
-        """
-        self.active = False
+        self._first_execution: bool = True
+        """If the module was called by its first link, this is set to false."""
 
     def run(self, data: models.Data):
         """
@@ -80,6 +59,12 @@ class AbstractOutputModule(AbstractModule):
         """
         try:
             if self.active:
+                if self._first_execution:
+                    self._first_execution = False
+                    # Start the queue processing for storing incoming data.
+                    threading.Thread(target=self._process_queue,
+                                     daemon=False,
+                                     name="Queue_Worker_{0}".format(self.configuration.id)).start()
                 if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
                     self.logger.error("You are probably trying to store more data then we can process. "
                                       "We have currently '{0}' elements in our queue to store."

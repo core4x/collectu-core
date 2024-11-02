@@ -130,7 +130,13 @@ class AbstractModule(ABC):
 
         :returns: True if successfully started, otherwise false.
         """
-        return True
+        try:
+            ...
+            return True
+        except Exception as e:
+            self.logger.critical("Something went wrong while trying to start module: {0}".format(str(e)),
+                                 exc_info=config.EXC_INFO)
+            return False
 
     def stop(self):
         """

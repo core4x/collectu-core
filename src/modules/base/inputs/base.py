@@ -37,23 +37,6 @@ class AbstractInputModule(AbstractModule):
     def __init__(self, configuration: Configuration):
         super().__init__(configuration=configuration)
 
-    @abstractmethod
-    def start(self) -> bool:
-        """
-        Method for starting the module. Is called by the main thread or the retry class.
-        InputModules normally connect to the data source.
-
-        :returns: True if successfully started, otherwise false.
-        """
-        success = False
-        try:
-            ...
-        except Exception as e:
-            self.logger.critical("Something went wrong while trying to start the module. {0}".format(str(e)),
-                                 exc_info=config.EXC_INFO)
-        finally:
-            return success
-
 
 class AbstractVariableModule(AbstractModule):
     """
@@ -81,23 +64,6 @@ class AbstractVariableModule(AbstractModule):
         super().__init__(configuration=configuration)
         self.input_module_instance = input_module_instance
         """The input module instance."""
-
-    @abstractmethod
-    def start(self) -> bool:
-        """
-        Method for starting the module. Is called by the main thread.
-        VariableModules normally start a subscription.
-
-        :returns: True if successfully started, otherwise false.
-        """
-        success = False
-        try:
-            ...
-        except Exception as e:
-            self.logger.critical("Something went wrong while trying to start the module. {0}".format(str(e)),
-                                 exc_info=config.EXC_INFO)
-        finally:
-            return success
 
 
 class AbstractTagModule(AbstractModule):

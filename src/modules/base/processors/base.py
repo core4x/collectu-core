@@ -48,27 +48,11 @@ class AbstractProcessorModule(AbstractModule):
         """The currently received data object. Used for replacing dynamic variables with local data."""
         self.queue: queue.Queue = queue.Queue()
         """A queue containing all the received data to be processed."""
-        self._thread_safe = thread_safe
+        self._thread_safe: bool = thread_safe
         """If enabled, _run is only called by one thread like for output modules. 
         This has to be set before the execution of the start method."""
-
-    def start(self) -> bool:
-        """
-        Method for starting the module. Is called by the main thread or the retry class.
-
-        :returns: True if successfully started, otherwise false.
-        """
-        try:
-            if self._thread_safe:
-                # Start the queue processing for storing incoming data.
-                threading.Thread(target=self._process_queue,
-                                 daemon=False,
-                                 name="Queue_Worker_{0}".format(self.configuration.id)).start()
-            return True
-        except Exception as e:
-            self.logger.critical("Something went wrong while trying to start module: {0}".format(str(e)),
-                                 exc_info=config.EXC_INFO)
-            return False
+        self._first_execution: bool = True
+        """If the module was called by its first link, this is set to false."""
 
     def _process_queue(self):
         """
@@ -128,6 +112,12 @@ class AbstractProcessorModule(AbstractModule):
 
                 if data.fields and data.measurement:
                     if self._thread_safe:
+                        if self._first_execution:
+                            self._first_execution = False
+                            # Start the queue processing for storing incoming data.
+                            threading.Thread(target=self._process_queue,
+                                             daemon=False,
+                                             name="Queue_Worker_{0}".format(self.configuration.id)).start()
                         if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
                             self.logger.warning("You are probably trying to store more data then we can process. "
                                                 "We have currently '{0}' elements in our queue to store."
@@ -162,6 +152,8 @@ class AbstractProcessorModule(AbstractModule):
 
         :returns: The data object after processing.
         """
+        # Implement the custom processor module logic here.
+        ...
         return data
 
     @classmethod
