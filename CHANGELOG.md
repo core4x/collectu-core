@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v0.8.0 (2024-11-01)
+
+### Features
+
+* feat: Added check if measurement exists before processing data object. ([`4d08b39`](https://github.com/core4x/collectu-core/commit/4d08b39acbf658f4052cd58bb9f08fba4a0f8a12))
+
+* feat: Added thread-safe functionality. ([`421e7a1`](https://github.com/core4x/collectu-core/commit/421e7a1df363226f3e2cbf08671229c74732624d))
+
+
 ## v0.7.0 (2024-10-29)
 
 ### Features
