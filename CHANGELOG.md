@@ -1,7 +1,20 @@
 # CHANGELOG
 
 
+## v0.10.0 (2024-11-02)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`f8a3877`](https://github.com/core4x/collectu-core/commit/f8a38779a054e7cd78109906f2e33b12c5d92631))
+
+
 ## v0.9.0 (2024-11-02)
+
+### Features
+
+* feat: Overworked start method of modules. ([`6466d4c`](https://github.com/core4x/collectu-core/commit/6466d4cd69f31d94fbb51bcd9d0c21312bf0e01b))
+
+* feat: Overworked start method of modules. ([`30ee410`](https://github.com/core4x/collectu-core/commit/30ee410abd64afd638af406b28f2c26c7b0c250b))
 
 ### Unknown
 
