@@ -1,9 +1,18 @@
 # CHANGELOG
 
 
+## v0.9.0 (2024-11-02)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`2863463`](https://github.com/core4x/collectu-core/commit/2863463bf03865e483f1e3fd034eab897d899d48))
+
+
 ## v0.8.0 (2024-11-01)
 
 ### Features
+
+* feat: Improved base methods. ([`364e0a2`](https://github.com/core4x/collectu-core/commit/364e0a25939935366af13e141a68e13a1fb07ce5))
 
 * feat: Added check if measurement exists before processing data object. ([`4d08b39`](https://github.com/core4x/collectu-core/commit/4d08b39acbf658f4052cd58bb9f08fba4a0f8a12))
 
