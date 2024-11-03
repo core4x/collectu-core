@@ -1,7 +1,18 @@
 # CHANGELOG
 
 
+## v0.11.0 (2024-11-03)
+
+### Unknown
+
+* Merge remote-tracking branch 'origin/main' ([`2fad3c1`](https://github.com/core4x/collectu-core/commit/2fad3c10a8bcba880e403517e1883bb8d1c26063))
+
+
 ## v0.10.0 (2024-11-02)
+
+### Features
+
+* feat: Removed send_data decorator. Use _call_links instead. ([`8fbb9d3`](https://github.com/core4x/collectu-core/commit/8fbb9d3ffdc1dc36314fc3e919aaeb0fc42ad44c))
 
 ### Unknown
 
