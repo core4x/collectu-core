@@ -18,26 +18,6 @@ import models
 import utils.plugin_interface
 
 
-def send_data(func):
-    """
-    A decorator for variable modules, which takes the return data, stores it in the module_data,
-    and calls all links of this module.
-    """
-
-    @functools.wraps(func)
-    def _decorator(self, data: models.Data):
-        data = func(self, data)
-        # Only forward if the data object is not empty.
-        if data.fields and data.measurement:
-            # Store the data in the latest data entry.
-            data_layer.module_data[self.configuration.id].latest_data = data
-            # Call the subsequent links.
-            self._call_links(data)
-        return data
-
-    return _decorator
-
-
 class DynamicVariableException(Exception):
     """
     Base class for dynamic variable errors.
@@ -143,20 +123,29 @@ class AbstractModule(ABC):
 
         :param data: The data object.
         """
-        for module_id in getattr(self.configuration, "links", []):
-            try:
-                if data_layer.module_data[module_id].instance.active:
-                    Thread(target=data_layer.module_data[module_id].instance.run,
-                           # Make a deepcopy before sending to the next module.
-                           # Otherwise, the original object is manipulated by the module.
-                           args=(copy.deepcopy(data),),
-                           daemon=False,
-                           name="Link_{0}_to_{1}".format(self.configuration.id, module_id)).start()
-            except KeyError as e:
-                self.logger.error("Could not find linked module '{0}' in the module data.".format(module_id))
-            except Exception as e:
-                self.logger.error("Could not execute linked module '{0}': {1}".format(module_id, str(e)),
-                                  exc_info=config.EXC_INFO)
+        if data.fields and data.measurement:
+            # During the stopping procedure, it could happen, that the entry does no longer exist.
+            # We catch it here.
+            if self.configuration.id not in data_layer.module_data:
+                self.logger.error("Could not find module '{0}' in data layer."
+                                  .format(str(self.configuration.id)))
+            else:
+                # Store the data in the latest data entry.
+                data_layer.module_data[self.configuration.id].latest_data = data
+            for module_id in getattr(self.configuration, "links", []):
+                try:
+                    if data_layer.module_data[module_id].instance.active:
+                        Thread(target=data_layer.module_data[module_id].instance.run,
+                               # Make a deepcopy before sending to the next module.
+                               # Otherwise, the original object is manipulated by the module.
+                               args=(copy.deepcopy(data),),
+                               daemon=False,
+                               name="Link_{0}_to_{1}".format(self.configuration.id, module_id)).start()
+                except KeyError as e:
+                    self.logger.error("Could not find linked module '{0}' in the module data.".format(module_id))
+                except Exception as e:
+                    self.logger.error("Could not execute linked module '{0}': {1}".format(module_id, str(e)),
+                                      exc_info=config.EXC_INFO)
 
     def _dyn(self, input_string: str, data_type: Optional[Union[list[str], str]] = None) -> Any:
         """

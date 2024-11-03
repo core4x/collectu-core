@@ -113,17 +113,8 @@ class AbstractTagModule(AbstractModule):
                     if self.configuration.is_tag:
                         data.tags[key] = value
 
-                if data.fields and data.measurement:
-                    # During the stopping procedure, it could happen, that the entry does no longer exist.
-                    # We catch it here.
-                    if self.configuration.id not in data_layer.module_data:
-                        self.logger.error("Could not find module with id '{0}' in data layer."
-                                          .format(str(self.configuration.id)))
-                    else:
-                        # Store the data in the latest data entry.
-                        data_layer.module_data[self.configuration.id].latest_data = data
-                    # Call the subsequent links.
-                    self._call_links(data)
+                # Call the subsequent links.
+                self._call_links(data)
                 # Reset the current data object.
                 self.current_input_data = None
         except Exception as e:

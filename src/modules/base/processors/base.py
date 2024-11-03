@@ -70,17 +70,8 @@ class AbstractProcessorModule(AbstractModule):
             # We do not thread, since the output modules may not be thread safe.
             try:
                 data = self._run(data=data)
-                if data.fields and data.measurement:
-                    # During the stopping procedure, it could happen, that the entry does no longer exist.
-                    # We catch it here.
-                    if self.configuration.id not in data_layer.module_data:
-                        self.logger.error("Could not find module '{0}' in data layer."
-                                          .format(str(self.configuration.id)))
-                    else:
-                        # Store the data in the latest data entry.
-                        data_layer.module_data[self.configuration.id].latest_data = data
-                    # Call the subsequent links.
-                    self._call_links(data)
+                # Call the subsequent links.
+                self._call_links(data)
             except Exception as e:
                 self.logger.error("Something unexpected went wrong while trying to process data: {0}"
                                   .format(str(e)), exc_info=config.EXC_INFO)
@@ -128,17 +119,8 @@ class AbstractProcessorModule(AbstractModule):
                     else:
                         # Execute the actual module.
                         data = self._run(data)
-                        if data.fields and data.measurement:
-                            # During the stopping procedure, it could happen, that the entry does no longer exist.
-                            # We catch it here.
-                            if self.configuration.id not in data_layer.module_data:
-                                self.logger.error("Could not find module '{0}' in data layer."
-                                                  .format(str(self.configuration.id)))
-                            else:
-                                # Store the data in the latest data entry.
-                                data_layer.module_data[self.configuration.id].latest_data = data
-                            # Call the subsequent links.
-                            self._call_links(data)
+                        # Call the subsequent links.
+                        self._call_links(data)
         except Exception as e:
             self.logger.error("Something went wrong while executing processor module: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
