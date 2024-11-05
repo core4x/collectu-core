@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.12.0 (2024-11-05)
+
+### Bug Fixes
+
+* fix: Fixed extraction of dynamic variables. ([`255a590`](https://github.com/core4x/collectu-core/commit/255a590e8a3dc33e0112ce0d3ccaa71a0533e993))
+
+### Features
+
+* feat: If no data type is defined, we use str. ([`fe6d1ca`](https://github.com/core4x/collectu-core/commit/fe6d1ca5ed73a64dc1fce939f724b955c2f51769))
+
+
 ## v0.11.0 (2024-11-03)
 
 ### Unknown
