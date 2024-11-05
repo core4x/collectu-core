@@ -177,9 +177,16 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
                     Recursively search for variables in string.
                     """
                     start = input_string_temp.find("${")
-                    end = input_string_temp.find("}")
+                    if start != -1:
+                        end = input_string_temp[start:].find("}")
+                        if end != -1:
+                            end = start + end
+                    else:
+                        # No end found.
+                        return
+
                     # Check if the markers were found in the string.
-                    if start != -1 and end != -1:
+                    if start != -1 and end != -1 and start < end:
                         result = input_string_temp[start + len("${"):end]
                     else:
                         # If there are no more markers, we leave this function.

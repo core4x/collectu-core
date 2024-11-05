@@ -193,9 +193,16 @@ class AbstractModule(ABC):
                 Recursively search for variables in string.
                 """
                 start = input_string_temp.find("${")
-                end = input_string_temp.find("}")
+                if start != -1:
+                    end = input_string_temp[start:].find("}")
+                    if end != -1:
+                        end = start + end
+                else:
+                    # No end found.
+                    return
+
                 # Check if the markers were found in the string.
-                if start != -1 and end != -1:
+                if start != -1 and end != -1 and start < end:
                     result = input_string_temp[start + len("${"):end]
                 elif start != -1 and end == -1:
                     raise DynamicVariableException("Found an incomplete marker in '{0}'.".format(input_string))
