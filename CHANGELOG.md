@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.12.2 (2024-11-06)
+
+### Bug Fixes
+
+* fix: Dump configuration object before loading. ([`468829a`](https://github.com/core4x/collectu-core/commit/468829ae1373d6b086b0a6c8f1c2cf790a0a0b95))
+
+
 ## v0.12.1 (2024-11-06)
 
 ### Bug Fixes
