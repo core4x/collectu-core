@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v0.12.1 (2024-11-06)
+
+### Bug Fixes
+
+* fix: Config comes now as json string. ([`02a9e8c`](https://github.com/core4x/collectu-core/commit/02a9e8c60fc19519d0cb32859cabc0bca41f8a51))
+
+
 ## v0.12.0 (2024-11-05)
 
 ### Bug Fixes
