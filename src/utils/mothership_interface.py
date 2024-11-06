@@ -312,14 +312,14 @@ def _request_hub_tasks():
                         utils.updater.update_app_with_git()
                     elif command == "load":
                         errors = data_layer.configuration.load_configuration_from_stream(
-                            content=json.loads(task.get("configuration")))
+                            content=json.dumps(task.get("configuration")))
                         if errors:
                             logger.error(
                                 "The following errors occurred while trying to deserialize the configuration:\n" +
                                 "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
                             continue
                     elif command == "save":
-                        success, error = data_layer.configuration.save_configuration_as_file(content=json.loads(task.get("configuration")))
+                        success, error = data_layer.configuration.save_configuration_as_file(content=json.dumps(task.get("configuration")))
                         if not success:
                             logger.error("Could not save file: {0}".format(error))
                     else:
@@ -433,7 +433,7 @@ def _request_todos(session: requests.Session, mothership):
                         utils.updater.update_app_with_git()
                     if command == "load":
                         errors = data_layer.configuration.load_configuration_from_stream(
-                            content=str(json_response.get("configuration")))
+                            content=json.dumps(json_response.get("configuration")))
                         if errors:
                             logger.error(
                                 "The following errors occurred while trying to deserialize the configuration:\n" +
@@ -441,7 +441,7 @@ def _request_todos(session: requests.Session, mothership):
                             continue
                     if command == "save":
                         data_layer.configuration.save_configuration_as_file(
-                            content=str(json_response.get("configuration")))
+                            content=json.dumps(json_response.get("configuration")))
 
         except Exception as e:
             send = False
