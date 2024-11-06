@@ -312,14 +312,16 @@ def _request_hub_tasks():
                         utils.updater.update_app_with_git()
                     elif command == "load":
                         errors = data_layer.configuration.load_configuration_from_stream(
-                            content=str(task.get("configuration")))
+                            content=json.loads(task.get("configuration")))
                         if errors:
                             logger.error(
                                 "The following errors occurred while trying to deserialize the configuration:\n" +
                                 "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
                             continue
                     elif command == "save":
-                        data_layer.configuration.save_configuration_as_file(content=str(task.get("configuration")))
+                        success, error = data_layer.configuration.save_configuration_as_file(content=json.loads(task.get("configuration")))
+                        if not success:
+                            logger.error("Could not save file: {0}".format(error))
                     else:
                         logger.error("Received task with unknown command: '{0}' from hub '{1}'."
                                      .format(command, config.HUB_APP_ADDRESS))
