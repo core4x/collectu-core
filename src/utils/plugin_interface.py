@@ -88,6 +88,22 @@ def get_plugin_requirement_status() -> list[dict]:
     return requirements
 
 
+def get_list_of_all_module_requirements() -> list[dict]:
+    """
+    Get the third party module requirements.
+
+    :returns: A list of all module requirements.
+    """
+    requirements = []
+    for module_name, module_class in data_layer.registered_modules.items():
+        requirements += module_class.third_party_requirements
+    requirements = list(set(requirements))
+    requirements = sorted(requirements, key=str.lower)
+    # for requirement in requirements:
+    #     print(f"| [{requirement}]() |  |")
+    return requirements
+
+
 def load_modules():
     """
     Load and register all available modules.
