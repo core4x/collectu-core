@@ -1,7 +1,15 @@
 # CHANGELOG
 
 
+## v0.14.1 (2024-11-19)
+
+
 ## v0.14.0 (2024-11-17)
+
+### Bug Fixes
+
+- Changed from datetime.utcnow() to datetime.now(timezone.utc) since it is better says the docs.
+  ([`c2c637b`](https://github.com/core4x/collectu-core/commit/c2c637b520bf0559811f65dbcfc4c327ad81da9c))
 
 
 ## v0.13.0 (2024-11-09)
