@@ -1,9 +1,15 @@
 # CHANGELOG
 
 
+## v0.14.0 (2024-11-17)
+
+
 ## v0.13.0 (2024-11-09)
 
 ### Features
+
+- Fixed sizes of left panel.
+  ([`6bcf3ee`](https://github.com/core4x/collectu-core/commit/6bcf3ee937d8b62b5170690f75140b352a8f9b98))
 
 - Added util function to get a list of all used third party requirements by modules.
   ([`807163d`](https://github.com/core4x/collectu-core/commit/807163d454de83e2ae91a320835850804919b090))
