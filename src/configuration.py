@@ -1,7 +1,7 @@
 """
 The configuration class.
 """
-import datetime
+from datetime import datetime, timezone
 import os
 import copy
 import logging
@@ -169,8 +169,8 @@ class Configuration:
                                            "version": version if version is not None else 1,
                                            "documentation": documentation if documentation is not None else "",
                                            "public": public if public is not None else True,
-                                           "created_at": datetime.datetime.utcnow().isoformat(),
-                                           "updated_at": datetime.datetime.utcnow().isoformat(),
+                                           "created_at": datetime.now(timezone.utc).isoformat(),
+                                           "updated_at": datetime.now(timezone.utc).isoformat(),
                                            "valid": valid,
                                            "autosave": autosave if autosave is not None else False,
                                            "description": description if description is not None else "",
@@ -179,7 +179,7 @@ class Configuration:
                     logger.debug("Added entry with the id '{0}' to configuration database.".format(config_id))
 
                 elif task == "update":
-                    update_dict = {"updated_at": datetime.datetime.utcnow().isoformat()}
+                    update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
                     if description is not None:
                         update_dict["description"] = description
                     if documentation is not None:
@@ -242,8 +242,8 @@ class Configuration:
 
         {
             "id": str,
-            "created_at": datetime.datetime.utcnow,
-            "updated_at": datetime.datetime.utcnow,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
             "valid": True/False,
             "autosave": True/False,
             "description": str,
@@ -263,8 +263,8 @@ class Configuration:
         if config_id is not None:
             entry = self.config_db.get(tinydb.where('id') == config_id)
             if entry is not None and convert_timestamps:
-                entry["created_at"] = datetime.datetime.fromisoformat(entry["created_at"])
-                entry["updated_at"] = datetime.datetime.fromisoformat(entry["updated_at"])
+                entry["created_at"] = datetime.fromisoformat(entry["created_at"])
+                entry["updated_at"] = datetime.fromisoformat(entry["updated_at"])
             return entry
         else:
             entries = self.config_db.all()
@@ -273,8 +273,8 @@ class Configuration:
             # Convert the timestamps to be datetime.
             if convert_timestamps:
                 for entry in entries:
-                    entry["created_at"] = datetime.datetime.fromisoformat(entry["created_at"])
-                    entry["updated_at"] = datetime.datetime.fromisoformat(entry["updated_at"])
+                    entry["created_at"] = datetime.fromisoformat(entry["created_at"])
+                    entry["updated_at"] = datetime.fromisoformat(entry["updated_at"])
             return entries
 
     def load_configuration_from_file(self, filename: str = None) -> dict[str, list[str]]:
@@ -327,7 +327,7 @@ class Configuration:
                                          "configuration": copy.deepcopy(configuration_dict),
                                          "description": "autosave",
                                          "documentation": f"Number of modules: {len(configuration)}",
-                                         "title": f"autosave ({datetime.datetime.utcnow().replace(microsecond=0)})",
+                                         "title": f"autosave ({datetime.now(timezone.utc).replace(microsecond=0)})",
                                          "valid": True,
                                          "autosave": True})
 

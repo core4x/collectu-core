@@ -1,7 +1,7 @@
 """
 Models used for interfaces and similar things.
 """
-import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -18,10 +18,10 @@ class Data:
         metadata=dict(description="The fields.",
                       required=False),
         default_factory=dict)
-    time: datetime.datetime = field(
+    time: datetime = field(
         metadata=dict(description="The timestamp.",
                       required=False),
-        default_factory=datetime.datetime.utcnow)
+        default_factory=lambda: datetime.now(timezone.utc))
     tags: dict[str, Any] = field(
         metadata=dict(description="The tags.",
                       required=False),
@@ -89,10 +89,10 @@ class MothershipData:
     version: str = field(
         metadata=dict(description="The current version of the reporting app.",
                       required=True))
-    last_update: datetime.datetime = field(
+    last_update: datetime = field(
         metadata=dict(description="The datetime of the last update.",
                       required=False),
-        default_factory=datetime.datetime.utcnow)
+        default_factory=lambda: datetime.now(timezone.utc))
     configuration: list[Any] = field(
         metadata=dict(description="The configuration of the reporting app.",
                       required=False),

@@ -6,7 +6,7 @@ import os
 from typing import List, Dict, Any
 import json
 from threading import Thread
-import datetime
+from datetime import datetime, timezone
 import time
 import logging
 import pathlib
@@ -70,7 +70,7 @@ class DatabaseWorker:
                         # Check if description, version, or last_update changed.
                         if mothership_data.description != entry.get("description") or \
                                 mothership_data.version != entry.get("version") or \
-                                mothership_data.last_update > datetime.datetime.fromisoformat(entry.get("last_update")):
+                                mothership_data.last_update > datetime.fromisoformat(entry.get("last_update")):
                             self.db.update({"description": mothership_data.description,
                                             "version": mothership_data.version,
                                             "last_update": mothership_data.last_update.isoformat()},
@@ -82,7 +82,7 @@ class DatabaseWorker:
                                         "last_update": mothership_data.last_update.isoformat()})
 
                     # Reset status if we received no update in a configured time.
-                    if (datetime.datetime.utcnow() - mothership_data.last_update).seconds > config.REPORTER_TIMEOUT:
+                    if (datetime.now(timezone.utc) - mothership_data.last_update).seconds > config.REPORTER_TIMEOUT:
                         if app_id in data_layer.mothership_data:
                             data_layer.mothership_data[app_id].status = "unknown"
 
@@ -173,7 +173,7 @@ def _report_hub():
     Sends post request containing current app data cyclically to the hub.
     This function is called in a separate thread.
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.now()
     logged_in = False
     session = requests.Session()
 
@@ -191,7 +191,7 @@ def _report_hub():
             except Exception as e:
                 send = False
                 if config.HUB_APP_ADDRESS + "_login" in data_layer.last_mothership_sending_error_log:
-                    last_sending = datetime.datetime.now() - data_layer.last_mothership_sending_error_log[
+                    last_sending = datetime.now() - data_layer.last_mothership_sending_error_log[
                         config.HUB_APP_ADDRESS + "_login"]
                     if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                         send = True
@@ -200,7 +200,7 @@ def _report_hub():
 
                 if send:
                     data_layer.last_mothership_sending_error_log[
-                        config.HUB_APP_ADDRESS + "_login"] = datetime.datetime.now()
+                        config.HUB_APP_ADDRESS + "_login"] = datetime.now()
                     logger.error("Invalid api access token for requesting tasks on {0}: {1}. "
                                  "Please check or create an api access token on your hub profile. "
                                  "You can also turn off the reporting functionality ('report_to_hub') "
@@ -219,7 +219,7 @@ def _report_hub():
                 logged_in = False
                 send = False
                 if config.HUB_APP_ADDRESS in data_layer.last_mothership_sending_error_log:
-                    last_sending = datetime.datetime.now() - data_layer.last_mothership_sending_error_log[
+                    last_sending = datetime.now() - data_layer.last_mothership_sending_error_log[
                         config.HUB_APP_ADDRESS]
                     if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                         send = True
@@ -227,16 +227,16 @@ def _report_hub():
                     send = True
 
                 if send:
-                    data_layer.last_mothership_sending_error_log[config.HUB_APP_ADDRESS] = datetime.datetime.now()
+                    data_layer.last_mothership_sending_error_log[config.HUB_APP_ADDRESS] = datetime.now()
                     logger.error("Could not send report to mothership '{0}': {1}"
                                  .format(config.HUB_APP_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
-        required_time = datetime.datetime.now() - start_time
+        required_time = datetime.now() - start_time
         if config.REPORT_INTERVAL > float(required_time.seconds):
             time.sleep(config.REPORT_INTERVAL - float(required_time.seconds))
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
         else:
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
 
 
 def _request_hub_tasks():
@@ -251,7 +251,7 @@ def _request_hub_tasks():
     "git_access_token": str  # if 'update' is the command. Is optional!
     }
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.now()
     session = requests.Session()
     logged_in = False
 
@@ -270,7 +270,7 @@ def _request_hub_tasks():
             except Exception as e:
                 send = False
                 if config.HUB_TASK_ADDRESS + "_login" in data_layer.last_mothership_receiving_error_log:
-                    last_sending = datetime.datetime.now() - data_layer.last_mothership_receiving_error_log[
+                    last_sending = datetime.now() - data_layer.last_mothership_receiving_error_log[
                         config.HUB_TASK_ADDRESS + "_login"]
                     if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                         send = True
@@ -279,7 +279,7 @@ def _request_hub_tasks():
 
                 if send:
                     data_layer.last_mothership_receiving_error_log[
-                        config.HUB_TASK_ADDRESS + "_login"] = datetime.datetime.now()
+                        config.HUB_TASK_ADDRESS + "_login"] = datetime.now()
                     logger.error("Invalid api access token for requesting tasks on {0}: {1}. "
                                  "Please check or create an api access token on your hub profile. "
                                  "You can also turn off the reporting functionality ('report_to_hub') "
@@ -330,7 +330,7 @@ def _request_hub_tasks():
                 logged_in = False
                 send = False
                 if config.HUB_TASK_ADDRESS in data_layer.last_mothership_receiving_error_log:
-                    last_sending = datetime.datetime.now() - data_layer.last_mothership_receiving_error_log[
+                    last_sending = datetime.now() - data_layer.last_mothership_receiving_error_log[
                         config.HUB_TASK_ADDRESS]
                     if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                         send = True
@@ -338,16 +338,16 @@ def _request_hub_tasks():
                     send = True
 
                 if send:
-                    data_layer.last_mothership_receiving_error_log[config.HUB_TASK_ADDRESS] = datetime.datetime.now()
+                    data_layer.last_mothership_receiving_error_log[config.HUB_TASK_ADDRESS] = datetime.now()
                     logger.error("Could not request or process task from hub '{0}': {1}"
                                  .format(config.HUB_APP_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
-        required_time = datetime.datetime.now() - start_time
+        required_time = datetime.now() - start_time
         if config.REQUEST_INTERVAL > float(required_time.seconds):
             time.sleep(config.REQUEST_INTERVAL - float(required_time.seconds))
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
         else:
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
 
 
 def _report(session: requests.Session, mothership: str):
@@ -358,7 +358,7 @@ def _report(session: requests.Session, mothership: str):
     :param session: The request session.
     :param mothership: The mothership address.
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.now()
 
     while data_layer.running and session:
         try:
@@ -369,23 +369,23 @@ def _report(session: requests.Session, mothership: str):
         except Exception as e:
             send = False
             if mothership in data_layer.last_mothership_sending_error_log:
-                last_sending = datetime.datetime.now() - data_layer.last_mothership_sending_error_log[mothership]
+                last_sending = datetime.now() - data_layer.last_mothership_sending_error_log[mothership]
                 if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                     send = True
             else:
                 send = True
 
             if send:
-                data_layer.last_mothership_sending_error_log[mothership] = datetime.datetime.now()
+                data_layer.last_mothership_sending_error_log[mothership] = datetime.now()
                 logger.error("Could not send report to mothership '{0}': {1}"
                              .format(mothership, str(e)), exc_info=config.EXC_INFO)
 
-        required_time = datetime.datetime.now() - start_time
+        required_time = datetime.now() - start_time
         if config.REPORT_INTERVAL > float(required_time.seconds):
             time.sleep(config.REPORT_INTERVAL - float(required_time.seconds))
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
         else:
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
 
 
 def _request_todos(session: requests.Session, mothership):
@@ -403,7 +403,7 @@ def _request_todos(session: requests.Session, mothership):
     :param session: The request session.
     :param mothership: The mothership address.
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.now()
     while data_layer.running and session:
         try:
             response = session.get(url=f"{mothership}/api/v1/mothership/todo/{os.environ.get('APP_ID')}",
@@ -446,20 +446,20 @@ def _request_todos(session: requests.Session, mothership):
         except Exception as e:
             send = False
             if mothership in data_layer.last_mothership_receiving_error_log:
-                last_sending = datetime.datetime.now() - data_layer.last_mothership_receiving_error_log[mothership]
+                last_sending = datetime.now() - data_layer.last_mothership_receiving_error_log[mothership]
                 if config.STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL < float(last_sending.seconds):
                     send = True
             else:
                 send = True
 
             if send:
-                data_layer.last_mothership_receiving_error_log[mothership] = datetime.datetime.now()
+                data_layer.last_mothership_receiving_error_log[mothership] = datetime.now()
                 logger.error("Could not request or process todos from mothership '{0}': {1}"
                              .format(mothership, str(e)), exc_info=config.EXC_INFO)
 
-        required_time = datetime.datetime.now() - start_time
+        required_time = datetime.now() - start_time
         if config.REQUEST_INTERVAL > float(required_time.seconds):
             time.sleep(config.REQUEST_INTERVAL - float(required_time.seconds))
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
         else:
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
