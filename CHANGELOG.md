@@ -1,7 +1,16 @@
 # CHANGELOG
 
 
+## v0.15.1 (2024-11-21)
+
+
 ## v0.15.0 (2024-11-21)
+
+### Bug Fixes
+
+- Replace environment variables in the configuration module only, if the attribute is non-dynamic.
+  Otherwise, the dynamic variable handling should be done in the modules themselves.
+  ([`6dc2afc`](https://github.com/core4x/collectu-core/commit/6dc2afc9844c0e1f2cdf938add151643c29a2dcf))
 
 ### Features
 
