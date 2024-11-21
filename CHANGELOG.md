@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.15.0 (2024-11-21)
+
+### Features
+
+- Dynamic environment variables can now be defined for every configuration parameter of a module.
+  ([`2bcc10a`](https://github.com/core4x/collectu-core/commit/2bcc10a980700b24ea1759fd1623dee9d7f510ed))
+
+
 ## v0.14.1 (2024-11-19)
 
 
