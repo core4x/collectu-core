@@ -1,7 +1,7 @@
 """
 The models are used for the deserialization of the configuration file.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 import string
 import os
 import random
@@ -59,9 +59,23 @@ class Module:
         models.validations.validate_module(self)
 
     def __getattribute__(self, name):
-        # Replace all environment variables if attribute is accessed.
-        annotations = super().__getattribute__('__annotations__')
+        """
+        Replace all environment variables if attribute is accessed for non-dynamic attributes.
+        """
         input_value = super().__getattribute__(name)
+        # Get the field metadata.
+        try:
+            dataclass_fields = super().__getattribute__('__dataclass_fields__')
+            field_meta = dataclass_fields.get(name).metadata if name in dataclass_fields else {}
+        except AttributeError:
+            field_meta = {}
+
+        if field_meta.get("dynamic", False):
+            # Do not check dynamic variables. This should be done in the modules themselves.
+            return input_value
+
+        # Get the data type.
+        annotations = super().__getattribute__('__annotations__')
         data_type = annotations.get(name, None)
 
         # Replace dynamic environment variables.
