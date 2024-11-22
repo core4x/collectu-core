@@ -98,15 +98,15 @@ if __name__ == "__main__":
             logger.error("Could not start frontend. Do you have a valid license?".format(str(e)),
                          exc_info=config.EXC_INFO)
 
+    # Initialize the configuration.
+    configuration.Configuration()
+
     # Start the mothership reporting.
     utils.mothership_interface.start()
 
     # Initialize the usage statistic sender.
     if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
         utils.usage_statistics.Statistics()
-
-    # Initialize the configuration.
-    configuration.Configuration()
 
     commits = utils.updater.check_for_updates_with_git()
     if commits:
