@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.15.2 (2024-11-22)
+
+### Bug Fixes
+
+- Load configuration before starting statistics and mothership communication.
+  ([`7d09a91`](https://github.com/core4x/collectu-core/commit/7d09a916922a6bc5f710e55cf215d9478c3d827f))
+
+
 ## v0.15.1 (2024-11-21)
 
 
