@@ -45,7 +45,7 @@ class DatabaseWorker:
                 status="unknown",  # This will be updated if we receive a report.
                 version=app.get("version"),
                 description=app.get("description"),
-                last_update=datetime.datetime.fromisoformat(app.get("last_update")))
+                last_update=datetime.fromisoformat(app.get("last_update")))
 
         Thread(target=self._checker,
                daemon=False,
