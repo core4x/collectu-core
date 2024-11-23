@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.15.3 (2024-11-23)
+
+### Bug Fixes
+
+- Fixed use of datetime.
+  ([`a18ca72`](https://github.com/core4x/collectu-core/commit/a18ca726cb8fb2845213bc4b90461243c2a64813))
+
+
 ## v0.15.2 (2024-11-22)
 
 ### Bug Fixes
