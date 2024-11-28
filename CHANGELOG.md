@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.15.4 (2024-11-28)
+
+### Bug Fixes
+
+- Changed filenames.
+  ([`5ebec15`](https://github.com/core4x/collectu-core/commit/5ebec1527a4b615e07afdb16c6cec3c4670b9de4))
+
+
 ## v0.15.3 (2024-11-23)
 
 ### Bug Fixes
