@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.16.0 (2024-12-03)
+
+### Features
+
+- Removed name of logger in initially getting logger in order to receive the root logger.
+  ([`056b527`](https://github.com/core4x/collectu-core/commit/056b527898f5e4596c7927b755259bc68d67eaa6))
+
+
 ## v0.15.4 (2024-11-28)
 
 ### Bug Fixes
@@ -57,11 +65,11 @@
 
 ### Features
 
-- Fixed sizes of left panel.
-  ([`6bcf3ee`](https://github.com/core4x/collectu-core/commit/6bcf3ee937d8b62b5170690f75140b352a8f9b98))
-
 - Added util function to get a list of all used third party requirements by modules.
   ([`807163d`](https://github.com/core4x/collectu-core/commit/807163d454de83e2ae91a320835850804919b090))
+
+- Fixed sizes of left panel.
+  ([`6bcf3ee`](https://github.com/core4x/collectu-core/commit/6bcf3ee937d8b62b5170690f75140b352a8f9b98))
 
 
 ## v0.12.2 (2024-11-06)
@@ -119,14 +127,14 @@
 
 ### Features
 
-- Improved base methods.
-  ([`364e0a2`](https://github.com/core4x/collectu-core/commit/364e0a25939935366af13e141a68e13a1fb07ce5))
-
 - Added check if measurement exists before processing data object.
   ([`4d08b39`](https://github.com/core4x/collectu-core/commit/4d08b39acbf658f4052cd58bb9f08fba4a0f8a12))
 
 - Added thread-safe functionality.
   ([`421e7a1`](https://github.com/core4x/collectu-core/commit/421e7a1df363226f3e2cbf08671229c74732624d))
+
+- Improved base methods.
+  ([`364e0a2`](https://github.com/core4x/collectu-core/commit/364e0a25939935366af13e141a68e13a1fb07ce5))
 
 
 ## v0.7.0 (2024-10-29)
@@ -240,14 +248,14 @@
 
 ### Bug Fixes
 
-- Removed unnecessary files.
-  ([`c7aae26`](https://github.com/core4x/collectu-core/commit/c7aae26cce96a76653eda5c795910b29c838f247))
-
 - If all modules shall be sent, leave the list empty and not None.
   ([`03a611c`](https://github.com/core4x/collectu-core/commit/03a611cab9c904bcef60bac7241506cc6e5eef4e))
 
 - Load modules after initialization.
   ([`b87ee15`](https://github.com/core4x/collectu-core/commit/b87ee15df82d68fa475c14713e13640f8c80df3f))
+
+- Removed unnecessary files.
+  ([`c7aae26`](https://github.com/core4x/collectu-core/commit/c7aae26cce96a76653eda5c795910b29c838f247))
 
 - Rename package typing-extensions to typing_extensions otherwise, it is installed every start since
   the package name in requirements.txt differs from the "online" one.
@@ -258,11 +266,11 @@
 
 ### Features
 
-- Added functionality to include a custom module folder.
-  ([`a9e1139`](https://github.com/core4x/collectu-core/commit/a9e11393856d8906be22863a0c78d6fd95a38409))
-
 - Added custom_module_folder variable.
   ([`46a4924`](https://github.com/core4x/collectu-core/commit/46a492415812fd63fa3dc9cac3b31e92fba370ac))
+
+- Added functionality to include a custom module folder.
+  ([`a9e1139`](https://github.com/core4x/collectu-core/commit/a9e11393856d8906be22863a0c78d6fd95a38409))
 
 
 ## v0.3.2 (2024-09-04)
@@ -295,22 +303,22 @@
 
 ### Bug Fixes
 
-- Removed unnecessary imports.
-  ([`e6a27c5`](https://github.com/core4x/collectu-core/commit/e6a27c55b4e36b330c392e8ccdc679c0c6ffd435))
-
 - Added timeout for requests.
   ([`aa400d5`](https://github.com/core4x/collectu-core/commit/aa400d5fdc575338fbde7738fec3dc1b2860cf97))
+
+- Removed unnecessary imports.
+  ([`e6a27c5`](https://github.com/core4x/collectu-core/commit/e6a27c55b4e36b330c392e8ccdc679c0c6ffd435))
 
 
 ## v0.2.0 (2024-08-26)
 
 ### Features
 
-- Added log messages about which configuration file was loaded.
-  ([`fc2dc83`](https://github.com/core4x/collectu-core/commit/fc2dc833c5bb62cbf778aa6c313f3936dec15956))
-
 - Added check that all versions of a module type are the same.
   ([`0453a28`](https://github.com/core4x/collectu-core/commit/0453a28f55b8148497643d95d59b5163d2835db6))
+
+- Added log messages about which configuration file was loaded.
+  ([`fc2dc83`](https://github.com/core4x/collectu-core/commit/fc2dc833c5bb62cbf778aa6c313f3936dec15956))
 
 
 ## v0.1.2 (2024-08-22)
@@ -819,6 +827,21 @@
 
 ### Bug Fixes
 
+- Added --init, if the submodules does not exist yet.
+  ([`93f127c`](https://github.com/core4x/collectu-core/commit/93f127c682e310927bc81e2655e1161b6a1eec6b))
+
+- Added access token for checking for updates for submodules.
+  ([`ff0da73`](https://github.com/core4x/collectu-core/commit/ff0da737b7561bb50b1bda94653d71fe1182fb2b))
+
+- Added ssh_key loading.
+  ([`d32e1e7`](https://github.com/core4x/collectu-core/commit/d32e1e7bd4bc3073f45ad1936fd17ca95bedb4fd))
+
+- Fixed logging.
+  ([`198c36f`](https://github.com/core4x/collectu-core/commit/198c36fd7e7aa303baaba84058d57b9be8aae747))
+
+- Made ssh key not accessible by other users.
+  ([`5aa516b`](https://github.com/core4x/collectu-core/commit/5aa516bae7e19e80e74389f105b2be8bc69e470c))
+
 - Minor improvements.
   ([`fb34ca5`](https://github.com/core4x/collectu-core/commit/fb34ca52a5e797657a4ce9c0c5e006d43f035d7f))
 
@@ -828,29 +851,14 @@
 - Minor improvements.
   ([`9eb92da`](https://github.com/core4x/collectu-core/commit/9eb92dad59b4e578984a8559edc5e7af4afddac2))
 
-- Fixed logging.
-  ([`198c36f`](https://github.com/core4x/collectu-core/commit/198c36fd7e7aa303baaba84058d57b9be8aae747))
-
-- Made ssh key not accessible by other users.
-  ([`5aa516b`](https://github.com/core4x/collectu-core/commit/5aa516bae7e19e80e74389f105b2be8bc69e470c))
-
-- Added ssh_key loading.
-  ([`d32e1e7`](https://github.com/core4x/collectu-core/commit/d32e1e7bd4bc3073f45ad1936fd17ca95bedb4fd))
-
-- Try to initialize submodules if they do not exist.
-  ([`c9038a4`](https://github.com/core4x/collectu-core/commit/c9038a49842ff8478dcca647dd250ca076f987fe))
-
-- Added access token for checking for updates for submodules.
-  ([`ff0da73`](https://github.com/core4x/collectu-core/commit/ff0da737b7561bb50b1bda94653d71fe1182fb2b))
-
-- Added --init, if the submodules does not exist yet.
-  ([`93f127c`](https://github.com/core4x/collectu-core/commit/93f127c682e310927bc81e2655e1161b6a1eec6b))
-
 - Removed id.
   ([`75db6dd`](https://github.com/core4x/collectu-core/commit/75db6dd78052ef1c9e91051d05a7fc8a9764539b))
 
 - Removed unnecessary things.
   ([`dbd7f23`](https://github.com/core4x/collectu-core/commit/dbd7f23ee264a00f5dd627b7673ea2cf19c08922))
+
+- Try to initialize submodules if they do not exist.
+  ([`c9038a4`](https://github.com/core4x/collectu-core/commit/c9038a49842ff8478dcca647dd250ca076f987fe))
 
 ### Documentation
 
