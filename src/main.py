@@ -25,7 +25,7 @@ import utils.plugin_interface
 import utils.hub_connection
 import models
 
-logger = logging.getLogger(config.APP_NAME.lower())
+logger = logging.getLogger()
 """The logger instance."""
 
 
