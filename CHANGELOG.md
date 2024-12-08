@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.17.0 (2024-12-08)
+
+### Features
+
+- Added possibility to add api_access_token as file.
+  ([`c6930f8`](https://github.com/core4x/collectu-core/commit/c6930f8b2d6e14ff02db50c4fd626f95a3e716e7))
+
+- Removed hub_api_access_token from settings file.
+  ([`ddaaa04`](https://github.com/core4x/collectu-core/commit/ddaaa049436a169be0cc9f01c226dcbeb54e169d))
+
+
 ## v0.16.0 (2024-12-03)
 
 ### Features
