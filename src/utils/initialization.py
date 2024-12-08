@@ -86,6 +86,21 @@ def load_and_process_settings_file() -> bool:
             elif not name.startswith("#"):
                 data_layer.settings[name.upper()] = str(value)
 
+        # Load the api_access_token.txt file if it exists.
+        api_access_token_path = '../api_access_token.txt'
+        try:
+            if os.path.exists(api_access_token_path):
+                with open(api_access_token_path, 'r') as file:
+                    if os.environ.get("HUB_API_ACCESS_TOKEN", False):
+                        logger.warning("Existing HUB_API_ACCESS_TOKEN is overwritten by {0}"
+                                       .format(api_access_token_path))
+                    os.environ["HUB_API_ACCESS_TOKEN"] = file.read()
+            else:
+                if not os.environ.get("HUB_API_ACCESS_TOKEN", False):
+                    logger.warning("API access token file 'api_access_token.txt' does not exist...")
+        except Exception as e:
+            logger.error("Something went wrong loading API access token: {0}".format(str(e)), exc_info=config.EXC_INFO)
+
         # Write updated settings.ini file.
         if updated:
             parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...

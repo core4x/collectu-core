@@ -13,6 +13,9 @@ configuration/*
 # Settings file.
 settings.ini
 
+git_access_token.txt
+api_access_token.txt
+
 # Virtual environment.
 venv/
 
@@ -20,9 +23,8 @@ venv/
 volumes/
 
 # Modules
-src/modules/inputs/
-src/modules/outputs/
-src/modules/processors/
+!src/modules/base
+src/modules/*
 
 # Byte-compiled / optimized / DLL files.
 __pycache__/

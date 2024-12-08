@@ -122,7 +122,7 @@ def start():
                name="Mothership_Hub_Request_Worker").start()
     elif bool(int(os.environ.get('REPORT_TO_HUB', '1'))) and not os.environ.get('HUB_API_ACCESS_TOKEN', None):
         logger.error("REPORT_TO_HUB is enabled, but no valid HUB_API_ACCESS_TOKEN is set. "
-                     "Please create and insert a valid api access token in settings.ini.")
+                     "Please create and provide a valid api access token.")
 
     for mothership in motherships:
         Thread(target=_report,
