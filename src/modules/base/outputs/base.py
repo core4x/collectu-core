@@ -110,6 +110,8 @@ class AbstractOutputModule(AbstractModule):
                     # When we receive no data, we try to get buffer data again.
                     time.sleep(0)
                     continue
+            else:
+                time.sleep(0)
             # Set the last received data for dynamic variables.
             self.current_input_data = data
             # We do not thread, since the output modules may not be thread safe.
