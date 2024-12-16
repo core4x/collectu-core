@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.17.1 (2024-12-16)
+
+### Bug Fixes
+
+- Added a time.sleep(0) in order to not block app, if data gets buffered in a loop.
+  ([`713344a`](https://github.com/core4x/collectu-core/commit/713344a6ae33e17acdfe8e41837f49b85f4e2972))
+
+
 ## v0.17.0 (2024-12-08)
 
 ### Features
