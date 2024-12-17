@@ -169,9 +169,7 @@ def load_modules():
                     logger.debug("Importing custom module: {0}".format(module_path))
                     module = importlib.import_module(module_path)
                     module = importlib.reload(module)
-                    modname = module_path.replace("modules.",
-                                                  "").replace(f"{os.environ.get('CUSTOM_MODULE_FOLDER')}.",
-                                                              "").lower()
+                    modname = module_path.split(".", 2)[-1].lower()
 
                     if modname in data_layer.registered_modules:
                         logger.warning("A module with the name {0} was already registered and "
