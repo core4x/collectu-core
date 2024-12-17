@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.17.2 (2024-12-17)
+
+### Bug Fixes
+
+- Fixed module_name generation of custom modules.
+  ([`65e41f0`](https://github.com/core4x/collectu-core/commit/65e41f06d6bbb08cdfc7ce086a5375d0bb0852eb))
+
+
 ## v0.17.1 (2024-12-16)
 
 ### Bug Fixes
