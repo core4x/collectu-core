@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.17.3 (2025-01-03)
+
+### Bug Fixes
+
+- New style for configuration editor.
+  ([`a912589`](https://github.com/core4x/collectu-core/commit/a9125898121e0d7730b544d52702d6ced1f008ab))
+
+
 ## v0.17.2 (2024-12-17)
 
 ### Bug Fixes
