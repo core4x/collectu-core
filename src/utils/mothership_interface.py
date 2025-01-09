@@ -108,9 +108,6 @@ def start():
     # Instantiate the db worker and load all existing entries of the db into data.mothership_data.
     DatabaseWorker()
 
-    session = requests.Session()
-    session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
-
     if bool(int(os.environ.get('REPORT_TO_HUB', '1'))) and os.environ.get('HUB_API_ACCESS_TOKEN', None):
         logger.info(f"Started mothership communication to {config.HUB_APP_ADDRESS}.")
         Thread(target=_report_hub,
@@ -126,11 +123,11 @@ def start():
 
     for mothership in motherships:
         Thread(target=_report,
-               args=(session, mothership,),
+               args=(mothership,),
                daemon=True,
                name="Mothership_Report_Worker_{0}".format(mothership)).start()
         Thread(target=_request_todos,
-               args=(session, mothership,),
+               args=(mothership,),
                daemon=True,
                name="Mothership_Request_Worker_{0}".format(mothership)).start()
 
@@ -160,7 +157,7 @@ def _get_report_data() -> Dict[str, Any]:
                                     message=log.fields.get("message"),
                                     module=log.fields.get("module"),
                                     name=log.fields.get("name"),
-                                    time=str(log.time))
+                                    time=log.time.isoformat())
         simplified_logs.append(simplified_log.__dict__)
 
     mothership_data["latest_logs"] = simplified_logs
@@ -350,21 +347,22 @@ def _request_hub_tasks():
             start_time = datetime.now()
 
 
-def _report(session: requests.Session, mothership: str):
+def _report(mothership: str):
     """
     Sends post request containing current app data cyclically to the mothership.
     This function is called in a separate thread.
 
-    :param session: The request session.
     :param mothership: The mothership address.
     """
     start_time = datetime.now()
+    session = requests.Session()
+    session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
 
     while data_layer.running and session:
         try:
             response = session.post(url=f"{mothership}/api/v1/mothership/report/{os.environ.get('APP_ID')}",
                                     timeout=(5, 5),
-                                    json=json.dumps(_get_report_data(), default=str))
+                                    json=json.loads(json.dumps(_get_report_data(), default=str)))
             response.raise_for_status()
         except Exception as e:
             send = False
@@ -388,7 +386,7 @@ def _report(session: requests.Session, mothership: str):
             start_time = datetime.now()
 
 
-def _request_todos(session: requests.Session, mothership):
+def _request_todos(mothership):
     """
     Send get request (requesting new todos) cyclically to the mothership.
 
@@ -400,10 +398,12 @@ def _request_todos(session: requests.Session, mothership):
     "git_access_token": str  # if 'update' is the command. Is optional!
     }
 
-    :param session: The request session.
     :param mothership: The mothership address.
     """
     start_time = datetime.now()
+    session = requests.Session()
+    session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
+
     while data_layer.running and session:
         try:
             response = session.get(url=f"{mothership}/api/v1/mothership/todo/{os.environ.get('APP_ID')}",
