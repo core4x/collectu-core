@@ -166,7 +166,7 @@ class Configuration:
 
                     self.config_db.insert({"id": config_id,
                                            "title": title if title is not None else "unnamed",
-                                           "version": version if version is not None else 1,
+                                           "version": int(version) if version is not None else 1,
                                            "documentation": documentation if documentation is not None else "",
                                            "public": public if public is not None else True,
                                            "created_at": datetime.now(timezone.utc).isoformat(),
@@ -248,7 +248,7 @@ class Configuration:
             "autosave": True/False,
             "description": str,
             "title": str,
-            "version": str,
+            "version": int,
             "documentation": str,
             "public": True/False,
             "modules": int,
@@ -521,11 +521,10 @@ class Configuration:
                 retry_class.stop()
             self.retries = []
 
+            # Stop all variable modules by setting self.active to false and calling the stop method.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-
-            # Stop all variable modules by setting self.active to false and calling the stop method.
             for module_id, module_data in sorted_dict.items():
                 try:
                     logger.debug("Trying to stop variable module ({0}): {1}"
@@ -545,66 +544,73 @@ class Configuration:
             time.sleep(0.4)
 
             # Stop all tag modules.
-            for module_id, module_data in data_layer.module_data.items():
-                if module_data.module_name.startswith("inputs.") and module_data.module_name.endswith(".tag"):
-                    try:
-                        logger.debug("Trying to stop tag module ({0}): {1}"
-                                     .format(str(module_id), str(module_data.module_name)))
-                        module_data.instance.active = False
-                        module_data.instance.stop()
-                    except Exception as e:
-                        success = False
-                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                     .format(module_data.module_name,
-                                             module_data.configuration.get("id", "-"),
-                                             str(e)), exc_info=config.EXC_INFO)
+            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
+                             v.module_name.endswith(".tag") and v.module_name.startswith("inputs.")}
+            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
+            for module_id, module_data in sorted_dict.items():
+                try:
+                    logger.debug("Trying to stop tag module ({0}): {1}"
+                                 .format(str(module_id), str(module_data.module_name)))
+                    module_data.instance.active = False
+                    module_data.instance.stop()
+                except Exception as e:
+                    success = False
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(module_data.module_name,
+                                         module_data.configuration.get("id", "-"),
+                                         str(e)), exc_info=config.EXC_INFO)
 
             # Stop all input modules.
-            for module_id, module_data in data_layer.module_data.items():
-                if module_data.module_name.startswith("inputs.") and \
-                        not module_data.module_name.endswith(".variable") and \
-                        not module_data.module_name.endswith(".tag"):
-                    try:
-                        logger.debug("Trying to stop input module ({0}): {1}"
-                                     .format(str(module_id), str(module_data.module_name)))
-                        module_data.instance.active = False
-                        module_data.instance.stop()
-                    except Exception as e:
-                        success = False
-                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                     .format(module_data.module_name,
-                                             module_data.configuration.get("id", "-"),
-                                             str(e)), exc_info=config.EXC_INFO)
+            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
+                             v.module_name.startswith("inputs.") and not v.module_name.endswith(
+                                 ".variable") and not v.module_name.endswith(".tag")}
+            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
+            for module_id, module_data in sorted_dict.items():
+                try:
+                    logger.debug("Trying to stop input module ({0}): {1}"
+                                 .format(str(module_id), str(module_data.module_name)))
+                    module_data.instance.active = False
+                    module_data.instance.stop()
+                except Exception as e:
+                    success = False
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(module_data.module_name,
+                                         module_data.configuration.get("id", "-"),
+                                         str(e)), exc_info=config.EXC_INFO)
 
             # Stop all processor modules.
-            for module_id, module_data in data_layer.module_data.items():
-                if module_data.module_name.startswith("processors."):
-                    try:
-                        logger.debug("Trying to stop processor module ({0}): {1}"
-                                     .format(str(module_id), str(module_data.module_name)))
-                        module_data.instance.active = False
-                        module_data.instance.stop()
-                    except Exception as e:
-                        success = False
-                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                     .format(module_data.module_name,
-                                             module_data.configuration.get("id", "-"),
-                                             str(e)), exc_info=config.EXC_INFO)
+            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
+                             v.module_name.startswith("processors.")}
+            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
+            for module_id, module_data in sorted_dict.items():
+                try:
+                    logger.debug("Trying to stop processor module ({0}): {1}"
+                                 .format(str(module_id), str(module_data.module_name)))
+                    module_data.instance.active = False
+                    module_data.instance.stop()
+                except Exception as e:
+                    success = False
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(module_data.module_name,
+                                         module_data.configuration.get("id", "-"),
+                                         str(e)), exc_info=config.EXC_INFO)
 
             # Stop all output modules.
-            for module_id, module_data in data_layer.module_data.items():
-                if module_data.module_name.startswith("outputs."):
-                    try:
-                        logger.debug("Trying to stop output module ({0}): {1}"
-                                     .format(str(module_id), str(module_data.module_name)))
-                        module_data.instance.active = False
-                        module_data.instance.stop()
-                    except Exception as e:
-                        success = False
-                        logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                     .format(module_data.module_name,
-                                             module_data.configuration.get("id", "-"),
-                                             str(e)), exc_info=config.EXC_INFO)
+            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
+                             v.module_name.startswith("outputs.")}
+            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
+            for module_id, module_data in sorted_dict.items():
+                try:
+                    logger.debug("Trying to stop output module ({0}): {1}"
+                                 .format(str(module_id), str(module_data.module_name)))
+                    module_data.instance.active = False
+                    module_data.instance.stop()
+                except Exception as e:
+                    success = False
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(module_data.module_name,
+                                         module_data.configuration.get("id", "-"),
+                                         str(e)), exc_info=config.EXC_INFO)
 
             # Reset buffer instance.
             data_layer.buffer_instance = None
@@ -720,6 +726,7 @@ class Configuration:
             # There should be only one, since we check it during validation.
             buffer_config = next(iter([buffer_config for buffer_config in self._configuration if
                                        getattr(buffer_config, "is_buffer", False)]), None)
+            # CAUTION: The start priority has no effect here.
             if buffer_config:
                 # Check if this module is already instantiated.
                 if buffer_config.id not in data_layer.module_data:
@@ -770,7 +777,9 @@ class Configuration:
             output_configs = [output_config for output_config in self._configuration if
                               not getattr(output_config, "is_buffer", False) and output_config.module_name.startswith(
                                   "outputs.")]
-            for output_config in output_configs:
+            for output_config in sorted(output_configs,
+                                        key=lambda output_config: output_config.start_priority,
+                                        reverse=True):
                 # Check if this module is already instantiated.
                 if output_config.id not in data_layer.module_data:
                     # Get the according module.
@@ -815,10 +824,12 @@ class Configuration:
         :returns: Boolean indicating if every module start-up was successful.
         """
         success = []
-        processor_configs = [processor_config for processor_config in self._configuration if
-                             processor_config.module_name.startswith("processors.")]
         try:
-            for processor_config in processor_configs:
+            processor_configs = [processor_config for processor_config in self._configuration if
+                                 processor_config.module_name.startswith("processors.")]
+            for processor_config in sorted(processor_configs,
+                                           key=lambda processor_config: processor_config.start_priority,
+                                           reverse=True):
                 # Check if this module is already instantiated.
                 if processor_config.id not in data_layer.module_data:
                     # Get the according module.
@@ -868,7 +879,9 @@ class Configuration:
                              input_config.module_name.startswith("inputs.") and
                              not input_config.module_name.endswith(".variable") and
                              not input_config.module_name.endswith(".tag")]
-            for input_config in input_configs:
+            for input_config in sorted(input_configs,
+                                       key=lambda input_config: input_config.start_priority,
+                                       reverse=True):
                 # Check if this module is already instantiated.
                 if input_config.id not in data_layer.module_data:
                     # Get the according module.
@@ -918,7 +931,9 @@ class Configuration:
                            tag_config.module_name.endswith(".tag") and
                            tag_config.module_name.startswith("inputs.") and
                            not tag_config.module_name.endswith(".variable")]
-            for tag_config in tag_configs:
+            for tag_config in sorted(tag_configs,
+                                     key=lambda tag_config: tag_config.start_priority,
+                                     reverse=True):
                 # Check if this module is already instantiated.
                 if tag_config.id not in data_layer.module_data:
                     # Get the according module.
@@ -973,7 +988,8 @@ class Configuration:
                                 variable_config.module_name.endswith(".variable") and
                                 variable_config.module_name.startswith("inputs.") and
                                 not variable_config.module_name.endswith(".tag")]
-            for variable_config in sorted(variable_configs, key=lambda variable_config: variable_config.start_priority,
+            for variable_config in sorted(variable_configs,
+                                          key=lambda variable_config: variable_config.start_priority,
                                           reverse=True):
                 # Check if this module is already instantiated.
                 if variable_config.id not in data_layer.module_data:
