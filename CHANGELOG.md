@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v0.18.0 (2025-01-09)
+
+### Bug Fixes
+
+- Every mothership communication now has its own request session.
+  ([`dc36a30`](https://github.com/core4x/collectu-core/commit/dc36a30b2e8927b31753d0e4f7983b01238cb276))
+
+- If we are in debug logging mode, this also applies now for output module logging.
+  ([`6c2e538`](https://github.com/core4x/collectu-core/commit/6c2e538936b611653448dfe0ba81f0d49f272db6))
+
+### Features
+
+- The config variable start_priority is now available for all modules and not only variable modules.
+  ([`8d4b225`](https://github.com/core4x/collectu-core/commit/8d4b225fe62f52c0047ea080e02f4dada5368023))
+
+
 ## v0.17.3 (2025-01-03)
 
 ### Bug Fixes
