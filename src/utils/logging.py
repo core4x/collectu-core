@@ -146,6 +146,8 @@ def start(logger: logging.Logger):
         # ===========================
         # Instantiate the output module logging handler.
         output_module_logging = LoggingTrigger(levels=["INFO", "WARNING", "ERROR", "CRITICAL"])
+        if config.DEBUG:
+            output_module_logging.levels.append("DEBUG")
         logger.addHandler(output_module_logging)
 
         # ===========================
