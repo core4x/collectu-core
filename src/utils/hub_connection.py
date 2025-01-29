@@ -194,7 +194,8 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
                                              registered_module in data_layer.registered_modules] or module.get(
             "version").get("version") > next(
             (value for module_name, value in list(data_layer.registered_modules.items()) if
-             module_name.startswith(module.get('module_name'))), None).version:
+             module_name.startswith(module.get('module_name'))), None).version or version != 0:
+
             modname = module_name.lower()
             relative_filepath = write_module_to_file(module_name=modname, module=module)
 

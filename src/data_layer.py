@@ -40,6 +40,9 @@ dashboard_modules: list[Any] = []
 mothership_data: dict[str, models.MothershipData] = {}
 """The received mothership data with the app_id as key."""
 
+mothership_tasks: dict[str, list[dict[str, str | list]]] = {}
+"""The todos for the single apps, with the app id as key, and the tasks in a list."""
+
 latest_logs: Deque[models.Data] = collections.deque(maxlen=config.NUMBER_OF_BUFFERED_LOGS)
 """Deque containing the latest (maxlen) captured logs."""
 

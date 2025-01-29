@@ -12,13 +12,10 @@ CONTACT: str = "info@collectu.de"
 SETTINGS_FILENAME: str = "settings.ini"
 """The filename of the settings file containing the environment variables to be set."""
 
-SERVE_FRONTEND_PACKAGES_AS_STATIC_FILES: bool = True
-"""Third party packages as bootstrap, jQuery etc are served as static files if true."""
-
 DEBUG: bool = False
 """Debug messages are printed into the console."""
 
-EXC_INFO: bool = False
+EXC_INFO: bool = True
 """Traceback of exceptions are printed."""
 
 NUMBER_OF_BUFFERED_LOGS: int = 50
@@ -51,6 +48,9 @@ REQUEST_INTERVAL: int = 3
 USAGE_STATISTICS_RECEIVER: str = "https://api.collectu.de/api/v1/statistic"
 """The receiver address where the usage statistic is send to. Used in utils.usage_statistics."""
 
+HUB_ADDRESS: str = "https://api.collectu.de/api/v1"
+"""The base address of the api."""
+
 HUB_MODULES_ADDRESS: str = "https://api.collectu.de/api/v1/module"
 """The endpoint of the api for registering modules."""
 
@@ -60,11 +60,17 @@ HUB_CONFIGURATIONS_ADDRESS: str = "https://api.collectu.de/api/v1/configuration"
 HUB_APP_ADDRESS: str = "https://api.collectu.de/api/v1/app"
 """The endpoint of the api for reporting app data. Used in utils.mothership_interface."""
 
+HUB_GET_APP_ADDRESS: str = "https://api.collectu.de/api/v1/app/app_id"
+"""The endpoint of the api for getting app data. Used for api authentication."""
+
 HUB_TASK_ADDRESS: str = "https://api.collectu.de/api/v1/task/app_id"
 """The endpoint of the api for requesting tasks. Used in utils.mothership_interface."""
 
 HUB_TEST_TOKEN_ADDRESS: str = "https://api.collectu.de/api/v1/login/test-token"
 """The endpoint of the api for testing the api access token."""
+
+HUB_LOGIN_ADDRESS: str = "https://api.collectu.de/api/v1/login/access-token"
+"""The endpoint of the api for logging in."""
 
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10
 """The interval in seconds in which error messages are logged 

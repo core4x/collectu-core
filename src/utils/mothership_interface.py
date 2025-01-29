@@ -42,10 +42,12 @@ class DatabaseWorker:
         # First we add all existing database entries to the data_layer.
         for app in self.db:
             data_layer.mothership_data[app.get("id")] = models.MothershipData(
+                app_id=app.get("id"),
                 status="unknown",  # This will be updated if we receive a report.
                 version=app.get("version"),
                 description=app.get("description"),
-                last_update=datetime.fromisoformat(app.get("last_update")))
+                updated_at=datetime.fromisoformat(app.get("updated_at")),
+                created_at=datetime.fromisoformat(app.get("created_at")))
 
         Thread(target=self._checker,
                daemon=False,
@@ -67,22 +69,23 @@ class DatabaseWorker:
                 for app_id, mothership_data in data_layer.mothership_data.copy().items():
                     entry = self.db.get(tinydb.where('id') == app_id)
                     if entry is not None:
-                        # Check if description, version, or last_update changed.
+                        # Check if description, version, or updated_at changed.
                         if mothership_data.description != entry.get("description") or \
                                 mothership_data.version != entry.get("version") or \
-                                mothership_data.last_update > datetime.fromisoformat(entry.get("last_update")):
+                                mothership_data.updated_at > datetime.fromisoformat(entry.get("updated_at")):
                             self.db.update({"description": mothership_data.description,
                                             "version": mothership_data.version,
-                                            "last_update": mothership_data.last_update.isoformat()},
+                                            "updated_at": mothership_data.updated_at.isoformat()},
                                            tinydb.where('id') == app_id)
                     else:
                         self.db.insert({"id": app_id,
                                         "description": mothership_data.description,
                                         "version": mothership_data.version,
-                                        "last_update": mothership_data.last_update.isoformat()})
+                                        "created_at": mothership_data.created_at.isoformat(),
+                                        "updated_at": mothership_data.updated_at.isoformat()})
 
                     # Reset status if we received no update in a configured time.
-                    if (datetime.now(timezone.utc) - mothership_data.last_update).seconds > config.REPORTER_TIMEOUT:
+                    if (datetime.now(timezone.utc) - mothership_data.updated_at).seconds > config.REPORTER_TIMEOUT:
                         if app_id in data_layer.mothership_data:
                             data_layer.mothership_data[app_id].status = "unknown"
 
@@ -126,7 +129,7 @@ def start():
                args=(mothership,),
                daemon=True,
                name="Mothership_Report_Worker_{0}".format(mothership)).start()
-        Thread(target=_request_todos,
+        Thread(target=_request_tasks,
                args=(mothership,),
                daemon=True,
                name="Mothership_Request_Worker_{0}".format(mothership)).start()
@@ -163,6 +166,43 @@ def _get_report_data() -> Dict[str, Any]:
     mothership_data["latest_logs"] = simplified_logs
 
     return mothership_data
+
+
+def process_tasks(task: dict[str, str | list]):
+    """
+    Process a task.
+
+    :param task: The task to process.
+    """
+    command = task.get("command", None)
+    if command == "restart":
+        utils.updater.restart_application()
+    elif command == "start":
+        data_layer.configuration.restart()
+    elif command == "stop":
+        data_layer.configuration.stop()
+    elif command == "update":
+        git_access_token = task.get("git_access_token", None)
+        if git_access_token:
+            # A git access token was passed. Store it as file.
+            with open("../git_access_token.txt", 'w') as file:
+                logger.info("Successfully updated git_access_key.txt file with your git token.")
+                file.write(git_access_token)
+        utils.updater.update_app_with_git()
+    elif command == "load":
+        errors = data_layer.configuration.load_configuration_from_stream(
+            content=json.dumps(task.get("configuration")))
+        if errors:
+            logger.error(
+                "The following errors occurred while trying to deserialize the configuration:\n" +
+                "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
+    elif command == "save":
+        success, error = data_layer.configuration.save_configuration_as_file(
+            content=json.dumps(task.get("configuration")))
+        if not success:
+            logger.error("Could not save file: {0}".format(error))
+    else:
+        logger.error("Received task with unknown command: '{0}'.".format(command))
 
 
 def _report_hub():
@@ -289,40 +329,10 @@ def _request_hub_tasks():
                                        timeout=(5, 5))
                 response.raise_for_status()
                 json_response = response.json()
-
                 for task in json_response:
-                    command = task.get("command", None)
-                    logger.info("Received task '{0}' from hub '{1}'.".format(command, config.HUB_APP_ADDRESS))
-                    if command == "restart":
-                        utils.updater.restart_application()
-                    elif command == "start":
-                        data_layer.configuration.restart()
-                    elif command == "stop":
-                        data_layer.configuration.stop()
-                    elif command == "update":
-                        git_access_token = task.get("git_access_token", None)
-                        if git_access_token:
-                            # A git access token was passed. Store it as file.
-                            with open("../git_access_token.txt", 'w') as file:
-                                logger.info("Successfully updated git_access_key.txt file with your git token.")
-                                file.write(git_access_token)
-                        utils.updater.update_app_with_git()
-                    elif command == "load":
-                        errors = data_layer.configuration.load_configuration_from_stream(
-                            content=json.dumps(task.get("configuration")))
-                        if errors:
-                            logger.error(
-                                "The following errors occurred while trying to deserialize the configuration:\n" +
-                                "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
-                            continue
-                    elif command == "save":
-                        success, error = data_layer.configuration.save_configuration_as_file(content=json.dumps(task.get("configuration")))
-                        if not success:
-                            logger.error("Could not save file: {0}".format(error))
-                    else:
-                        logger.error("Received task with unknown command: '{0}' from hub '{1}'."
-                                     .format(command, config.HUB_APP_ADDRESS))
-
+                    logger.info("Received task '{0}' from hub '{1}'."
+                                .format(task.get("command", "No command given..."), config.HUB_APP_ADDRESS))
+                    process_tasks(task)
             except Exception as e:
                 logged_in = False
                 send = False
@@ -360,9 +370,11 @@ def _report(mothership: str):
 
     while data_layer.running and session:
         try:
-            response = session.post(url=f"{mothership}/api/v1/mothership/report/{os.environ.get('APP_ID')}",
+            json_data = _get_report_data()
+            json_data["app_id"] = os.environ.get("APP_ID")
+            response = session.post(url=f"{mothership}/api/v1/app",
                                     timeout=(5, 5),
-                                    json=json.loads(json.dumps(_get_report_data(), default=str)))
+                                    json=json_data)
             response.raise_for_status()
         except Exception as e:
             send = False
@@ -386,7 +398,7 @@ def _report(mothership: str):
             start_time = datetime.now()
 
 
-def _request_todos(mothership):
+def _request_tasks(mothership):
     """
     Send get request (requesting new todos) cyclically to the mothership.
 
@@ -406,43 +418,15 @@ def _request_todos(mothership):
 
     while data_layer.running and session:
         try:
-            response = session.get(url=f"{mothership}/api/v1/mothership/todo/{os.environ.get('APP_ID')}",
+            response = session.get(url=f"{mothership}/api/v1/task/{os.environ.get('APP_ID')}",
                                    timeout=(5, 5),
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
-
-            if response.status_code != 404:
-                response.raise_for_status()
-                json_response = response.json()
-
-                command = json_response.get("command", None)
-                if command is not None:
-                    logger.info("Received task '{0}' from mothership '{1}'.".format(command, mothership))
-                    if command == "restart":
-                        utils.updater.restart_application()
-                    if command == "start":
-                        data_layer.configuration.restart()
-                    if command == "stop":
-                        data_layer.configuration.stop()
-                    if command == "update":
-                        git_access_token = json_response.get("git_access_token", None)
-                        if git_access_token:
-                            # A git access token was passed. Store it as file.
-                            with open("../git_access_token.txt", 'w') as file:
-                                logger.info("Successfully updated git_access_key.txt file with your git token.")
-                                file.write(git_access_token)
-                        utils.updater.update_app_with_git()
-                    if command == "load":
-                        errors = data_layer.configuration.load_configuration_from_stream(
-                            content=json.dumps(json_response.get("configuration")))
-                        if errors:
-                            logger.error(
-                                "The following errors occurred while trying to deserialize the configuration:\n" +
-                                "\n".join("{}: {}".format(k, v) for k, v in errors.items()))
-                            continue
-                    if command == "save":
-                        data_layer.configuration.save_configuration_as_file(
-                            content=json.dumps(json_response.get("configuration")))
-
+            response.raise_for_status()
+            json_response = response.json()
+            for task in json_response:
+                logger.info("Received task '{0}' from mothership '{1}'."
+                            .format(task.get("command", "No command given..."), mothership))
+                process_tasks(task)
         except Exception as e:
             send = False
             if mothership in data_layer.last_mothership_receiving_error_log:

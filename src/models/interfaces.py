@@ -80,6 +80,9 @@ class MothershipData:
     """
     This is the data object used for storing mothership data of the reporting apps.
     """
+    app_id: str = field(
+        metadata=dict(description="The id of the reporting app.",
+                      required=True))
     status: str = field(
         metadata=dict(description="The status of the reporting app. Can be: unknown, running, or inactive.",
                       required=True))
@@ -89,10 +92,6 @@ class MothershipData:
     version: str = field(
         metadata=dict(description="The current version of the reporting app.",
                       required=True))
-    last_update: datetime = field(
-        metadata=dict(description="The datetime of the last update.",
-                      required=False),
-        default_factory=lambda: datetime.now(timezone.utc))
     configuration: list[Any] = field(
         metadata=dict(description="The configuration of the reporting app.",
                       required=False),
@@ -101,3 +100,11 @@ class MothershipData:
         metadata=dict(description="The latest logs of the reporting app.",
                       required=False),
         default_factory=list)
+    created_at: datetime = field(
+        metadata=dict(description="The datetime of the creation.",
+                      required=False),
+        default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(
+        metadata=dict(description="The datetime of the last update.",
+                      required=False),
+        default_factory=lambda: datetime.now(timezone.utc))

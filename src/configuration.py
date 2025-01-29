@@ -146,7 +146,6 @@ class Configuration:
                 description = data.get("description", None)
                 title = data.get("title", None)
                 version = data.get("version", None)
-                documentation = data.get("documentation", None)
                 public = data.get("public", None)
                 autosave = data.get("autosave", None)
                 config_id = data.get("id", str(uuid.uuid4()))
@@ -167,7 +166,6 @@ class Configuration:
                     self.config_db.insert({"id": config_id,
                                            "title": title if title is not None else "unnamed",
                                            "version": int(version) if version is not None else 1,
-                                           "documentation": documentation if documentation is not None else "",
                                            "public": public if public is not None else True,
                                            "created_at": datetime.now(timezone.utc).isoformat(),
                                            "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -182,8 +180,6 @@ class Configuration:
                     update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
                     if description is not None:
                         update_dict["description"] = description
-                    if documentation is not None:
-                        update_dict["documentation"] = documentation
                     if title is not None:
                         update_dict["title"] = title
                     if public is not None:
@@ -249,7 +245,6 @@ class Configuration:
             "description": str,
             "title": str,
             "version": int,
-            "documentation": str,
             "public": True/False,
             "modules": int,
             "configuration": configuration_dict
@@ -326,7 +321,6 @@ class Configuration:
                 self.database_queue.put({"task": "add",
                                          "configuration": copy.deepcopy(configuration_dict),
                                          "description": "autosave",
-                                         "documentation": f"Number of modules: {len(configuration)}",
                                          "title": f"autosave ({datetime.now(timezone.utc).replace(microsecond=0)})",
                                          "valid": True,
                                          "autosave": True})
