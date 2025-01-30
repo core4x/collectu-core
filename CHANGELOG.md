@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.1.0 (2025-01-30)
+
+### Features
+
+- Further improvements.
+  ([`ffb063a`](https://github.com/core4x/collectu-core/commit/ffb063aa4b42870e4e5695db04ed47f66d2ff9d0))
+
+
 ## v1.0.0 (2025-01-30)
 
 ### Bug Fixes
