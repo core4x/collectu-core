@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.1.1 (2025-01-31)
+
+### Bug Fixes
+
+- Fixed downloading procedure for modules.
+  ([`beee673`](https://github.com/core4x/collectu-core/commit/beee673a21ef0196a0895f5a6c3acb32bf1ab0ff))
+
+
 ## v1.1.0 (2025-01-30)
 
 ### Features
@@ -12,6 +20,9 @@
 ## v1.0.0 (2025-01-30)
 
 ### Bug Fixes
+
+- Added buffer for streaming data.
+  ([`ef7a6a4`](https://github.com/core4x/collectu-core/commit/ef7a6a41ad45f6592b4b443eb6ae5e8b35d9a92a))
 
 - Disabled exc_info.
   ([`fda6bc0`](https://github.com/core4x/collectu-core/commit/fda6bc03622a10779830e99cc2836c82c8a15dc9))
