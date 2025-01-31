@@ -1,6 +1,35 @@
 # CHANGELOG
 
 
+## v1.1.0 (2025-01-30)
+
+### Features
+
+- Further improvements.
+  ([`ffb063a`](https://github.com/core4x/collectu-core/commit/ffb063aa4b42870e4e5695db04ed47f66d2ff9d0))
+
+
+## v1.0.0 (2025-01-30)
+
+### Bug Fixes
+
+- Disabled exc_info.
+  ([`fda6bc0`](https://github.com/core4x/collectu-core/commit/fda6bc03622a10779830e99cc2836c82c8a15dc9))
+
+### Features
+
+- Further improvements.
+  ([`dd38e96`](https://github.com/core4x/collectu-core/commit/dd38e96bce156b1271d4a98f81875449a72a46cb))
+
+- Further improvements.
+  ([`c064f84`](https://github.com/core4x/collectu-core/commit/c064f8438ffb2d8c949a4c9b1a8e6d8f98681d5d))
+
+- Initial commit of new API and frontend.
+  ([`79f65b9`](https://github.com/core4x/collectu-core/commit/79f65b97dca8fae849ef5b35eb85a56bd55619d6))
+
+BREAKING CHANGE: Api has changed.
+
+
 ## v0.18.0 (2025-01-09)
 
 ### Bug Fixes

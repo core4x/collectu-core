@@ -15,7 +15,7 @@ SETTINGS_FILENAME: str = "settings.ini"
 DEBUG: bool = False
 """Debug messages are printed into the console."""
 
-EXC_INFO: bool = True
+EXC_INFO: bool = False
 """Traceback of exceptions are printed."""
 
 NUMBER_OF_BUFFERED_LOGS: int = 50
