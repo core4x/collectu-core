@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.1.2 (2025-01-31)
+
+### Bug Fixes
+
+- Added more headers to prevent unknown compression.
+  ([`426ca77`](https://github.com/core4x/collectu-core/commit/426ca773b491a6e7265914653cb2321577b0d127))
+
+- Removed unnecessary variable declaration.
+  ([`82b6a3b`](https://github.com/core4x/collectu-core/commit/82b6a3b3184ce480e4f489d0aaf44975469395f0))
+
+
 ## v1.1.1 (2025-01-31)
 
 ### Bug Fixes
