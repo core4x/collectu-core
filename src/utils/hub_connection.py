@@ -136,23 +136,31 @@ def download_modules(requested_module_types: str = "all"):
         return
     with session as s:
         try:
-            params = {}
+            modules: list = []
             if "all" == requested_module_types:
-                params["official"] = True
-                params["mine"] = True
+                print("kam an")
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
+                                 allow_redirects=True, timeout=(5, 5))
+                response.raise_for_status()
+                modules = response.json()
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
+                                 allow_redirects=True, timeout=(5, 5))
+                response.raise_for_status()
+                modules = modules + response.json()
             elif "my" == requested_module_types:
-                params["official"] = False
-                params["mine"] = True
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
+                                 allow_redirects=True, timeout=(5, 5))
+                response.raise_for_status()
+                modules = response.json()
             elif "official" == requested_module_types:
-                params["official"] = True
-                params["mine"] = False
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
+                                 allow_redirects=True, timeout=(5, 5))
+                response.raise_for_status()
+                modules = response.json()
             else:
                 logger.error("Invalid module type: {0}.".format(requested_module_types))
                 return
-            response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official_and_mine",
-                             params=params, allow_redirects=True, timeout=(5, 5))
-            response.raise_for_status()
-            modules = response.json()
+
             for module in modules:
                 download_module(module_name=module.get('module_name'), version=0, session=s)
         except Exception as e:
