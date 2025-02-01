@@ -226,15 +226,21 @@ class AbstractModule(ABC):
                     if module_id == "local":
                         if getattr(self, "current_input_data", None) is not None:
                             data = self.current_input_data
-                            # Check if the key is in the fields dict.
-                            value = data.fields.get(key, None)
-                            if value is None:
-                                # If it was not in the fields dict, we check if the key is in the tags dict.
-                                value = data.tags.get(key, None)
-                            if value is None:
-                                raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
-                                                               "Could not find key '{1}' in fields or tags."
-                                                               .format(input_string, key))
+                            # Check if the key is 'measurement'.
+                            if key.lower() == "measurement":
+                                value = data.measurement
+                            elif key.lower() == "time":
+                                value = data.time
+                            else:
+                                # Check if the key is in the fields dict.
+                                value = data.fields.get(key, None)
+                                if value is None:
+                                    # If it was not in the fields dict, we check if the key is in the tags dict.
+                                    value = data.tags.get(key, None)
+                                if value is None:
+                                    raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
+                                                                   "Could not find key '{1}' in fields or tags."
+                                                                   .format(input_string, key))
                         else:
                             raise DynamicVariableException("Could not replace dynamic variable '{0}'. "
                                                            "Referenced module has no latest data. "
