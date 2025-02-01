@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.1.3 (2025-02-01)
+
+### Bug Fixes
+
+- Added buffer to streams.
+  ([`bb814f0`](https://github.com/core4x/collectu-core/commit/bb814f024f97cc20a4901c3a939e6ef7c6193711))
+
+
 ## v1.1.2 (2025-01-31)
 
 ### Bug Fixes
