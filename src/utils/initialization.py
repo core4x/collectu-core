@@ -13,6 +13,9 @@ import config
 import data_layer
 import utils.plugin_interface
 
+# Third party imports.
+import requests
+
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
@@ -101,7 +104,22 @@ def load_and_process_settings_file() -> bool:
         except Exception as e:
             logger.error("Something went wrong loading API access token: {0}".format(str(e)), exc_info=config.EXC_INFO)
 
-        # Write updated settings.ini file.
+        if os.environ.get("HUB_API_ACCESS_TOKEN", False):
+            session = requests.Session()
+            session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
+            try:
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+                response.raise_for_status()
+                username = response.json().get("username")
+                logger.info("Your authentication token belongs to {0}.".format(username))
+                os.environ["HUB_USERNAME"] = username
+            except Exception as e:
+                logger.error("Could not get your current username. "
+                             "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
+                             "Please check or create an api access token on your hub profile."
+                             .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+
+            # Write updated settings.ini file.
         if updated:
             parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...
 

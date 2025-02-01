@@ -23,7 +23,9 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 
 def create_authenticated_session() -> requests.Session | None:
     """
+    Create an authenticated session using the HUB_API_ACCESS_TOKEN.
 
+    :returns: The authenticated session.
     """
     session = requests.Session()
     # Login.
@@ -37,6 +39,7 @@ def create_authenticated_session() -> requests.Session | None:
         logger.error("Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
                      "Please check or create an api access token on your hub profile."
                      .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+        return None
 
 
 def write_module_to_file(module_name: str, module) -> str:
