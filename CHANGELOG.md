@@ -1,12 +1,20 @@
 # CHANGELOG
 
 
+## v1.2.0 (2025-02-01)
+
+
 ## v1.1.3 (2025-02-01)
 
 ### Bug Fixes
 
 - Added buffer to streams.
   ([`bb814f0`](https://github.com/core4x/collectu-core/commit/bb814f024f97cc20a4901c3a939e6ef7c6193711))
+
+### Features
+
+- Local dynamic variable can now be also measurement or time.
+  ([`6d30ff5`](https://github.com/core4x/collectu-core/commit/6d30ff54eaa666fb022c82f39fe860d611241ace))
 
 
 ## v1.1.2 (2025-01-31)
