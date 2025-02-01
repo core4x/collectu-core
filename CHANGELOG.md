@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.3.0 (2025-02-01)
+
+### Features
+
+- Get username if api access token is given.
+  ([`f62e02e`](https://github.com/core4x/collectu-core/commit/f62e02e419d8eaf1263e90405f64ae690ed1d89a))
+
+
 ## v1.2.0 (2025-02-01)
 
 
