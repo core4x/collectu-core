@@ -137,7 +137,6 @@ def download_modules(requested_module_types: str = "all"):
     with session as s:
         try:
             if "all" == requested_module_types:
-                print("kam an")
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
                                  allow_redirects=True, timeout=(5, 5))
                 response.raise_for_status()
