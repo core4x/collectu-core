@@ -176,10 +176,10 @@ def _command_send_modules(module_name: str):
     :param module_name: The module to be sent.
     """
     if module_name == "all":
-        module_name = []
+        module_name = None
     else:
         module_name = [module_name]
-    utils.hub_connection.send_modules(module_name)
+    utils.hub_connection.send_modules(module_names=module_name)
 
 
 def _command_update():
@@ -193,7 +193,7 @@ def _command_download_modules(requested_module_type: list[str]):
     """
     Loads all official modules from the hub.
     """
-    utils.hub_connection.download_modules(requested_module_type[0])
+    utils.hub_connection.download_modules(requested_module_types=requested_module_type[0])
 
 
 def _command_update_modules(module_name: str):
@@ -204,4 +204,4 @@ def _command_update_modules(module_name: str):
         module_names = None
     else:
         module_names = [module_name]
-    utils.hub_connection.update_modules(module_names)
+    utils.hub_connection.update_modules(module_names=module_names)

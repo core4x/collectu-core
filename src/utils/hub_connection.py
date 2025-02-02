@@ -265,7 +265,7 @@ def update_modules(module_names: Optional[List[str]] = None):
             download_module(module_name=module_name, session=session)
 
 
-def send_modules(module_names: List[str]):
+def send_modules(module_names: List[str] | None):
     """
     Updates or creates all registered modules in the hub using the configured user.
 
