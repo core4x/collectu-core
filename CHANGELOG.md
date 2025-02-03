@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.4.1 (2025-02-03)
+
+### Bug Fixes
+
+- Changed default frontend port from 8282 to 80.
+  ([`4488798`](https://github.com/core4x/collectu-core/commit/448879888df5cfe04d95d0b1861fd9a2a743c186))
+
+
 ## v1.4.0 (2025-02-03)
 
 ### Bug Fixes
