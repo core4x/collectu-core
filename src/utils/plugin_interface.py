@@ -99,8 +99,6 @@ def get_list_of_all_module_requirements() -> list[dict]:
         requirements += module_class.third_party_requirements
     requirements = list(set(requirements))
     requirements = sorted(requirements, key=str.lower)
-    # for requirement in requirements:
-    #     print(f"| [{requirement}]() |  |")
     return requirements
 
 
@@ -200,6 +198,65 @@ def load_modules():
                         logger.debug("Unknown module: {0}.".format(modname))
 
     logger.info("Successfully registered {0} modules.".format(str(len(data_layer.registered_modules))))
+
+
+def get_all_module_files() -> dict[str, dict[str, Any]]:
+    """
+    Get all modules (in the module folder).
+
+    The value dict has the following entries:
+    - code
+    - path
+
+    :returns: A dict containing the module name as key and some attributes as value.
+    """
+    found_modules: dict[str, dict[str, Any]] = {}
+    for dirpath, dirnames, filenames in os.walk("modules"):
+        for filename in filenames:
+            if filename.endswith('.py') and filename != "__init__.py":
+                found_path = pathlib.Path(os.path.join(dirpath, filename))
+                module_name = dirpath.replace("modules", "").replace(os.sep, ".")[1:] + "." + filename[:-3]
+                if (module_name.startswith("processors.") or
+                        module_name.startswith("inputs.") or
+                        module_name.startswith("outputs.")):
+                    found_modules[module_name] = {"code": open(found_path, encoding="utf-8").read(),
+                                                  "path": found_path}
+    return found_modules
+
+
+def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
+    """
+    Get all custom modules (in the custom module folder).
+    If no custom module folder exists, and empty dict is returned.
+
+    The value dict has the following entries:
+    - code
+    - path
+
+    :returns: A list containing the module name as key and some attributes as value.
+    """
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
+            "CUSTOM_MODULE_FOLDER", None):
+        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
+    else:
+        return {}
+
+    found_modules: dict[str, dict[str, Any]] = {}
+    for dirpath, dirnames, filenames in os.walk(custom_folder_path):
+        for filename in filenames:
+            if filename.endswith('.py') and filename != "__init__.py" and (pathlib.Path(
+                    os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "inputs")).is_relative_to(
+                custom_folder_path) or pathlib.Path(
+                os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "outputs")).is_relative_to(
+                custom_folder_path) or pathlib.Path(
+                os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"),
+                             "processors")).is_relative_to(custom_folder_path)):
+                found_path = pathlib.Path(os.path.join(dirpath, filename))
+                module_name = dirpath.replace(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")),
+                                              "").replace(os.sep, ".")[1:] + "." + filename[:-3]
+                found_modules[module_name] = {"code": open(found_path, encoding="utf-8").read(),
+                                              "path": found_path}
+    return found_modules
 
 
 def get_all_modules(inputs: bool = False, outputs: bool = False, processors: bool = False) -> list[dict[str, Any]]:
@@ -309,3 +366,116 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
 
         modules.append(data)
     return modules
+
+
+def dynamically_import_module(module_path: str):
+    """
+    Dynamically import given module.
+
+    :param module_path: The path to the module.
+    """
+    module_path = module_path.replace(os.sep, '.')
+    if module_path.endswith(".py"):
+        module_path = module_path[:-3]
+    imported_module = importlib.import_module(module_path)
+    # If the module already exists before updating, we have to reload it.
+    imported_module = importlib.reload(imported_module)
+
+    modname = module_path.replace("modules.", "", 1) if module_path.startswith("modules.") else module_path
+
+    # Register the module.
+    if modname.startswith("inputs."):
+        if hasattr(imported_module, "InputModule"):
+            data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
+        if hasattr(imported_module, "VariableModule"):
+            data_layer.registered_modules[modname + ".variable"] = getattr(imported_module,
+                                                                           "VariableModule")
+        if hasattr(imported_module, "TagModule"):
+            data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
+    elif modname.startswith("outputs."):
+        if hasattr(imported_module, "OutputModule"):
+            data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
+    elif modname.startswith("processors."):
+        if hasattr(imported_module, "ProcessorModule"):
+            data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
+    else:
+        logger.error("Unknown module: {0}.".format(modname))
+
+    logger.info("Successfully imported {0} with version: {1}."
+                .format(modname, imported_module.__version__))
+
+
+def write_module_to_file(module_name: str, code: str, import_module: bool = True):
+    """
+    Write the given module to file, or update the existing file and import the module.
+
+    :param module_name: The module to write.
+    :param code: The module code to be written.
+    :param import_module: Do you want to directly import the module.
+    """
+    # Check if a custom module folder exists.
+    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
+            "CUSTOM_MODULE_FOLDER", None):
+        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
+    else:
+        custom_folder_path = None
+
+    # This is the file path including the file name.
+    file = None
+    if module_name.startswith("inputs."):
+        path_list = module_name.replace('inputs.', '').split(".")
+        path_list[-1] += ".py"
+        if custom_folder_path is not None:
+            # Check if the module exists in the custom module folder.
+            if os.path.isfile(os.path.join(custom_folder_path, 'inputs', *path_list)):
+                file = os.path.join(custom_folder_path, 'inputs', *path_list)
+        if not file:
+            file = os.path.join('modules', 'inputs', *path_list)
+    elif module_name.startswith("outputs."):
+        path_list = module_name.replace('outputs.', '').split(".")
+        path_list[-1] += ".py"
+        if custom_folder_path is not None:
+            # Check if the module exists in the custom module folder.
+            if os.path.isfile(os.path.join(custom_folder_path, 'outputs', *path_list)):
+                file = os.path.join(custom_folder_path, 'outputs', *path_list)
+        if not file:
+            file = os.path.join('modules', 'outputs', *path_list)
+    elif module_name.startswith("processors."):
+        path_list = module_name.replace('processors.', '').split(".")
+        path_list[-1] += ".py"
+        if custom_folder_path is not None:
+            # Check if the module exists in the custom module folder.
+            if os.path.isfile(os.path.join(custom_folder_path, 'processors', *path_list)):
+                file = os.path.join(custom_folder_path, 'processors', *path_list)
+        if not file:
+            file = os.path.join('modules', 'processors', *path_list)
+    else:
+        raise Exception("Unknown module: {0}.".format(module_name))
+
+    # Create directory.
+    pathlib.Path(os.path.join(str(pathlib.Path(file).parents[0]))).mkdir(
+        parents=True,
+        exist_ok=True)
+
+    # Check if __init__.py files exist in all folders on the path. Otherwise, create them.
+    current_dir = os.path.dirname(file)
+    while True:
+        if os.path.basename(current_dir) == os.environ.get("CUSTOM_MODULE_FOLDER", None):
+            break
+        init_py_path = os.path.join(current_dir, '__init__.py')
+        if not os.path.isfile(init_py_path):
+            open(init_py_path, "a").close()
+        if os.path.basename(current_dir) == "modules":
+            break
+        if current_dir == '/':
+            break
+        current_dir = os.path.dirname(current_dir)
+
+    if os.path.isfile(file):
+        logger.warning("File '{0}' already exists and is now overwritten.".format(file))
+
+    with open(pathlib.Path(file), 'w', newline='', encoding='utf-8', errors='ignore') as f:
+        f.write(code)
+    logger.info("Successfully wrote code to file: {0}".format(file))
+    if import_module:
+        dynamically_import_module(module_path=file)

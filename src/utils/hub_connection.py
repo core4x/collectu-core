@@ -17,6 +17,8 @@ import data_layer
 # Third party imports.
 import requests
 
+import utils.plugin_interface
+
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
@@ -40,89 +42,6 @@ def create_authenticated_session() -> requests.Session | None:
                      "Please check or create an api access token on your hub profile."
                      .format(config.HUB_MODULES_ADDRESS, str(e)), exc_info=config.EXC_INFO)
         return None
-
-
-def write_module_to_file(module_name: str, module) -> str:
-    """
-    Write the given module to file, or update the existing file.
-
-    :param module_name: The module to write.
-    :param module: The module to be written.
-
-    :return: The relative filepath (including the filename, e.g. modules\test\inputs\application\app_status_1.py)
-    of the written module.
-    """
-    # Check if a custom module folder exists.
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
-            "CUSTOM_MODULE_FOLDER", None):
-        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
-    else:
-        custom_folder_path = None
-
-    # This is the file path including the file name.
-    file = None
-    if module_name.startswith("inputs."):
-        path_list = module_name.replace('inputs.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'inputs', *path_list)):
-                file = os.path.join(custom_folder_path, 'inputs', *path_list)
-        if not file:
-            file = os.path.join('modules', 'inputs', *path_list)
-    elif module_name.startswith("outputs."):
-        path_list = module_name.replace('outputs.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'outputs', *path_list)):
-                file = os.path.join(custom_folder_path, 'outputs', *path_list)
-        if not file:
-            file = os.path.join('modules', 'outputs', *path_list)
-    elif module_name.startswith("processors."):
-        path_list = module_name.replace('processors.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'processors', *path_list)):
-                file = os.path.join(custom_folder_path, 'processors', *path_list)
-        if not file:
-            file = os.path.join('modules', 'processors', *path_list)
-    else:
-        raise Exception("Unknown module: {0}.".format(module_name))
-
-    # Create directory.
-    pathlib.Path(os.path.join(str(pathlib.Path(file).parents[0]))).mkdir(
-        parents=True,
-        exist_ok=True)
-
-    # Check if __init__.py files exist in all folders on the path. Otherwise, create them.
-    current_dir = os.path.dirname(file)
-    while True:
-        if os.path.basename(current_dir) == os.environ.get("CUSTOM_MODULE_FOLDER", None):
-            break
-        init_py_path = os.path.join(current_dir, '__init__.py')
-        if not os.path.isfile(init_py_path):
-            open(init_py_path, "a").close()
-        if os.path.basename(current_dir) == "modules":
-            break
-        if current_dir == '/':
-            break
-        current_dir = os.path.dirname(current_dir)
-
-    # Save code as file in the given path.
-    if "version" in module:
-        content = module.get("version").get("code")
-    else:
-        content = module.get("latest").get("code")
-
-    if os.path.isfile(file):
-        logger.warning("File '{0}' already exists and is now overwritten.".format(file))
-
-    with open(pathlib.Path(file), 'w', newline='', encoding='utf-8', errors='ignore') as f:
-        f.write(content)
-    logger.info("Successfully wrote code to file: {0}".format(file))
-    return file
 
 
 def download_modules(requested_module_types: str = "all"):
@@ -206,35 +125,12 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
              module_name.startswith(module.get('module_name'))), None).version or version != 0:
 
             modname = module_name.lower()
-            relative_filepath = write_module_to_file(module_name=modname, module=module)
-
-            # Import the module.
-            module_path = relative_filepath.replace(os.sep, '.')
-            if module_path.endswith(".py"):
-                module_path = module_path[:-3]
-            imported_module = importlib.import_module(module_path)
-            # If the module already exists before updating, we have to reload it.
-            imported_module = importlib.reload(imported_module)
-            # Register the module.
-            if modname.startswith("inputs."):
-                if hasattr(imported_module, "InputModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
-                if hasattr(imported_module, "VariableModule"):
-                    data_layer.registered_modules[modname + ".variable"] = getattr(imported_module,
-                                                                                   "VariableModule")
-                if hasattr(imported_module, "TagModule"):
-                    data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
-            elif modname.startswith("outputs."):
-                if hasattr(imported_module, "OutputModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
-            elif modname.startswith("processors."):
-                if hasattr(imported_module, "ProcessorModule"):
-                    data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
+            # Save code as file in the given path.
+            if "version" in module:
+                code = module.get("version").get("code")
             else:
-                logger.error("Unknown module: {0}.".format(modname))
-
-            logger.info("Successfully imported {0} with version: {1}."
-                        .format(module_name, imported_module.__version__))
+                code = module.get("latest").get("code")
+            utils.plugin_interface.write_module_to_file(module_name=modname, code=code)
             return True
         else:
             logger.info("Module '{0}' already exists in the latest version. "
@@ -312,15 +208,15 @@ def send_modules(module_names: List[str] | None):
                         return pathlib.Path(os.path.join(dirpath, python_filename))
             return None
 
-        def send_module(module_name: str, found_path: pathlib.Path):
+        def send_module(module_name: str, code: str):
             """
             Send a specific module to the hub.
 
             :param module_name: The name of the module to be sent.
-            :param found_path: The relative path of the module.
+            :param code: The code of the module.
             """
             try:
-                data = {"code": open(found_path, encoding="utf-8").read(),
+                data = {"code": code,
                         "official": False}
                 # Check if the module already exists.
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_by_module_name",
@@ -359,7 +255,12 @@ def send_modules(module_names: List[str] | None):
                                 .format(module_name, config.HUB_MODULES_ADDRESS, str(response.json().get("id"))))
 
                 module = response.json()
-                relative_filepath = write_module_to_file(module_name=module_name, module=module)
+                # Save code as file in the given path.
+                if "version" in module:
+                    code = module.get("version").get("code")
+                else:
+                    code = module.get("latest").get("code")
+                utils.plugin_interface.write_module_to_file(module_name=module_name, code=code)
             except Exception as e:
                 logger.error("Could not send module data ('{0}'): {1}.".format(module_name, str(e)),
                              exc_info=config.EXC_INFO)
@@ -377,20 +278,8 @@ def send_modules(module_names: List[str] | None):
                                            search_dir="modules")
                 if found_path is None:
                     logger.error("Could not find module: {0}".format(module_name))
-                send_module(module_name=module_name, found_path=found_path)
+                send_module(module_name=module_name, code=open(found_path, encoding="utf-8").read())
         #  2. If modules are defined, search in both module folders and send them (if found in custom, prefer this one).
         else:
-            for dirpath, dirnames, filenames in os.walk(custom_folder_path):
-                for filename in filenames:
-                    if filename.endswith('.py') and filename != "__init__.py" and (pathlib.Path(
-                            os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "inputs")).is_relative_to(
-                        custom_folder_path) or pathlib.Path(
-                        os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "outputs")).is_relative_to(
-                        custom_folder_path) or pathlib.Path(
-                        os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"),
-                                     "processors")).is_relative_to(custom_folder_path)):
-                        found_path = pathlib.Path(os.path.join(dirpath, filename))
-                        logger.info("Found module: {0}".format(found_path))
-                        module_name = dirpath.replace(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")),
-                                                      "").replace(os.sep, ".")[1:] + "." + filename[:-3]
-                        send_module(module_name=module_name, found_path=found_path)
+            for module_name, values in utils.plugin_interface.get_all_custom_module_files().items():
+                send_module(module_name=module_name, code=values.get("code"))
