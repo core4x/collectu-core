@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v1.4.0 (2025-02-03)
+
+### Bug Fixes
+
+- Adjusted default values of method calls.
+  ([`f347383`](https://github.com/core4x/collectu-core/commit/f347383394b0a3df9ad4a787f55d2ff6ae3b9d00))
+
+### Features
+
+- Added modules view and endpoints. Refactored plugin interface.
+  ([`37a71ab`](https://github.com/core4x/collectu-core/commit/37a71ab41b6d9cb49c8289e92d8bf3c022f28b26))
+
+- Added modules view and endpoints. Refactored plugin interface.
+  ([`09c3509`](https://github.com/core4x/collectu-core/commit/09c3509af0ec7c35ac7b5af2dea24aaf68d897b6))
+
+
 ## v1.3.0 (2025-02-01)
 
 ### Features
