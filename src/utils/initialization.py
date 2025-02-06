@@ -97,7 +97,7 @@ def load_and_process_settings_file() -> bool:
                     if os.environ.get("HUB_API_ACCESS_TOKEN", False):
                         logger.warning("Existing HUB_API_ACCESS_TOKEN is overwritten by {0}"
                                        .format(api_access_token_path))
-                    os.environ["HUB_API_ACCESS_TOKEN"] = file.read()
+                    os.environ["HUB_API_ACCESS_TOKEN"] = file.read().strip()
             else:
                 if not os.environ.get("HUB_API_ACCESS_TOKEN", False):
                     logger.warning("API access token file 'api_access_token.txt' does not exist...")
