@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.4.2 (2025-02-06)
+
+### Bug Fixes
+
+- Remove white space while reading api access token.
+  ([`628161c`](https://github.com/core4x/collectu-core/commit/628161cabf6318069577a4e6e6bda69ddb4716c1))
+
+
 ## v1.4.1 (2025-02-03)
 
 ### Bug Fixes
