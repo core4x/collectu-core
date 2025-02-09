@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.4.3 (2025-02-09)
+
+### Bug Fixes
+
+- Increased waiting time in generator a little bit to improve overall performance.
+  ([`d2f6fef`](https://github.com/core4x/collectu-core/commit/d2f6fef359a879e0125f5f5ee28b30904d1fb419))
+
+
 ## v1.4.2 (2025-02-06)
 
 ### Bug Fixes
