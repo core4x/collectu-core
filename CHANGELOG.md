@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.5.0 (2025-02-19)
+
+### Features
+
+- Generate app_description from hostname if not set.
+  ([`d5b59d0`](https://github.com/core4x/collectu-core/commit/d5b59d0a600280c4a58d3c1297d49024e73dfd49))
+
+
 ## v1.4.3 (2025-02-09)
 
 ### Bug Fixes
