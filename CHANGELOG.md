@@ -1,7 +1,15 @@
 # CHANGELOG
 
 
+## v1.5.1 (2025-02-19)
+
+
 ## v1.5.0 (2025-02-19)
+
+### Bug Fixes
+
+- Removed debug message.
+  ([`f0a933c`](https://github.com/core4x/collectu-core/commit/f0a933c1d0d344777d3e826d319fce9146b9139a))
 
 ### Features
 
