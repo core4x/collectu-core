@@ -6,6 +6,7 @@ from configparser import ConfigParser
 import os
 import logging
 import uuid
+import socket
 import importlib.metadata
 
 # Internal imports.
@@ -79,6 +80,13 @@ def load_and_process_settings_file() -> bool:
                     logger.info(f"Auto-generated app_id: '{value}'.")
                 os.environ["APP_ID"] = value
                 data_layer.settings[name.upper()] = str(value)
+            elif name.lower() == "app_description":
+                if not bool(value.strip()):
+                    value = socket.gethostname()
+                    parser.set('env', 'app_description', value)
+                    logger.info(f"Auto-generated app_description: '{value}'.")
+                os.environ["APP_DESCRIPTION"] = value
+                data_layer.settings[name.upper()] = str(value)
             elif not os.environ.get(name.upper(), False) and not name.startswith("#") and bool(value.strip()):
                 logger.debug(f"Set environment variable from {config.SETTINGS_FILENAME}: {name.upper()}={value}")
                 os.environ[name.upper()] = str(value)
@@ -98,6 +106,7 @@ def load_and_process_settings_file() -> bool:
                         logger.warning("Existing HUB_API_ACCESS_TOKEN is overwritten by {0}"
                                        .format(api_access_token_path))
                     os.environ["HUB_API_ACCESS_TOKEN"] = file.read().strip()
+                    logger.info("Read HUB_API_ACCESS_TOKEN from file ({0}).".format(api_access_token_path))
             else:
                 if not os.environ.get("HUB_API_ACCESS_TOKEN", False):
                     logger.warning("API access token file 'api_access_token.txt' does not exist...")
@@ -119,7 +128,7 @@ def load_and_process_settings_file() -> bool:
                              "Please check or create an api access token on your hub profile."
                              .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
-            # Write updated settings.ini file.
+        # Write updated settings.ini file.
         if updated:
             parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...
 
