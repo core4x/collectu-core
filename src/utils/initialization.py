@@ -88,7 +88,6 @@ def load_and_process_settings_file() -> bool:
                 os.environ["APP_DESCRIPTION"] = value
                 data_layer.settings[name.upper()] = str(value)
             elif not os.environ.get(name.upper(), False) and not name.startswith("#") and bool(value.strip()):
-                logger.debug(f"Set environment variable from {config.SETTINGS_FILENAME}: {name.upper()}={value}")
                 os.environ[name.upper()] = str(value)
                 data_layer.settings[name.upper()] = str(value)
             elif os.environ.get(name.upper(), False):
