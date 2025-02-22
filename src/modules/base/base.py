@@ -9,7 +9,7 @@ import os
 from threading import Thread
 from typing import Any, Optional, Union
 import copy
-import functools
+import ast
 
 # Internal imports.
 import config
@@ -147,9 +147,9 @@ class AbstractModule(ABC):
                     self.logger.error("Could not execute linked module '{0}': {1}".format(module_id, str(e)),
                                       exc_info=config.EXC_INFO)
 
-    def _dyn(self, input_string: str, data_type: Optional[Union[list[str], str]] = None) -> Any:
+    def _dyn(self, input_data: Any, data_type: Optional[Union[list[str], str]] = None) -> Any:
         """
-        This method receives a string and replaces all dynamic variables e.g. '${module_id.key}'
+        This method receives an input value and replaces all dynamic variables e.g. '${module_id.key}'
         with the current value of the linked module.
         All attributes of a variable possibly containing variables have to be given to this function before applied.
 
@@ -161,14 +161,18 @@ class AbstractModule(ABC):
         If the replacement of the dynamic variable went wrong (e.g. because of a missing value or wrong data type),
         an DynamicVariableException is raised.
 
-        :param input_string: The string possibly containing dynamic variables.
-        :param data_type: The data type we try the dynamic variable. Can be list, str, int, float, or bool.
+        :param input_data: The input data possibly containing dynamic variables.
+        :param data_type: The data type we try the dynamic variable. Can be list, dict, str, int, float, or bool.
 
         :returns: The input with the dynamic variables replaced by the actual value.
         """
         try:
-            available_data_types = {"str": str, "bool": bool, "float": float, "int": int, "list": list}
+            available_data_types = {"str": str, "bool": bool, "float": float, "int": int, "list": list, "dict": dict}
             """A dictionary containing all available data types for conversion."""
+
+            # To be safe, we make the input_string a string.
+            input_string = str(input_data)
+
             # Convert to list.
             if data_type is None:
                 data_type = []
@@ -285,12 +289,21 @@ class AbstractModule(ABC):
                         processed_input_string = processed_input_string.replace(
                             "${" + variable_text + "}", str(value))
 
+            try:
+                # This make strings to lists and dicts, if they are.
+                processed_input_string = ast.literal_eval(processed_input_string)
+            except Exception as e:
+                pass
+
             # Try to convert to the given data type.
             successfully_converted: bool = False
             for defined_data_type in converted_data_types:
                 try:
-                    processed_input_string = defined_data_type(processed_input_string)
-                    # Successfully converted.
+                    if defined_data_type == list:
+                        if not isinstance(processed_input_string, list):
+                            processed_input_string = [processed_input_string]
+                    else:
+                        processed_input_string = defined_data_type(processed_input_string)
                     successfully_converted = True
                     break
                 except Exception as e:

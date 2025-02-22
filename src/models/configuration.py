@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, fields
 import string
 import os
 import random
+import ast
 
 # Internal imports.
 import models.validations
@@ -140,6 +141,12 @@ class Module:
             if data_type in [str, int, float, bool, list]:
                 try:
                     input_value = data_type(processed_input_string)
+                except Exception as e:
+                    pass
+            else:
+                # Try to convert to the expected type.
+                try:
+                    input_value = ast.literal_eval(processed_input_string)
                 except Exception as e:
                     pass
 

@@ -6,6 +6,7 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from dataclasses import fields
 import re
+import ast
 
 
 class ValidationError(Exception):
@@ -32,7 +33,8 @@ def validate_module(module):
     # Check that the field values are of the correct data type.
     for field in fields(module):
         value = getattr(module, field.name)
-        if ("${" in str(value) and "}" in str(value)) and field.metadata.get('dynamic', False):
+        if (str(value).startswith("${") and str(value).endswith("}")) and field.metadata.get('dynamic', False):
+            # The complete value is a dynamic variable. We have to assume, the replacement will fit the type.
             # Make them always a string.
             setattr(module, field.name, str(value))
         elif field.type in [str, int, bool, float]:
@@ -54,6 +56,13 @@ def validate_module(module):
             # It is probably a typing type.
             # Check if it is a list.
             if get_origin(field.type) == list:
+                if not isinstance(value, list):
+                    try:
+                        # If it is just a string in list format, this will make it a list.
+                        value = ast.literal_eval(value)
+                    except Exception as e:
+                        # If it fails, we will make a list from it.
+                        value = [value]
                 for field_type in get_args(field.type):
                     if field_type not in [str, int, bool, float]:
                         # Unknown data type e.g. a nested configuration. We skip the check.
@@ -75,6 +84,11 @@ def validate_module(module):
             # Check if it is a dict.
             elif get_origin(field.type) == dict:
                 key_type, value_type = get_args(field.type)
+                try:
+                    # If it is just a string in dict format, this will make it a dict.
+                    value = ast.literal_eval(value)
+                except Exception as e:
+                    pass
                 for key, value in value.items():
                     if key_type in [str, int, bool, float]:
                         if not isinstance(key, key_type):
@@ -124,7 +138,8 @@ def validate_module(module):
 
         validation_class: Validation = field.metadata.get('validate', None)
         if validation_class is not None:
-            if ("${" in str(value) and "}" in str(value)) and field.metadata.get('dynamic', False):
+            if (str(value).startswith("${") and str(value).endswith("}")) and field.metadata.get('dynamic', False):
+                # The complete value is a dynamic variable. We have to assume, the replacement will fit the type.
                 # Make them always a string.
                 setattr(module, field.name, str(value))
             else:
