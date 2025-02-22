@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v1.6.0 (2025-02-22)
+
+### Bug Fixes
+
+- Improved data converting for dynamic variables.
+  ([`1711d80`](https://github.com/core4x/collectu-core/commit/1711d80b292c2a8aa81ea395f65eb13299d46369))
+
+### Documentation
+
+- Added translations.
+  ([`14b7a91`](https://github.com/core4x/collectu-core/commit/14b7a918d0fdbe75c758c2100eac963a13002089))
+
+### Features
+
+- Improved search functionality.
+  ([`a3acf94`](https://github.com/core4x/collectu-core/commit/a3acf94ae959e3f75c0114b48932824ea529814a))
+
+
 ## v1.5.1 (2025-02-19)
 
 
