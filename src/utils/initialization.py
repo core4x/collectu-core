@@ -136,6 +136,7 @@ def load_and_process_settings_file() -> bool:
         return updated
     except Exception as e:
         logger.error("Could not initialize application: {0}".format(str(e)))
+        return False
 
 
 def update_env_variables():
