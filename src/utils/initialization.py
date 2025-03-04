@@ -71,30 +71,31 @@ def load_and_process_settings_file() -> bool:
         # Set the environment variables if not already defined.
         for name, value in parser.items('env'):
             # If no app_id is set, we generate one.
-            if name.lower() == "app_id":
+            if name.lower() == "app_id" and not os.environ.get(name.upper(), False):
                 if not bool(value.strip()):
                     logger.info(f"Welcome to {config.APP_NAME}.")
                     value = str(uuid.uuid4())
-                    parser.set('env', 'app_id', value)
+                    parser.set('env', name.lower(), value)
                     updated = True
                     logger.info(f"Auto-generated app_id: '{value}'.")
-                os.environ["APP_ID"] = value
+                os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
-            elif name.lower() == "app_description":
+            # If no app_description is set, we generate one.
+            elif name.lower() == "app_description" and not os.environ.get(name.upper(), False):
                 if not bool(value.strip()):
                     value = socket.gethostname()
-                    parser.set('env', 'app_description', value)
+                    parser.set('env', name.lower(), value)
                     logger.info(f"Auto-generated app_description: '{value}'.")
-                os.environ["APP_DESCRIPTION"] = value
+                os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
+            # Set in settings but not in env.
             elif not os.environ.get(name.upper(), False) and not name.startswith("#") and bool(value.strip()):
                 os.environ[name.upper()] = str(value)
                 data_layer.settings[name.upper()] = str(value)
+            # Set in env.
             elif os.environ.get(name.upper(), False):
                 # Already set environment variables.
                 data_layer.settings[name.upper()] = os.environ.get(name.upper())
-            elif not name.startswith("#"):
-                data_layer.settings[name.upper()] = str(value)
 
         # Load the api_access_token.txt file if it exists.
         api_access_token_path = '../api_access_token.txt'
