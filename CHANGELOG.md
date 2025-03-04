@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.6.1 (2025-03-04)
+
+### Bug Fixes
+
+- Environment variables now have priority over settings.ini.
+  ([`d8952ae`](https://github.com/core4x/collectu-core/commit/d8952ae05b46c12550914d82ea6a4058531aff6a))
+
+
 ## v1.6.0 (2025-02-22)
 
 ### Bug Fixes
