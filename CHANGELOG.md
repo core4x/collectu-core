@@ -1,9 +1,15 @@
 # CHANGELOG
 
 
+## v1.6.2 (2025-03-04)
+
+
 ## v1.6.1 (2025-03-04)
 
 ### Bug Fixes
+
+- Added return value to load_and_process_settings_file in case of exception.
+  ([`17243ab`](https://github.com/core4x/collectu-core/commit/17243ab0f1771fa2898323668db0a97bf937a5d2))
 
 - Environment variables now have priority over settings.ini.
   ([`d8952ae`](https://github.com/core4x/collectu-core/commit/d8952ae05b46c12550914d82ea6a4058531aff6a))
