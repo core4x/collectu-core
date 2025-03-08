@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.7.0 (2025-03-07)
+
+### Features
+
+- Improved flask settings and added whitenoise for static file serving.
+  ([`0a775e9`](https://github.com/core4x/collectu-core/commit/0a775e9addffaff609fb9f089b5fbf3dc5991a0e))
+
+
 ## v1.6.2 (2025-03-04)
 
 
