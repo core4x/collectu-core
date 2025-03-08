@@ -1,9 +1,15 @@
 # CHANGELOG
 
 
+## v1.8.0 (2025-03-08)
+
+
 ## v1.7.0 (2025-03-07)
 
 ### Features
+
+- Frontend is now running in a separate process.
+  ([`74abeef`](https://github.com/core4x/collectu-core/commit/74abeef719bf53ed1a07ddfaaaefd8efb2fe1427))
 
 - Improved flask settings and added whitenoise for static file serving.
   ([`0a775e9`](https://github.com/core4x/collectu-core/commit/0a775e9addffaff609fb9f089b5fbf3dc5991a0e))
