@@ -10,6 +10,7 @@ import subprocess
 # Internal imports.
 import config
 import data_layer
+import main
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
@@ -26,6 +27,7 @@ def restart_application():
     Restarts the application.
     """
     logger.info("Restarting application...")
+    main.exit_handler()
     # os.execl(sys.executable, '"{}"'.format(sys.executable), *sys.argv)
     os.execv(sys.executable, ['python'] + sys.argv)
 
