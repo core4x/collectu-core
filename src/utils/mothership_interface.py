@@ -46,7 +46,7 @@ class DatabaseWorker:
         # Instantiate the database.
         self.db = tinydb.TinyDB(self.db_path) if tinydb else {}
         # First we add all existing database entries to the data_layer.
-        for app in self.db if self.db else self.db.values():
+        for app in self.db if tinydb else self.db.values():
             data_layer.mothership_data[app.get("id")] = models.MothershipData(
                 app_id=app.get("id"),
                 status="unknown",  # This will be updated if we receive a report.
