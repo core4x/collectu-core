@@ -18,11 +18,15 @@ import config
 import data_layer
 import modules
 
-# Third party imports.
-import markdown
-
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
+
+# Third-party imports (optional).
+try:
+    import markdown
+except ImportError as e:
+    markdown = None
+    logger.error("Optional markdown package not installed! Some features may not be supported.")
 
 
 def install_plugin_requirement(package: str):
@@ -344,6 +348,12 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
         else:
             logger.error("Unknown module type for module '{0}'".format({module_name}))
             continue
+
+        # Use markdown only if available.
+        documentation_html = markdown.markdown(
+            getattr(sys.modules[module.__module__], "__doc__", "")) if markdown else getattr(
+            sys.modules[module.__module__], "__doc__", "")
+
         data = {"module_name": module_name,
                 "module_type": module_type,
                 # "installed": installed,
@@ -353,7 +363,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
                 "email": module.email,
                 "description": module.description,
                 "documentation": getattr(sys.modules[module.__module__], "__doc__", ""),
-                "documentation_html": markdown.markdown(getattr(sys.modules[module.__module__], "__doc__", "")),
+                "documentation_html": documentation_html,
                 "deprecated": module.deprecated,
                 "third_party_requirements": module.third_party_requirements,
                 "parameters": parameter_list}
