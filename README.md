@@ -13,10 +13,10 @@ which makes it easily adjustable and extendable.
 
 ## Quick Start Guide
 
-> Please check [collectu.de/docs](https://collectu.de/docs)
+Please check [collectu.de/docs](https://collectu.de/docs)
 
 ## License
 
-> Collectu-core is licensed under the terms of the Sustainable Use License.
+Collectu-core is licensed under the terms of the Sustainable Use License.
 
-> The collectu interfaces (frontend and api) are licensed under the terms of the collectu Enterprise License.
+The collectu interfaces (frontend and api) are licensed under the terms of the collectu Enterprise License.
