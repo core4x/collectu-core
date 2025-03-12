@@ -10,19 +10,9 @@ import sys
 import time
 import atexit
 
-# Internal imports. Caution: Make sure we have set the environment variables, before you (globally) try to access them.
+# Internal imports.
 import config
-import utils.logging
-import utils.initialization
 import data_layer
-import configuration
-import utils.arg_parser
-import utils.mothership_interface
-import utils.usage_statistics
-import utils.updater
-import utils.plugin_interface
-import utils.hub_connection
-import models
 
 logger = logging.getLogger()
 """The logger instance."""
@@ -53,7 +43,21 @@ if __name__ == "__main__":
         raise Exception("Python 3.10 or a more recent version is required. We recommend Python 3.11.")
 
     # Set up the logging.
+    import utils.logging
+
     utils.logging.start(logger)
+
+    # Internal imports.
+    # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
+    # Imported after configuring the logger, since importing can already cause log messages.
+    import utils.initialization
+    import configuration
+    import utils.arg_parser
+    import utils.mothership_interface
+    import utils.usage_statistics
+    import utils.updater
+    import utils.plugin_interface
+    import utils.hub_connection
 
     # Exit handler.
     atexit.register(exit_handler)
