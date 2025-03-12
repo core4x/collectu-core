@@ -1,13 +1,12 @@
 """
-This is an application, which collects or receives data from various input modules
-specified in a configuration file. The received data can be processed and dynamically tagged.
-Subsequently, the data is stored in defined output modules.
+The Collectu Core!
 
-For further information please see README.md.
+Visit:      https://collectu.de
+Contact:    info@collectu.de
 """
+import logging
 import os
 import sys
-import logging
 import time
 import atexit
 
