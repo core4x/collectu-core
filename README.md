@@ -15,11 +15,6 @@ which makes it easily adjustable and extendable.
 
 > Please check [collectu.de/docs](https://collectu.de/docs)
 
-## Development
-
-> Further information about developing new modules can be found in `src/modules/README.md` and 
-> `src/modules/base/processors/README.md`
-
 ## License
 
 > Collectu-core is licensed under the terms of the Sustainable Use License.
