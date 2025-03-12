@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.8.1 (2025-03-12)
+
+### Bug Fixes
+
+- Removed development hint.
+  ([`4178523`](https://github.com/core4x/collectu-core/commit/4178523c29bd1938590facf6f7cc9cbc5538eb67))
+
+
 ## v1.8.0 (2025-03-08)
 
 
