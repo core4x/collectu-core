@@ -1,15 +1,16 @@
 """
 The data layer holds all global data objects of the main process.
 """
-from typing import Any, Deque, Optional
+from typing import Any, Deque, Optional, TYPE_CHECKING
 import collections
 import datetime
 
 # Internal imports.
 import config
-from configuration import Configuration
-import models
-import utils.usage_statistics
+if TYPE_CHECKING:
+    import models
+    from configuration import Configuration
+
 
 version: str = "unknown"
 """The version of the application."""
@@ -25,10 +26,10 @@ However, some environment variables are only loaded during start-up. So, better 
 registered_modules: dict[str, Any] = {}
 """All available modules with the module name as key."""
 
-configuration: Optional[Configuration] = None
+configuration: Optional["Configuration"] = None
 """The configuration class."""
 
-module_data: dict[str, models.ModuleData] = {}
+module_data: dict[str, "models.ModuleData"] = {}
 """Dictionary containing all configured modules and additional information with the module id as key."""
 
 buffer_instance = None
@@ -37,13 +38,13 @@ buffer_instance = None
 dashboard_modules: list[Any] = []
 """List of processor visualization instances. Processors register them self here."""
 
-mothership_data: dict[str, models.MothershipData] = {}
+mothership_data: dict[str, "models.MothershipData"] = {}
 """The received mothership data with the app_id as key."""
 
 mothership_tasks: dict[str, list[dict[str, str | list]]] = {}
 """The todos for the single apps, with the app id as key, and the tasks in a list."""
 
-latest_logs: Deque[models.Data] = collections.deque(maxlen=config.NUMBER_OF_BUFFERED_LOGS)
+latest_logs: Deque["models.Data"] = collections.deque(maxlen=config.NUMBER_OF_BUFFERED_LOGS)
 """Deque containing the latest (maxlen) captured logs."""
 
 last_mothership_sending_error_log: dict[str, datetime.datetime] = {}
