@@ -20,10 +20,16 @@ import utils.plugin_interface
 
 # Third party imports.
 import requests
-import tinydb
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
+
+# Third-party imports (optional).
+try:
+    import tinydb
+except ImportError as e:
+    tinydb = None
+    logger.error("Optional tinydb package not installed! Some features may not be supported.")
 
 
 class DatabaseWorker:
@@ -38,9 +44,9 @@ class DatabaseWorker:
         # Create the path to the database.
         self.db_path = os.path.join('..', 'data', 'mothership', 'mothership.db')
         # Instantiate the database.
-        self.db = tinydb.TinyDB(self.db_path)
+        self.db = tinydb.TinyDB(self.db_path) if tinydb else {}
         # First we add all existing database entries to the data_layer.
-        for app in self.db:
+        for app in self.db if self.db else self.db.values():
             data_layer.mothership_data[app.get("id")] = models.MothershipData(
                 app_id=app.get("id"),
                 status="unknown",  # This will be updated if we receive a report.
@@ -67,22 +73,29 @@ class DatabaseWorker:
             try:
                 # Get the mothership data entries.
                 for app_id, mothership_data in data_layer.mothership_data.copy().items():
-                    entry = self.db.get(tinydb.where('id') == app_id)
+                    entry = self.db.get(tinydb.where('id') == app_id) if tinydb else self.db.get(app_id, None)
                     if entry is not None:
                         # Check if description, version, or updated_at changed.
                         if mothership_data.description != entry.get("description") or \
                                 mothership_data.version != entry.get("version") or \
                                 mothership_data.updated_at > datetime.fromisoformat(entry.get("updated_at")):
-                            self.db.update({"description": mothership_data.description,
-                                            "version": mothership_data.version,
-                                            "updated_at": mothership_data.updated_at.isoformat()},
-                                           tinydb.where('id') == app_id)
+                            data = {"description": mothership_data.description,
+                                    "version": mothership_data.version,
+                                    "updated_at": mothership_data.updated_at.isoformat()}
+                            if tinydb:
+                                self.db.update(data, tinydb.where('id') == app_id)
+                            else:
+                                self.db[app_id].update(data)
                     else:
-                        self.db.insert({"id": app_id,
-                                        "description": mothership_data.description,
-                                        "version": mothership_data.version,
-                                        "created_at": mothership_data.created_at.isoformat(),
-                                        "updated_at": mothership_data.updated_at.isoformat()})
+                        data = {"id": app_id,
+                                "description": mothership_data.description,
+                                "version": mothership_data.version,
+                                "created_at": mothership_data.created_at.isoformat(),
+                                "updated_at": mothership_data.updated_at.isoformat()}
+                        if tinydb:
+                            self.db.insert(data)
+                        else:
+                            self.db[app_id] = data
 
                     # Reset status if we received no update in a configured time.
                     if (datetime.now(timezone.utc) - mothership_data.updated_at).seconds > config.REPORTER_TIMEOUT:
@@ -91,9 +104,12 @@ class DatabaseWorker:
 
                 # Delete app ids from db, if they are no longer in the data.mothership_data dict.
                 # This can be the case, if a user deletes the key (using the according rest endpoint).
-                for entry in self.db:
+                for entry in self.db if tinydb else self.db.values():
                     if entry.get("id") not in data_layer.mothership_data:
-                        self.db.remove(tinydb.where('id') == entry.get("id"))
+                        if tinydb:
+                            self.db.remove(tinydb.where('id') == entry.get("id"))
+                        else:
+                            self.db.pop(entry.get("id"))
             except Exception as e:
                 logger.error("Could not interact with mothership db '{0}': {1}".format(str(self.db_path), str(e)),
                              exc_info=config.EXC_INFO)
