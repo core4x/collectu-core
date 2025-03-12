@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.8.2 (2025-03-12)
+
+### Bug Fixes
+
+- Delete src/modules/base/processors/README.md
+  ([`f6296dc`](https://github.com/core4x/collectu-core/commit/f6296dcb351d6cfb7a97f400c0352df4ffc4e8e9))
+
+- Delete src/modules/README.md
+  ([`7ec694e`](https://github.com/core4x/collectu-core/commit/7ec694e53fb5d97d26eb823536f357b2d5ef8a33))
+
+
 ## v1.8.1 (2025-03-12)
 
 ### Bug Fixes
