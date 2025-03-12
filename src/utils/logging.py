@@ -118,7 +118,7 @@ def start(logger: logging.Logger):
     try:
         # The main level for all loggers.
         logger.setLevel(logging.DEBUG)
-        # This includes also sub modules. BasicConfig applies to all scripts (also imported modules).
+        # This includes also submodules. BasicConfig applies to all scripts (also imported modules).
         """
         logging.basicConfig(level=logging.WARNING,
                             format='%(levelname)s - %(processName)s - %(threadName)s - '
