@@ -1,6 +1,40 @@
 # CHANGELOG
 
 
+## v1.8.3 (2025-03-12)
+
+### Bug Fixes
+
+- Changed place of internal imports in order to set up logger before importing.
+  ([`7ee0065`](https://github.com/core4x/collectu-core/commit/7ee00656f15c8b8ba44b00cf5f96b7d189494d81))
+
+- Fixed check, if tinydb is installed during iterating all apps.
+  ([`2fa92ab`](https://github.com/core4x/collectu-core/commit/2fa92abbfeffe7e7a36eaee5c1b9aee8dc5facbc))
+
+- Fixed return type of database entry interactions.
+  ([`73ac24c`](https://github.com/core4x/collectu-core/commit/73ac24c3358770f8fa2763508419408e88d10e36))
+
+- Made internal imports only for type checking.
+  ([`e66c987`](https://github.com/core4x/collectu-core/commit/e66c9872ca6a52811d38cbcdbbae6accff210322))
+
+- Made markdown optional requirement.
+  ([`40fda8d`](https://github.com/core4x/collectu-core/commit/40fda8de67a8c7a3300f5d2c9b9a53a4f480c414))
+
+- Made tinydb optional requirement.
+  ([`6a13b1f`](https://github.com/core4x/collectu-core/commit/6a13b1fc52f9616d1279694fba768bb0ad645263))
+
+### Documentation
+
+- Fixed docstring to contain correct information.
+  ([`b783bf3`](https://github.com/core4x/collectu-core/commit/b783bf3130b8d8d8277e9233c8bfd087f9ac91f1))
+
+- Fixed spelling in comment.
+  ([`76c6c49`](https://github.com/core4x/collectu-core/commit/76c6c49c64f125d586b2ef5f9cdbd7445a1d4c13))
+
+- Update README.md
+  ([`61d9238`](https://github.com/core4x/collectu-core/commit/61d92381e24618659a4b4566939b6b947e954970))
+
+
 ## v1.8.2 (2025-03-12)
 
 ### Bug Fixes
