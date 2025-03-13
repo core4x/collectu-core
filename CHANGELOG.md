@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.9.1 (2025-03-13)
+
+### Bug Fixes
+
+- Fixed function call _dyn. Renamed input_string to input_data.
+  ([`24936be`](https://github.com/core4x/collectu-core/commit/24936becdca60cda64a726f2ccdd738833099ecb))
+
+- Improved some settings if in DEBUG mode in order to see exceptions.
+  ([`8ad9c50`](https://github.com/core4x/collectu-core/commit/8ad9c50a40dea7dd98cf31bdc79292a16661f977))
+
+
 ## v1.9.0 (2025-03-13)
 
 ### Features
