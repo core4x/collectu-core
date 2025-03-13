@@ -23,12 +23,17 @@ import utils.retrying
 import utils.hub_connection
 
 # Third party imports.
-import yaml
 import json
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 
 # Third-party imports (optional).
+try:
+    import yaml
+except ImportError as e:
+    yaml = None
+    logger.error("Optional yaml package not installed! Some features may not be supported.")
+
 try:
     import tinydb
 except ImportError as e:
@@ -384,7 +389,15 @@ class Configuration:
         configuration_dict = []
         errors = defaultdict(list)
         try:
-            configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
+            if yaml:
+                configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
+            else:
+                logger.warning("Yaml package is not installed. Trying to deserialize content using json...")
+                try:
+                    configuration_dict = json.loads(content)
+                except Exception as e:
+                    raise Exception("Content seems not to be a valid json.")
+
             # If the file was empty, we create a default value.
             if not configuration_dict:
                 configuration_dict = []
@@ -682,7 +695,15 @@ class Configuration:
         :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
         """
         try:
-            configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
+            if yaml:
+                configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
+            else:
+                logger.warning("Yaml package is not installed. Trying to deserialize content using json...")
+                try:
+                    configuration_dict = json.loads(content)
+                except Exception as e:
+                    raise Exception("Content seems not to be a valid json.")
+
             configuration_dict = self._configuration_dict + configuration_dict
             configuration, configuration_dict, errors = self.validate_configuration_from_stream(
                 json.dumps(configuration_dict, default=lambda o: o.__dict__))
@@ -1091,7 +1112,11 @@ class Configuration:
                 try:
                     # Write content to file.
                     with open(file, 'w') as stream:
-                        stream.write(f'{yaml.dump(configuration_dict)}')
+                        if yaml:
+                            stream.write(f'{yaml.dump(configuration_dict)}')
+                        else:
+                            logger.warning("Yaml package is not installed. Trying to serialize content using json...")
+                            json.dump(configuration_dict, stream, indent=4)
                 except Exception as e:
                     try:
                         # Something went wrong, we try to delete the created file.
