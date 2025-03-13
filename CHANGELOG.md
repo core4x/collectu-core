@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.9.0 (2025-03-13)
+
+### Features
+
+- Made yaml optional. Using json as fallback.
+  ([`145dc1a`](https://github.com/core4x/collectu-core/commit/145dc1ad9d229ea5da28c32f6646920adf20bd05))
+
+
 ## v1.8.3 (2025-03-12)
 
 ### Bug Fixes
