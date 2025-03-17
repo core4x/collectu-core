@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.10.0 (2025-03-17)
+
+### Features
+
+- Added width and dashboard.
+  ([`5e55e8a`](https://github.com/core4x/collectu-core/commit/5e55e8abadf500072cfb1bfb3f27604e473bdf1e))
+
+
 ## v1.9.5 (2025-03-17)
 
 
