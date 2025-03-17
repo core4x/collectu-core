@@ -1,7 +1,15 @@
 # CHANGELOG
 
 
+## v1.9.5 (2025-03-17)
+
+
 ## v1.9.4 (2025-03-17)
+
+### Bug Fixes
+
+- Moved variable clearing of data_layer into finally block during stopping.
+  ([`8dad07f`](https://github.com/core4x/collectu-core/commit/8dad07f4d6705a4a8693d0dcb309de485a505199))
 
 
 ## v1.9.3 (2025-03-17)
