@@ -1,7 +1,15 @@
 # CHANGELOG
 
 
+## v1.9.4 (2025-03-17)
+
+
 ## v1.9.3 (2025-03-17)
+
+### Bug Fixes
+
+- Handle disconnection of streams properly.
+  ([`d8a3f38`](https://github.com/core4x/collectu-core/commit/d8a3f3836882e68fab485f9094f327c6a235dd62))
 
 
 ## v1.9.2 (2025-03-17)
