@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.9.2 (2025-03-17)
+
+### Bug Fixes
+
+- Changed streams to text/event-stream.
+  ([`781dec2`](https://github.com/core4x/collectu-core/commit/781dec245ebe1b221d51dbbc39270db1538539f9))
+
+### Documentation
+
+- Fixed name of function.
+  ([`df91582`](https://github.com/core4x/collectu-core/commit/df91582248519aa864eaf5d684ef4ab331508922))
+
+
 ## v1.9.1 (2025-03-13)
 
 ### Bug Fixes
