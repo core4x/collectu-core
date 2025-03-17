@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.11.0 (2025-03-17)
+
+### Bug Fixes
+
+- Fixed corrupted file.
+  ([`3687913`](https://github.com/core4x/collectu-core/commit/3687913e944752d4e022bedde8e97424de45f0f0))
+
+### Features
+
+- Split requirements.txt for core and interface.
+  ([`b939dcd`](https://github.com/core4x/collectu-core/commit/b939dcdba59858b1bc39400ef0ea0aab9f4fc1f9))
+
+
 ## v1.10.0 (2025-03-17)
 
 ### Features
