@@ -31,6 +31,16 @@ def check_installed_app_packages():
 
     # Get all required packages from requirements.txt.
     required_packages = {}
+
+    # If we have an interface module, we check those requirements as well.
+    if os.path.exists("interface/requirements.txt"):
+        with open("interface/requirements.txt", "r") as requirements_file:
+            for line in requirements_file.read().splitlines():
+                if "==" in line:
+                    package_name, version = line.split("==", 1)
+                    required_packages[package_name] = version
+
+    # The main requirements (overwrite the one of the interface).
     with open("requirements.txt", "r") as requirements_file:
         for line in requirements_file.read().splitlines():
             if "==" in line:
