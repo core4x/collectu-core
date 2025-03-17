@@ -658,13 +658,13 @@ class Configuration:
             if data_layer.module_data:
                 # Print a message that we stopped modules, if we actually stopped modules.
                 logger.info("Successfully finished configuration stop routine.")
+        except Exception as e:
+            success = False
+        finally:
             # Reset module data.
             data_layer.module_data = {}
             # Reset the dashboard modules.
             data_layer.dashboard_modules = []
-        except Exception as e:
-            success = False
-        finally:
             return success
 
     def update_configuration(self, content: str) -> dict[str, list[str]]:
