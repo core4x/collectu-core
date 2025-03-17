@@ -1,12 +1,18 @@
 # CHANGELOG
 
 
+## v1.9.3 (2025-03-17)
+
+
 ## v1.9.2 (2025-03-17)
 
 ### Bug Fixes
 
 - Changed streams to text/event-stream.
   ([`781dec2`](https://github.com/core4x/collectu-core/commit/781dec245ebe1b221d51dbbc39270db1538539f9))
+
+- Check if module data is defined before generating stream response.
+  ([`1d35585`](https://github.com/core4x/collectu-core/commit/1d355857794a0398a2ab977263356b96b8964c9e))
 
 ### Documentation
 
