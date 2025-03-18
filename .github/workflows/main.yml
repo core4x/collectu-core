@@ -1,4 +1,4 @@
-name: Test code, create release and docker image
+name: Test code, create release, and deploy Docker images
 
 on:
   push:
@@ -22,6 +22,7 @@ jobs:
           pip install -r requirements.txt
           cd test
           python test.py
+
   create-release:
     needs: execute-tests
     if: success()
@@ -38,7 +39,8 @@ jobs:
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-  build-and-push-docker-image:
+
+  build-and-push-ghcr:
     needs: execute-tests
     if: success()
     runs-on: ubuntu-latest
@@ -48,21 +50,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=true
-      - name: Build and push Docker image
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+      - name: Build and push Docker image to GHCR
+        uses: docker/build-push-action@v5
         with:
           context: ./
           push: true
@@ -77,3 +79,22 @@ jobs:
           package-type: 'container'
           min-versions-to-keep: 3
           delete-only-untagged-versions: 'false'
+
+  build-and-push-dockerhub:
+    needs: execute-tests
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: collectu
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push Docker image to Docker Hub
+        run: |
+          docker build -t collectu/collectu-core:latest .
+          docker push collectu/collectu-core:latest
