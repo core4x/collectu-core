@@ -15,7 +15,7 @@ import data_layer
 import utils.plugin_interface
 
 # Third party imports.
-import requests
+# requests is imported below in order to be able to install third-party requirements on start-up.
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
@@ -124,6 +124,9 @@ def load_and_process_settings_file() -> bool:
             logger.error("Something went wrong loading API access token: {0}".format(str(e)), exc_info=config.EXC_INFO)
 
         if os.environ.get("HUB_API_ACCESS_TOKEN", False):
+            # Third party imports.
+            import requests
+
             session = requests.Session()
             session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
             try:

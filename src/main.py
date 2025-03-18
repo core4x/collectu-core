@@ -47,10 +47,17 @@ if __name__ == "__main__":
 
     utils.logging.start(logger)
 
+    # Exit handler.
+    atexit.register(exit_handler)
+
     # Internal imports.
     # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
     # Imported after configuring the logger, since importing can already cause log messages.
     import utils.initialization
+
+    # Check if all requirements of third party packages are met.
+    utils.initialization.check_installed_app_packages()
+
     import configuration
     import utils.arg_parser
     import utils.mothership_interface
@@ -59,11 +66,6 @@ if __name__ == "__main__":
     import utils.plugin_interface
     import utils.hub_connection
 
-    # Exit handler.
-    atexit.register(exit_handler)
-
-    # Check if all requirements of third party packages are met.
-    utils.initialization.check_installed_app_packages()
     # Set the default environment variables and install plugins defined in the settings file.
     settings_updated = utils.initialization.load_and_process_settings_file()
 
