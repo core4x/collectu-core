@@ -96,5 +96,5 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push Docker image to Docker Hub
         run: |
-          docker build -t collectu/${{ env.IMAGE_NAME }}:latest .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          docker build -t collectu/collectu-core:latest .
+          docker push collectu/collectu-core:latest
