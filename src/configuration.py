@@ -474,12 +474,7 @@ class Configuration:
 
         :returns: True if the start procedure was successful.
         """
-        if bool(int(os.environ.get('TEST', '0'))):
-            logger.info("Starting configuration start routine in test mode "
-                        "(output modules will not store data and all modules will be stopped after "
-                        "the start routine)...")
-        else:
-            logger.info("Starting configuration start routine...")
+        logger.info("Starting configuration start routine...")
         success = True
         success_buffer = self._create_buffer_module()
         success_output = self._create_output_modules()
@@ -525,11 +520,6 @@ class Configuration:
             logger.info("Successfully finished configuration start routine (started {0} modules)."
                         .format(len(self.configuration_dict)))
 
-        # If we are in test mode, we now stop all modules and reset the test flag.
-        if bool(int(os.environ.get('TEST', '0'))):
-            logger.info("Finished test run.")
-            self.stop()
-            os.environ['TEST'] = "0"
         return success
 
     def restart(self) -> bool:

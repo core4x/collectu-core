@@ -42,13 +42,6 @@ def process_commands():
                        action='store_true',
                        help='starts the api and frontend without loading a configuration')
 
-    group.add_argument('-t', '--test',
-                       nargs='?',
-                       const='configuration.yml',
-                       metavar='configuration.yml',
-                       help='executes the application in test mode for a given configuration filename '
-                            '(default: configuration.yml)')
-
     group.add_argument('-s', '--send_modules',
                        nargs='?',
                        const='all',
@@ -82,8 +75,6 @@ def process_commands():
         _command_run(args.run)
     if args.cold:
         _command_cold()
-    if args.test:
-        _command_test(args.test)
     if args.send_modules:
         _command_send_modules(args.send_modules)
         sys.exit(0)
@@ -141,24 +132,6 @@ def _command_run(filename: str):
 
     :param filename: The filename of the configuration file to be executed.
     """
-    if os.path.isfile(os.path.join(os.path.dirname(__file__), '..', '..', 'configuration', filename)):
-        # Set the given filename as default.
-        os.environ['CONFIG'] = filename
-    else:
-        sys.stderr.write("Please enter an available configuration file name. "
-                         "'{0}' could not be found in the configuration directory.\n"
-                         .format(filename))
-        sys.exit(1)
-
-
-def _command_test(filename: str):
-    """
-    Sets the configuration file name and starts the application in test mode.
-
-    :param filename: The filename of the configuration file to be tested.
-    """
-    # Set the test mode.
-    os.environ['TEST'] = "1"
     if os.path.isfile(os.path.join(os.path.dirname(__file__), '..', '..', 'configuration', filename)):
         # Set the given filename as default.
         os.environ['CONFIG'] = filename
