@@ -3,6 +3,7 @@ Some helpful functions for analyzing application behaviour.
 """
 import time
 import logging
+import threading
 
 # Internal imports.
 import config
@@ -25,12 +26,14 @@ def log_all_threads(interval: int = 0):
            daemon=True,
            args=(2,)).start()
     """
-    import threading
-    continuously = False if interval == 0 else True
+    continuously = True
     while continuously:
         logger.info(
             "Running threads: " + str([f"{thread.name} (daemon: {thread.daemon})" for thread in threading.enumerate()]))
-        time.sleep(interval)
+        if interval == 0:
+            break
+        else:
+            time.sleep(interval)
 
 
 def timing(f):

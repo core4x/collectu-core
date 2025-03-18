@@ -9,10 +9,12 @@ import time
 import pathlib
 import uuid
 from collections import defaultdict
+from time import sleep
 from typing import Any, Union, Optional
 from pprint import pformat
 import queue
 import threading
+import concurrent.futures
 
 # Internal imports.
 import config
@@ -542,6 +544,14 @@ class Configuration:
         """
         success = True
         try:
+            def _thread_target(_module_data):
+                try:
+                    _module_data.instance.stop()
+                except Exception as e:
+                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
+                                 .format(_module_data.module_name, _module_data.configuration.id,
+                                         str(e)), exc_info=config.EXC_INFO)
+
             if data_layer.module_data:
                 # Print a message that we stopped modules, if we actually stopped modules.
                 logger.info("Starting configuration stop routine...")
@@ -557,39 +567,26 @@ class Configuration:
                              v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                try:
-                    logger.debug("Trying to stop variable module ({0}): {1}"
-                                 .format(str(module_id), str(module_data.module_name)))
-                    module_data.instance.active = False
-                    module_data.instance.stop()
-                except Exception as e:
-                    success = False
-                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                 .format(module_data.module_name,
-                                         module_data.configuration.get("id", "-"),
-                                         str(e)), exc_info=config.EXC_INFO)
+                logger.debug("Trying to stop variable module ({0}): {1}"
+                             .format(str(module_id), str(module_data.module_name)))
+                module_data.instance.active = False
+                threading.Thread(target=_thread_target, args=(module_data,), daemon=True).start()
+
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
             # However, this does not guarantee all pipelines finished.
             # In case a pipeline hasn't finished, an error message is (probably) generated.
-            time.sleep(0.4)
+            time.sleep(0.5)
 
             # Stop all tag modules.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.endswith(".tag") and v.module_name.startswith("inputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                try:
-                    logger.debug("Trying to stop tag module ({0}): {1}"
-                                 .format(str(module_id), str(module_data.module_name)))
-                    module_data.instance.active = False
-                    module_data.instance.stop()
-                except Exception as e:
-                    success = False
-                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                 .format(module_data.module_name,
-                                         module_data.configuration.get("id", "-"),
-                                         str(e)), exc_info=config.EXC_INFO)
+                logger.debug("Trying to stop tag module ({0}): {1}"
+                             .format(str(module_id), str(module_data.module_name)))
+                module_data.instance.active = False
+                threading.Thread(target=_thread_target, args=(module_data,), daemon=True).start()
 
             # Stop all input modules.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
@@ -597,51 +594,33 @@ class Configuration:
                                  ".variable") and not v.module_name.endswith(".tag")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                try:
-                    logger.debug("Trying to stop input module ({0}): {1}"
-                                 .format(str(module_id), str(module_data.module_name)))
-                    module_data.instance.active = False
-                    module_data.instance.stop()
-                except Exception as e:
-                    success = False
-                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                 .format(module_data.module_name,
-                                         module_data.configuration.get("id", "-"),
-                                         str(e)), exc_info=config.EXC_INFO)
+                logger.debug("Trying to stop input module ({0}): {1}"
+                             .format(str(module_id), str(module_data.module_name)))
+                module_data.instance.active = False
+                threading.Thread(target=_thread_target, args=(module_data,), daemon=True).start()
 
             # Stop all processor modules.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.startswith("processors.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                try:
-                    logger.debug("Trying to stop processor module ({0}): {1}"
-                                 .format(str(module_id), str(module_data.module_name)))
-                    module_data.instance.active = False
-                    module_data.instance.stop()
-                except Exception as e:
-                    success = False
-                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                 .format(module_data.module_name,
-                                         module_data.configuration.get("id", "-"),
-                                         str(e)), exc_info=config.EXC_INFO)
+                logger.debug("Trying to stop processor module ({0}): {1}"
+                             .format(str(module_id), str(module_data.module_name)))
+                module_data.instance.active = False
+                threading.Thread(target=_thread_target, args=(module_data,), daemon=True).start()
 
             # Stop all output modules.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.startswith("outputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                try:
-                    logger.debug("Trying to stop output module ({0}): {1}"
-                                 .format(str(module_id), str(module_data.module_name)))
-                    module_data.instance.active = False
-                    module_data.instance.stop()
-                except Exception as e:
-                    success = False
-                    logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                                 .format(module_data.module_name,
-                                         module_data.configuration.get("id", "-"),
-                                         str(e)), exc_info=config.EXC_INFO)
+                logger.debug("Trying to stop output module ({0}): {1}"
+                             .format(str(module_id), str(module_data.module_name)))
+                module_data.instance.active = False
+                threading.Thread(target=_thread_target, args=(module_data,), daemon=True).start()
+
+            # Wait for the stopping threads to finish.
+            time.sleep(config.STOP_TIMEOUT)
 
             # Reset buffer instance.
             data_layer.buffer_instance = None

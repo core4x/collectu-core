@@ -78,3 +78,6 @@ if the sending or receiving process with the external api fails."""
 
 CHECK_VALUE: str = "jkhdegkjhedlkl"
 """A check value."""
+
+STOP_TIMEOUT: int = 3
+"""The timeout in seconds to stop a module."""
