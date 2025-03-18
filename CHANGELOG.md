@@ -1,6 +1,9 @@
 # CHANGELOG
 
 
+## v1.12.0 (2025-03-18)
+
+
 ## v1.11.1 (2025-03-18)
 
 ### Bug Fixes
@@ -11,6 +14,17 @@
 - Fixed order of imports of third-party packages in order to be able to install dependencies on
   start-up.
   ([`2853982`](https://github.com/core4x/collectu-core/commit/2853982bc2e58baec07f6e16f52875930cd485ee))
+
+- Removed test mode.
+  ([`180d38c`](https://github.com/core4x/collectu-core/commit/180d38cb5f5275eff9488485f6c80cc337e90733))
+
+### Features
+
+- Added field_requirements and tag_requirements to output modules.
+  ([`4614694`](https://github.com/core4x/collectu-core/commit/461469476aa948fff707420e86772870442bdb94))
+
+- Improved stopping routine, to proceed also in the case of blocking stop methods of modules.
+  ([`f87386a`](https://github.com/core4x/collectu-core/commit/f87386a75b731015475bb2460f0d5f3e756667a4))
 
 
 ## v1.11.0 (2025-03-17)
