@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v1.11.1 (2025-03-18)
+
+### Bug Fixes
+
+- Fixed corrupted file.
+  ([`deb7d83`](https://github.com/core4x/collectu-core/commit/deb7d831511a7a7f7ad8e86dee6c727fa4644367))
+
+- Fixed order of imports of third-party packages in order to be able to install dependencies on
+  start-up.
+  ([`2853982`](https://github.com/core4x/collectu-core/commit/2853982bc2e58baec07f6e16f52875930cd485ee))
+
+
 ## v1.11.0 (2025-03-17)
 
 ### Bug Fixes
