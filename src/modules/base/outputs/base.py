@@ -3,10 +3,8 @@ This is the base class of all output modules. All implemented output modules hav
 The derived child class has to be named 'OutputModule'.
 """
 import time
-import uuid
 from abc import abstractmethod
 from dataclasses import dataclass
-import os
 import queue
 import threading
 from typing import Optional
@@ -15,6 +13,7 @@ from typing import Optional
 import config
 import data_layer
 import models
+import utils.data_validation
 from modules.base.base import AbstractModule
 
 
@@ -31,6 +30,10 @@ class AbstractOutputModule(AbstractModule):
 
     :param configuration: The configuration object of the module.
     """
+    field_requirements: list[str] = []
+    """Data validation requirements for the fields dict."""
+    tag_requirements: list[str] = []
+    """Data validation requirements for the tags dict."""
     can_be_buffer: bool = False
     """If True, the child has to implement 'store_buffer_data' and 'get_buffer_data'."""
 
@@ -80,8 +83,21 @@ class AbstractOutputModule(AbstractModule):
                     else:
                         data_layer.module_data[self.configuration.id].latest_data = data
 
-                # We store data only, if we are not in test mode, fields and a measurement are given.
-                if not bool(int(os.environ.get('TEST', '0'))) and data.fields and data.measurement:
+                    # Validate the field input data.
+                    valid_field_data, field_requirement_index, field_validation_messages = utils.data_validation.validate(
+                        data=data.fields, requirements=self.field_requirements)
+                    if not valid_field_data:
+                        messages = utils.data_validation.format_message(field_validation_messages)
+                        raise utils.data_validation.ValidationError(
+                            "Invalid field input data: {0}".format(" ".join(messages)))
+                    # Validate the tag input data.
+                    valid_tag_data, tag_requirement_index, tag_validation_messages = utils.data_validation.validate(
+                        data=data.tags, requirements=self.tag_requirements)
+                    if not valid_tag_data:
+                        messages = utils.data_validation.format_message(field_validation_messages)
+                        raise utils.data_validation.ValidationError(
+                            "Invalid tag input data: {0}".format(" ".join(messages)))
+
                     if self.queue.qsize() < config.STOP_LIMIT:
                         # Queue the data to be stored.
                         self.queue.put(data)
