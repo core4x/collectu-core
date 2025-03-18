@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.12.1 (2025-03-18)
+
+### Bug Fixes
+
+- Updated translations.
+  ([`c59ebf3`](https://github.com/core4x/collectu-core/commit/c59ebf38a531e1f6ef8e2e27ae10adf013df690a))
+
+
 ## v1.12.0 (2025-03-18)
 
 
