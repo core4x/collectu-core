@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.12.2 (2025-03-19)
+
+### Bug Fixes
+
+- Convert nested objects to string to be displayable.
+  ([`1a876de`](https://github.com/core4x/collectu-core/commit/1a876de3748e4088a94b63c5dfd3ca285b48d659))
+
+
 ## v1.12.1 (2025-03-18)
 
 ### Bug Fixes
