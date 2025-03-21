@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.12.3 (2025-03-21)
+
+### Bug Fixes
+
+- Added error message for unexpected login fail.
+  ([`c0e1943`](https://github.com/core4x/collectu-core/commit/c0e19438df97adb6ae96c8904729b8e513bdc8e9))
+
+
 ## v1.12.2 (2025-03-19)
 
 ### Bug Fixes
