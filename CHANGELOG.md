@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.12.4 (2025-03-24)
+
+### Bug Fixes
+
+- Also show lists of objects stringified.
+  ([`b88644e`](https://github.com/core4x/collectu-core/commit/b88644ec85f6d72187eb38ebff426ddc1647988c))
+
+
 ## v1.12.3 (2025-03-21)
 
 ### Bug Fixes
