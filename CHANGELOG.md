@@ -1,6 +1,34 @@
 # CHANGELOG
 
 
+## v1.12.6 (2025-03-25)
+
+### Bug Fixes
+
+- Added some logs if we retry to start a module.
+  ([`30b0be8`](https://github.com/core4x/collectu-core/commit/30b0be8846cd1a0e61f2eeb693c811884f6a4410))
+
+- Refactored the start and retry procedure.
+  ([`4de39e3`](https://github.com/core4x/collectu-core/commit/4de39e3f6b942541f8ac99b6659fdd06859eca35))
+
+- Refactored the start and retry procedure.
+  ([`ec1f809`](https://github.com/core4x/collectu-core/commit/ec1f809c1336b347cda2fb3f6b7cb4f4c938ce41))
+
+- Removed ignore_start_fail setting.
+  ([`867518f`](https://github.com/core4x/collectu-core/commit/867518f324c5bfcfac5f1d1bac479aa6d50d4aca))
+
+- Removed MAX_ATTEMPTS since we refactored the retry procedure.
+  ([`2271350`](https://github.com/core4x/collectu-core/commit/227135060272c88e19668750dad56dc2f04ee10b))
+
+- Removed since we refactored the retry procedure.
+  ([`266e619`](https://github.com/core4x/collectu-core/commit/266e619e03b86fa60efeab3ba75a7f55666cc110))
+
+### Documentation
+
+- Improved description of STOP_TIMEOUT.
+  ([`5d007ff`](https://github.com/core4x/collectu-core/commit/5d007ff39dfe6a1d2799ea9886c3ebae8a67a9cd))
+
+
 ## v1.12.5 (2025-03-25)
 
 ### Bug Fixes
