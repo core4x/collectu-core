@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.12.5 (2025-03-25)
+
+### Bug Fixes
+
+- Added threaded stop method call to remove_modules_from_configuration and added logs to method.
+  ([`54ffc20`](https://github.com/core4x/collectu-core/commit/54ffc209bac50041c67888126968b1d9440a1b2e))
+
+
 ## v1.12.4 (2025-03-24)
 
 ### Bug Fixes
