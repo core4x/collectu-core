@@ -27,9 +27,6 @@ AUTOSAVE_NUMBER: int = 10
 RETRY_INTERVAL: Optional[int] = 10
 """The sleep time in seconds between retry attempts to start a module. If 'None', it is directly retried."""
 
-MAX_ATTEMPTS: Optional[int] = None
-"""The maximal number of retries to start a module."""
-
 WARNING_LIMIT: int = 1000
 """Print a warning log message, as soon as we have more then warning_limit elements in the queue of an output module."""
 
