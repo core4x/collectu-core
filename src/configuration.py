@@ -9,19 +9,16 @@ import time
 import pathlib
 import uuid
 from collections import defaultdict
-from time import sleep
 from typing import Any, Union, Optional
 from pprint import pformat
 import queue
 import threading
-import concurrent.futures
 
 # Internal imports.
 import config
 import data_layer
 import models
 from models.validations import ValidationError
-import utils.retrying
 import utils.hub_connection
 
 # Third party imports.
@@ -55,8 +52,6 @@ class Configuration:
         """The deserialized configuration (with defaults)."""
         self._configuration_dict: list[dict] = []
         """The configuration as dictionary (without defaults)."""
-        self.retries: list[utils.retrying.RetryStart] = []
-        """Contains all established retry classes. They do not have to run anymore."""
 
         # Create directory for the database if it does not exist.
         pathlib.Path(os.path.join('..', 'data', 'configuration')).mkdir(parents=True, exist_ok=True)
@@ -469,108 +464,54 @@ class Configuration:
             errors = dict(errors.items())
             return configuration, configuration_dict, errors
 
-    def _start(self) -> bool:
+    def _start(self):
         """
         Start the execution of the current configuration.
         Only modules, which are not currently running are started.
-
-        :returns: True if the start procedure was successful.
         """
         logger.info("Starting configuration start routine...")
-        success = True
-        success_buffer = self._create_buffer_module()
-        success_output = self._create_output_modules()
-        success_processor = self._create_processor_modules()
-        success_input = self._create_input_modules()
-        success_tag = self._create_tag_modules()
-        success_variable = self._create_variable_modules()
+        self._create_buffer_module()
+        self._create_output_modules()
+        self._create_processor_modules()
+        self._create_input_modules()
+        self._create_tag_modules()
+        self._create_variable_modules()
+        logger.info("Finished configuration start routine (started {0} modules).".format(len(self.configuration_dict)))
 
-        # If not every initial connection was successful, we stop all modules (if not IGNORE_START_FAIL).
-        if not (success_buffer and
-                success_output and
-                success_processor and
-                success_input and
-                success_tag and
-                success_variable):
-            if not bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                logger.critical("Configuration start routine was not successful. Stopping all modules.")
-                self.stop()
-                success = False
-            else:
-                unsuccessful_modules = ""
-                if not success_buffer:
-                    unsuccessful_modules = "buffer" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", buffer"
-                if not success_output:
-                    unsuccessful_modules = "output" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", output"
-                if not success_processor:
-                    unsuccessful_modules = "processor" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", processor"
-                if not success_input:
-                    unsuccessful_modules = "input" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", input"
-                if not success_tag:
-                    unsuccessful_modules = "tag" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", tag"
-                if not success_variable:
-                    unsuccessful_modules = "variable" if not unsuccessful_modules else \
-                        unsuccessful_modules + ", variable"
-                logger.error("Configuration start routine was not completely successful. "
-                             "Could not start all {0} modules.".format(unsuccessful_modules))
-        else:
-            logger.info("Successfully finished configuration start routine (started {0} modules)."
-                        .format(len(self.configuration_dict)))
-
-        return success
-
-    def restart(self) -> bool:
+    def restart(self):
         """
         Restart the current configuration.
         The module_data is reset.
-
-        :returns: True if the restart procedure was successful.
         """
-        if self.stop() and self._start():
-            return True
-        else:
-            return False
+        self.stop()
+        self._start()
 
     @staticmethod
-    def _stop_module(_module_data):
+    def _stop_module(module_data):
         """
         Call the stop method of a given module.
         This method should be called in a separate thread.
 
-        :param _module_data: The module data.
+        :param module_data: The module data.
         """
         try:
             logger.debug("Trying to stop module '{0}' with the id '{1}'."
-                         .format(_module_data.module_name, _module_data.configuration.id))
-            _module_data.instance.active = False
-            _module_data.instance.stop()
+                         .format(module_data.module_name, module_data.configuration.id))
+            module_data.instance.active = False
+            module_data.instance.stop()
         except Exception as e:
             logger.error("Could not stop module '{0}' with the id '{1}': {2}"
-                         .format(_module_data.module_name, _module_data.configuration.id,
+                         .format(module_data.module_name, module_data.configuration.id,
                                  str(e)), exc_info=config.EXC_INFO)
 
-    def stop(self) -> bool:
+    def stop(self):
         """
         Stop the execution of a configuration. Everything is reset.
-
-        :returns: True if the stop procedure was successful.
         """
-        success = True
         try:
             if data_layer.module_data:
                 # Print a message that we stopped modules, if we actually stopped modules.
                 logger.info("Starting configuration stop routine...")
-
-            # Stop all running retry classes.
-            for retry_class in self.retries:
-                logger.debug("Trying to stop retry instance: {0}".format(str(retry_class.module.module_name)))
-                retry_class.stop()
-            self.retries = []
 
             # Stop all variable modules by setting self.active to false and calling the stop method.
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
@@ -617,19 +558,19 @@ class Configuration:
             # Wait for the stopping threads to finish.
             time.sleep(config.STOP_TIMEOUT)
 
-            # Reset buffer instance.
-            data_layer.buffer_instance = None
             if data_layer.module_data:
                 # Print a message that we stopped modules, if we actually stopped modules.
                 logger.info("Successfully finished configuration stop routine.")
         except Exception as e:
-            success = False
+            logger.critical("Something unexpected went wrong while trying to stop modules: {0}"
+                            .format(str(e)), exc_info=config.EXC_INFO)
         finally:
+            # Reset buffer instance.
+            data_layer.buffer_instance = None
             # Reset module data.
             data_layer.module_data = {}
             # Reset the dashboard modules.
             data_layer.dashboard_modules = []
-            return success
 
     def update_configuration(self, content: str) -> dict[str, list[str]]:
         """
@@ -700,12 +641,6 @@ class Configuration:
                     threading.Thread(target=self._stop_module, args=(data_layer.module_data[module_id],),
                                      daemon=True).start()
                     data_layer.module_data.pop(module_id)
-                    # Check if it is currently retried.
-                    retried_module = next((obj for obj in self.retries if obj.module.configuration.id == module_id),
-                                          None)
-                    if retried_module is not None:
-                        retried_module.stop()
-                        self.retries.remove(retried_module)
 
                     for dashboard_module in data_layer.dashboard_modules:
                         if dashboard_module.configuration.id == module_id:
@@ -714,7 +649,8 @@ class Configuration:
             self._configuration_dict = configuration_dict
         return errors
 
-    def _check_if_deprecated(self, module) -> bool:
+    @staticmethod
+    def _check_if_deprecated(module) -> bool:
         """
         Checks if the given module is deprecated. If it is, a warning message is logged.
 
@@ -727,324 +663,125 @@ class Configuration:
             return True
         return False
 
-    def _create_buffer_module(self) -> bool:
+    def _create_module(self, module_config):
+        """
+        Start the given module.
+        Should be called in a separate thread.
+
+        :param module_config: The config of the module to be started.
+        """
+        # Check if this module is already instantiated.
+        if module_config.id not in data_layer.module_data:
+            try:
+                # Get the according module.
+                module = data_layer.registered_modules.get(module_config.module_name)
+                self._check_if_deprecated(module)
+
+                module_instance = module(configuration=module_config)
+                # Check if buffer module.
+                if getattr(module_config, "is_buffer", False):
+                    data_layer.buffer_instance = module_instance
+
+                # Create an entry in the data layer.
+                data_layer.module_data[module_config.id] = models.ModuleData(
+                    instance=module_instance,
+                    configuration=module_config,
+                    module_name=module_config.module_name)
+                while getattr(module_instance, "active", False):
+                    try:
+                        module_instance.start()
+                    except Exception as e:
+                        logger.error("Could not start module '{0}' with the id '{1}': {2}"
+                                     .format(module_config.module_name, module_config.id, str(e)),
+                                     exc_info=config.EXC_INFO)
+                        time.sleep(config.RETRY_INTERVAL)
+                    else:
+                        logger.debug("Successfully started module '{0}' with the id '{1}'."
+                                     .format(module_config.module_name, module_config.id))
+                        break
+            except ImportError:
+                logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
+                                .format(module_config.module_name, module_config.id))
+            except Exception as e:
+                logger.critical("Something unexpected went wrong while trying to start module '{0}' "
+                                "with the id '{1}': {2}"
+                                .format(module_config.module_name, module_config.id, str(e)),
+                                exc_info=config.EXC_INFO)
+
+    def _create_buffer_module(self):
         """
         Instantiate and connect the buffer module if there is one.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = True
-        try:
-            # Get the first buffer configuration if there is one.
-            # There should be only one, since we check it during validation.
-            buffer_config = next(iter([buffer_config for buffer_config in self._configuration if
-                                       getattr(buffer_config, "is_buffer", False)]), None)
-            # CAUTION: The start priority has no effect here.
-            if buffer_config:
-                # Check if this module is already instantiated.
-                if buffer_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    buffer_module = data_layer.registered_modules.get(buffer_config.module_name)
-                    self._check_if_deprecated(buffer_module)
-                    try:
-                        data_layer.buffer_instance = buffer_module(configuration=buffer_config)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[buffer_config.id] = models.ModuleData(
-                            instance=data_layer.buffer_instance,
-                            configuration=buffer_config,
-                            module_name=buffer_config.module_name)
-                        if buffer_config.active:
-                            try:
-                                data_layer.buffer_instance.start()
-                            except Exception as e:
-                                success = False
-                                data_layer.buffer_instance = None
-                                logger.error("Could not start buffer module '{0}' with the id '{1}': {2}"
-                                             .format(buffer_config.module_name, buffer_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[buffer_config.id]))
-                            else:
-                                logger.debug("Successfully started buffer module '{0}' with the id '{1}'."
-                                             .format(buffer_config.module_name, buffer_config.id))
-                    except ImportError:
-                        success = False
-                        logger.critical("Could not start buffer module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(buffer_config.module_name, buffer_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return success
+        # Get the first buffer configuration if there is one.
+        # There should be only one, since we check it during validation.
+        buffer_config = next(iter([buffer_config for buffer_config in self._configuration if
+                                   getattr(buffer_config, "is_buffer", False)]), None)
+        # CAUTION: The start priority has no effect here.
+        if buffer_config:
+            threading.Thread(target=self._create_module, args=(buffer_config,), daemon=True).start()
 
-    def _create_output_modules(self) -> bool:
+    def _create_output_modules(self):
         """
         Instantiate and connect all output modules.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = []
-        try:
-            output_configs = [output_config for output_config in self._configuration if
-                              not getattr(output_config, "is_buffer", False) and output_config.module_name.startswith(
-                                  "outputs.")]
-            for output_config in sorted(output_configs,
-                                        key=lambda output_config: output_config.start_priority,
-                                        reverse=True):
-                # Check if this module is already instantiated.
-                if output_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    output_module = data_layer.registered_modules.get(output_config.module_name)
-                    self._check_if_deprecated(output_module)
-                    try:
-                        output_instance = output_module(configuration=output_config)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[output_config.id] = models.ModuleData(
-                            instance=output_instance,
-                            configuration=output_config,
-                            module_name=output_config.module_name)
-                        if output_config.active:
-                            try:
-                                output_instance.start()
-                            except Exception as e:
-                                success.append(False)
-                                logger.error("Could not start output module '{0}' with the id '{1}': {2}"
-                                             .format(output_config.module_name, output_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[output_config.id]))
-                            else:
-                                logger.debug("Successfully started output module '{0}' with the id '{1}'."
-                                             .format(output_config.module_name, output_config.id))
-                    except ImportError:
-                        success.append(False)
-                        logger.critical("Could not start output module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(output_config.module_name, output_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return True if False not in success else False
+        output_configs = [output_config for output_config in self._configuration if
+                          not getattr(output_config, "is_buffer", False)
+                          and output_config.module_name.startswith("outputs.")]
+        for output_config in sorted(output_configs,
+                                    key=lambda output_config: output_config.start_priority,
+                                    reverse=True):
+            threading.Thread(target=self._create_module, args=(output_config,), daemon=True).start()
 
-    def _create_processor_modules(self) -> bool:
+    def _create_processor_modules(self):
         """
         Create all processor modules.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = []
-        try:
-            processor_configs = [processor_config for processor_config in self._configuration if
-                                 processor_config.module_name.startswith("processors.")]
-            for processor_config in sorted(processor_configs,
-                                           key=lambda processor_config: processor_config.start_priority,
-                                           reverse=True):
-                # Check if this module is already instantiated.
-                if processor_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    processor_module = data_layer.registered_modules.get(processor_config.module_name)
-                    self._check_if_deprecated(processor_module)
-                    try:
-                        processor_instance = processor_module(configuration=processor_config)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[processor_config.id] = models.ModuleData(
-                            instance=processor_instance,
-                            configuration=processor_config,
-                            module_name=processor_config.module_name)
-                        if processor_config.active:
-                            try:
-                                processor_instance.start()
-                            except Exception as e:
-                                success.append(False)
-                                logger.error("Could not start processor module '{0}' with the id '{1}': {2}"
-                                             .format(processor_config.module_name, processor_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[processor_config.id]))
-                            else:
-                                logger.debug("Successfully started processor module '{0}' with the id '{1}'."
-                                             .format(processor_config.module_name, processor_config.id))
-                    except ImportError:
-                        success.append(False)
-                        logger.critical("Could not start processor module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(processor_config.module_name, processor_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return True if False not in success else False
+        processor_configs = [processor_config for processor_config in self._configuration if
+                             processor_config.module_name.startswith("processors.")]
+        for processor_config in sorted(processor_configs,
+                                       key=lambda processor_config: processor_config.start_priority,
+                                       reverse=True):
+            threading.Thread(target=self._create_module, args=(processor_config,), daemon=True).start()
 
-    def _create_input_modules(self) -> bool:
+
+    def _create_input_modules(self):
         """
         Instantiate and connect all input modules.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = []
-        try:
-            input_configs = [input_config for input_config in self._configuration if
-                             input_config.module_name.startswith("inputs.") and
-                             not input_config.module_name.endswith(".variable") and
-                             not input_config.module_name.endswith(".tag")]
-            for input_config in sorted(input_configs,
-                                       key=lambda input_config: input_config.start_priority,
-                                       reverse=True):
-                # Check if this module is already instantiated.
-                if input_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    input_module = data_layer.registered_modules.get(input_config.module_name)
-                    self._check_if_deprecated(input_module)
-                    try:
-                        input_instance = input_module(configuration=input_config)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[input_config.id] = models.ModuleData(
-                            instance=input_instance,
-                            configuration=input_config,
-                            module_name=input_config.module_name)
-                        if input_config.active:
-                            try:
-                                input_instance.start()
-                            except Exception as e:
-                                success.append(False)
-                                logger.error("Could not start input module '{0}' with the id '{1}': {2}"
-                                             .format(input_config.module_name, input_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[input_config.id]))
-                            else:
-                                logger.debug("Successfully started input module '{0}' with the id '{1}'."
-                                             .format(input_config.module_name, input_config.id))
-                    except ImportError:
-                        success.append(False)
-                        logger.critical("Could not start input module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(input_config.module_name, input_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return True if False not in success else False
+        input_configs = [input_config for input_config in self._configuration if
+                         input_config.module_name.startswith("inputs.") and
+                         not input_config.module_name.endswith(".variable") and
+                         not input_config.module_name.endswith(".tag")]
+        for input_config in sorted(input_configs,
+                                   key=lambda input_config: input_config.start_priority,
+                                   reverse=True):
+            threading.Thread(target=self._create_module, args=(input_config,), daemon=True).start()
 
-    def _create_tag_modules(self) -> bool:
+    def _create_tag_modules(self):
         """
         Instantiate and connect all tag modules.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = []
-        try:
-            tag_configs = [tag_config for tag_config in self._configuration if
-                           tag_config.module_name.endswith(".tag") and
-                           tag_config.module_name.startswith("inputs.") and
-                           not tag_config.module_name.endswith(".variable")]
-            for tag_config in sorted(tag_configs,
-                                     key=lambda tag_config: tag_config.start_priority,
-                                     reverse=True):
-                # Check if this module is already instantiated.
-                if tag_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    tag_module = data_layer.registered_modules.get(tag_config.module_name)
-                    self._check_if_deprecated(tag_module)
-                    try:
-                        # Get the according input module if required.
-                        input_module_instance = getattr(
-                            data_layer.module_data.get(getattr(tag_config, "input_module", ""), None),
-                            "instance", None)
-                        tag_instance = tag_module(configuration=tag_config,
-                                                  input_module_instance=input_module_instance)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[tag_config.id] = models.ModuleData(
-                            instance=tag_instance,
-                            configuration=tag_config,
-                            module_name=tag_config.module_name)
-                        if tag_config.active:
-                            try:
-                                tag_instance.start()
-                            except Exception as e:
-                                success.append(False)
-                                logger.error("Could not start tag module '{0}' with the id '{1}' {2}"
-                                             .format(tag_config.module_name, tag_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[tag_config.id]))
-                            else:
-                                logger.debug("Successfully started processor module '{0}' with the id '{1}'."
-                                             .format(tag_config.module_name, tag_config.id))
-                    except ImportError:
-                        success.append(False)
-                        logger.critical("Could not instantiate tag module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(tag_config.module_name, tag_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return True if False not in success else False
+        tag_configs = [tag_config for tag_config in self._configuration if
+                       tag_config.module_name.endswith(".tag") and
+                       tag_config.module_name.startswith("inputs.") and
+                       not tag_config.module_name.endswith(".variable")]
+        for tag_config in sorted(tag_configs,
+                                 key=lambda tag_config: tag_config.start_priority,
+                                 reverse=True):
+            threading.Thread(target=self._create_module, args=(tag_config,), daemon=True).start()
 
-    def _create_variable_modules(self) -> bool:
+    def _create_variable_modules(self):
         """
         Instantiate and connect all variable modules.
-
-        :returns: Boolean indicating if every module start-up was successful.
         """
-        success = []
-        try:
-            variable_configs = [variable_config for variable_config in self._configuration if
-                                variable_config.module_name.endswith(".variable") and
-                                variable_config.module_name.startswith("inputs.") and
-                                not variable_config.module_name.endswith(".tag")]
-            for variable_config in sorted(variable_configs,
-                                          key=lambda variable_config: variable_config.start_priority,
-                                          reverse=True):
-                # Check if this module is already instantiated.
-                if variable_config.id not in data_layer.module_data:
-                    # Get the according module.
-                    variable_module = data_layer.registered_modules.get(variable_config.module_name)
-                    self._check_if_deprecated(variable_module)
-                    try:
-                        # Get the according input module if required.
-                        input_module_instance = getattr(
-                            data_layer.module_data.get(getattr(variable_config, "input_module", ""), None),
-                            "instance", None)
-                        variable_instance = variable_module(configuration=variable_config,
-                                                            input_module_instance=input_module_instance)
-                        # Create an entry in the data layer.
-                        data_layer.module_data[variable_config.id] = models.ModuleData(
-                            instance=variable_instance,
-                            configuration=variable_config,
-                            module_name=variable_config.module_name)
-                        if variable_config.active:
-                            try:
-                                variable_instance.start()
-                            except Exception as e:
-                                success.append(False)
-                                logger.error("Could not start variable module '{0}' with the id '{1}': {2}"
-                                             .format(variable_config.module_name, variable_config.id, str(e)),
-                                             exc_info=config.EXC_INFO)
-                                if bool(int(os.environ.get('IGNORE_START_FAIL', '0'))):
-                                    self.retries.append(
-                                        utils.retrying.RetryStart(module=data_layer.module_data[variable_config.id]))
-                            else:
-                                logger.debug("Successfully started variable module '{0}' with the id '{1}'."
-                                             .format(variable_config.module_name, variable_config.id))
-                    except ImportError:
-                        success.append(False)
-                        logger.critical("Could not start variable module '{0}' with the id '{1}'. "
-                                        "Import of third party packages failed."
-                                        .format(variable_config.module_name, variable_config.id))
-        except Exception as e:
-            logger.critical("{0}".format(str(e)), exc_info=config.EXC_INFO)
-            success = False
-        finally:
-            return True if False not in success else False
+        variable_configs = [variable_config for variable_config in self._configuration if
+                            variable_config.module_name.endswith(".variable") and
+                            variable_config.module_name.startswith("inputs.") and
+                            not variable_config.module_name.endswith(".tag")]
+        for variable_config in sorted(variable_configs,
+                                      key=lambda variable_config: variable_config.start_priority,
+                                      reverse=True):
+            threading.Thread(target=self._create_module, args=(variable_config,), daemon=True).start()
 
     def save_configuration_as_file(self, filename: str = None, content: str = None) -> tuple[bool, str]:
         """
