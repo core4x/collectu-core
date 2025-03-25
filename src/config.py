@@ -80,4 +80,4 @@ CHECK_VALUE: str = "jkhdegkjhedlkl"
 """A check value."""
 
 STOP_TIMEOUT: int = 3
-"""The timeout in seconds to stop a module."""
+"""The timeout in seconds to stop all modules."""
