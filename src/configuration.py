@@ -687,6 +687,7 @@ class Configuration:
                     instance=module_instance,
                     configuration=module_config,
                     module_name=module_config.module_name)
+                retries: int = 0
                 while getattr(module_instance, "active", False):
                     try:
                         module_instance.start()
@@ -695,9 +696,14 @@ class Configuration:
                                      .format(module_config.module_name, module_config.id, str(e)),
                                      exc_info=config.EXC_INFO)
                         time.sleep(config.RETRY_INTERVAL)
+                        retries += 1
+                        logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
+                                     .format(module_config.module_name, module_config.id, str(retries)))
                     else:
                         logger.debug("Successfully started module '{0}' with the id '{1}'."
                                      .format(module_config.module_name, module_config.id))
+                        # The module seems to handle exceptions during the execution by itself,
+                        # so we never try to restart it.
                         break
             except ImportError:
                 logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
