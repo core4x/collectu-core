@@ -103,7 +103,7 @@ class AbstractModule(ABC):
 
     def start(self):
         """
-        Method for starting the module. Is called by the main thread or the retry class.
+        Method for starting the module. Is called by a separate thread.
         InputModules and OutputModules normally connect to a data source. VariableModules start a subscription.
         The start method is only called if the module is active (self.configuration.active).
         """
@@ -111,7 +111,7 @@ class AbstractModule(ABC):
 
     def stop(self):
         """
-        Method for stopping the module. Is called by the main thread.
+        Method for stopping the module. Is called by a separate thread.
         TagModules and ProcessorModules do (normally) not need to implement a stop routine.
         """
         ...
