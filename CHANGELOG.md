@@ -1,6 +1,9 @@
 # CHANGELOG
 
 
+## v1.12.8 (2025-03-26)
+
+
 ## v1.12.7 (2025-03-26)
 
 ### Bug Fixes
@@ -8,6 +11,9 @@
 - Fixed starting routine in order to consider the starting priority and also to provide client
   instances to variable and tag modules.
   ([`68a9ac9`](https://github.com/core4x/collectu-core/commit/68a9ac9c6b0b3b737cb79954403f45ec2ca52a3b))
+
+- Fixed staticmethod and classmethod things.
+  ([`e7c69d4`](https://github.com/core4x/collectu-core/commit/e7c69d435b5d1d7e65afb32fb5ff692d3dfd8354))
 
 
 ## v1.12.6 (2025-03-25)
