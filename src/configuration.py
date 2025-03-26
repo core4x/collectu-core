@@ -13,6 +13,7 @@ from typing import Any, Union, Optional
 from pprint import pformat
 import queue
 import threading
+import inspect
 
 # Internal imports.
 import config
@@ -663,10 +664,37 @@ class Configuration:
             return True
         return False
 
+    @staticmethod
+    def _start_module(module_config, module_instance):
+        """
+        Calls the start method of the given module instance.
+        Should be called in a separate thread.
+
+        :param module_config: The configuration of the module.
+        :param module_instance: The instance of the module.
+        """
+        retries: int = 0
+        while getattr(module_instance, "active", False):
+            try:
+                module_instance.start()
+            except Exception as e:
+                logger.error("Could not start module '{0}' with the id '{1}': {2}"
+                             .format(module_config.module_name, module_config.id, str(e)),
+                             exc_info=config.EXC_INFO)
+                time.sleep(config.RETRY_INTERVAL)
+                retries += 1
+                logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
+                             .format(module_config.module_name, module_config.id, str(retries)))
+            else:
+                logger.debug("Successfully started module '{0}' with the id '{1}'."
+                             .format(module_config.module_name, module_config.id))
+                # The module seems to handle exceptions during the execution by itself,
+                # so we never try to restart it.
+                break
+
     def _create_module(self, module_config):
         """
         Start the given module.
-        Should be called in a separate thread.
 
         :param module_config: The config of the module to be started.
         """
@@ -677,7 +705,15 @@ class Configuration:
                 module = data_layer.registered_modules.get(module_config.module_name)
                 self._check_if_deprecated(module)
 
-                module_instance = module(configuration=module_config)
+                # Get the according input module if required.
+                input_module_instance = getattr(
+                    data_layer.module_data.get(getattr(module_config, "input_module", ""), None),
+                    "instance", None)
+
+                if input_module_instance:
+                    module_instance = module(configuration=module_config, input_module_instance=input_module_instance)
+                else:
+                    module_instance = module(configuration=module_config)
                 # Check if buffer module.
                 if getattr(module_config, "is_buffer", False):
                     data_layer.buffer_instance = module_instance
@@ -687,24 +723,8 @@ class Configuration:
                     instance=module_instance,
                     configuration=module_config,
                     module_name=module_config.module_name)
-                retries: int = 0
-                while getattr(module_instance, "active", False):
-                    try:
-                        module_instance.start()
-                    except Exception as e:
-                        logger.error("Could not start module '{0}' with the id '{1}': {2}"
-                                     .format(module_config.module_name, module_config.id, str(e)),
-                                     exc_info=config.EXC_INFO)
-                        time.sleep(config.RETRY_INTERVAL)
-                        retries += 1
-                        logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
-                                     .format(module_config.module_name, module_config.id, str(retries)))
-                    else:
-                        logger.debug("Successfully started module '{0}' with the id '{1}'."
-                                     .format(module_config.module_name, module_config.id))
-                        # The module seems to handle exceptions during the execution by itself,
-                        # so we never try to restart it.
-                        break
+
+                threading.Thread(target=self._start_module, args=(module_config, module_instance,), daemon=True).start()
             except ImportError:
                 logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
                                 .format(module_config.module_name, module_config.id))
@@ -724,7 +744,7 @@ class Configuration:
                                    getattr(buffer_config, "is_buffer", False)]), None)
         # CAUTION: The start priority has no effect here.
         if buffer_config:
-            threading.Thread(target=self._create_module, args=(buffer_config,), daemon=True).start()
+            self._create_module(module_config=buffer_config)
 
     def _create_output_modules(self):
         """
@@ -736,7 +756,7 @@ class Configuration:
         for output_config in sorted(output_configs,
                                     key=lambda output_config: output_config.start_priority,
                                     reverse=True):
-            threading.Thread(target=self._create_module, args=(output_config,), daemon=True).start()
+            self._create_module(module_config=output_config)
 
     def _create_processor_modules(self):
         """
@@ -747,8 +767,7 @@ class Configuration:
         for processor_config in sorted(processor_configs,
                                        key=lambda processor_config: processor_config.start_priority,
                                        reverse=True):
-            threading.Thread(target=self._create_module, args=(processor_config,), daemon=True).start()
-
+            self._create_module(module_config=processor_config)
 
     def _create_input_modules(self):
         """
@@ -761,7 +780,7 @@ class Configuration:
         for input_config in sorted(input_configs,
                                    key=lambda input_config: input_config.start_priority,
                                    reverse=True):
-            threading.Thread(target=self._create_module, args=(input_config,), daemon=True).start()
+            self._create_module(module_config=input_config)
 
     def _create_tag_modules(self):
         """
@@ -774,7 +793,7 @@ class Configuration:
         for tag_config in sorted(tag_configs,
                                  key=lambda tag_config: tag_config.start_priority,
                                  reverse=True):
-            threading.Thread(target=self._create_module, args=(tag_config,), daemon=True).start()
+            self._create_module(module_config=tag_config)
 
     def _create_variable_modules(self):
         """
@@ -787,7 +806,7 @@ class Configuration:
         for variable_config in sorted(variable_configs,
                                       key=lambda variable_config: variable_config.start_priority,
                                       reverse=True):
-            threading.Thread(target=self._create_module, args=(variable_config,), daemon=True).start()
+            self._create_module(module_config=variable_config)
 
     def save_configuration_as_file(self, filename: str = None, content: str = None) -> tuple[bool, str]:
         """
