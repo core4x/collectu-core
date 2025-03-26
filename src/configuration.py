@@ -692,7 +692,8 @@ class Configuration:
                 # so we never try to restart it.
                 break
 
-    def _create_module(self, module_config):
+    @classmethod
+    def _create_module(cls, module_config):
         """
         Start the given module.
 
@@ -703,7 +704,7 @@ class Configuration:
             try:
                 # Get the according module.
                 module = data_layer.registered_modules.get(module_config.module_name)
-                self._check_if_deprecated(module)
+                cls._check_if_deprecated(module)
 
                 # Get the according input module if required.
                 input_module_instance = getattr(
@@ -724,7 +725,7 @@ class Configuration:
                     configuration=module_config,
                     module_name=module_config.module_name)
 
-                threading.Thread(target=self._start_module, args=(module_config, module_instance,), daemon=True).start()
+                threading.Thread(target=cls._start_module, args=(module_config, module_instance,), daemon=True).start()
             except ImportError:
                 logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
                                 .format(module_config.module_name, module_config.id))
