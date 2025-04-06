@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.13.0 (2025-04-06)
+
+### Features
+
+- Updated third party packages.
+  ([`888c517`](https://github.com/core4x/collectu-core/commit/888c51788fa4a97f7db493eee03ba02c7399bd10))
+
+
 ## v1.12.8 (2025-03-26)
 
 
