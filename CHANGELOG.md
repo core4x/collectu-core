@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.13.1 (2025-04-11)
+
+### Bug Fixes
+
+- Updated to v1.0.8 to work with newest firefox.
+  ([`45fe3f6`](https://github.com/core4x/collectu-core/commit/45fe3f626eaea4760817361570eccc98bf84f0e2))
+
+
 ## v1.13.0 (2025-04-06)
 
 ### Features
