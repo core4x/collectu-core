@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.13.2 (2025-04-13)
+
+### Bug Fixes
+
+- Switched language button content. If the current site is english, show 'de' and otherwise.
+  ([`d4bb20b`](https://github.com/core4x/collectu-core/commit/d4bb20b297e6a858227336682c3e6c8815666682))
+
+
 ## v1.13.1 (2025-04-11)
 
 ### Bug Fixes
