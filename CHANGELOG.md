@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.13.3 (2025-04-28)
+
+### Bug Fixes
+
+- Fixed check (now not null and not undefined) of valid value for text dashboard element. Otherwise,
+  the value '0' is not displayed.
+  ([`4e44509`](https://github.com/core4x/collectu-core/commit/4e445096becb24ee9052df680b79933e63eee293))
+
+
 ## v1.13.2 (2025-04-13)
 
 ### Bug Fixes
