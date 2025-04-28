@@ -34,14 +34,15 @@ def restart_application():
 
 def find_file_by_filename(searched_file) -> str | None:
     """
-    Returns the filename if it exists in the main directory.
+    Returns the absolute path of the filename if it exists in the parent directory.
 
     :param searched_file: The filename of the searched file.
-    :return: The filename if found, otherwise none.
+    :return: The absolute path if found, otherwise None.
     """
-    for filename in os.listdir("../"):
+    parent_dir = "../"
+    for filename in os.listdir(parent_dir):
         if filename.startswith(searched_file):
-            return filename
+            return os.path.abspath(os.path.join(parent_dir, filename)).replace("\\", "/")
     return None
 
 
@@ -80,8 +81,8 @@ def check_git_access_token() -> bool:
                              f"{config.CONTACT}.")
                 valid = False
             else:
-                os.chmod(os.path.join("../", find_file_by_filename("git_access_token")), 0o600)
-                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i ./{find_file_by_filename("git_access_token")} '
+                os.chmod(find_file_by_filename("git_access_token"), 0o600)
+                os.environ['GIT_SSH_COMMAND'] = (f'ssh -i {find_file_by_filename("git_access_token")} '
                                                  f'-o UserKnownHostsFile=/dev/null '
                                                  f'-o StrictHostKeyChecking=no '
                                                  f'-o IdentitiesOnly=yes')
