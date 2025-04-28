@@ -1,6 +1,9 @@
 # CHANGELOG
 
 
+## v1.13.4 (2025-04-28)
+
+
 ## v1.13.3 (2025-04-28)
 
 ### Bug Fixes
@@ -8,6 +11,9 @@
 - Fixed check (now not null and not undefined) of valid value for text dashboard element. Otherwise,
   the value '0' is not displayed.
   ([`4e44509`](https://github.com/core4x/collectu-core/commit/4e445096becb24ee9052df680b79933e63eee293))
+
+- Git_access_token file is not access via absolute path to make it more reliable.
+  ([`b1cedc1`](https://github.com/core4x/collectu-core/commit/b1cedc1628dfc1904557351fd7ff8f75c7484c53))
 
 
 ## v1.13.2 (2025-04-13)
