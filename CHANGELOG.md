@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.14.0 (2025-05-03)
+
+### Bug Fixes
+
+- Updated translations.
+  ([`0ad241e`](https://github.com/core4x/collectu-core/commit/0ad241e449e7b35e44c05027a135d3dfe1e2a755))
+
+### Features
+
+- Integrated code editor for module code into the info view.
+  ([`fa31b30`](https://github.com/core4x/collectu-core/commit/fa31b30225b185e7ae3fad52defd26363c3eda18))
+
+
 ## v1.13.4 (2025-04-28)
 
 
