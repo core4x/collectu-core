@@ -1,6 +1,9 @@
 # CHANGELOG
 
 
+## v1.15.0 (2025-05-04)
+
+
 ## v1.14.0 (2025-05-03)
 
 ### Bug Fixes
@@ -9,6 +12,9 @@
   ([`0ad241e`](https://github.com/core4x/collectu-core/commit/0ad241e449e7b35e44c05027a135d3dfe1e2a755))
 
 ### Features
+
+- Added module version update functionality to retrieve the latest version from the Hub.
+  ([`35cb1e3`](https://github.com/core4x/collectu-core/commit/35cb1e3f18e39fbeb15f28ec8893f13628bc34f3))
 
 - Integrated code editor for module code into the info view.
   ([`fa31b30`](https://github.com/core4x/collectu-core/commit/fa31b30225b185e7ae3fad52defd26363c3eda18))
