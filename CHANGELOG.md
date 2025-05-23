@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.16.0 (2025-05-23)
+
+### Features
+
+- Retry getting the hub username if the initial procedure fails during initialization.
+  ([`87bec6c`](https://github.com/core4x/collectu-core/commit/87bec6c385c1083a20fbc5484951d3025bd49fa4))
+
+
 ## v1.15.0 (2025-05-04)
 
 
