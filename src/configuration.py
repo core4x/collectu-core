@@ -686,8 +686,12 @@ class Configuration:
                 logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
                              .format(module_config.module_name, module_config.id, str(retries)))
             else:
-                logger.debug("Successfully started module '{0}' with the id '{1}'."
-                             .format(module_config.module_name, module_config.id))
+                if retries > 0:
+                    logger.info("Successfully started module '{0}' with the id '{1}'."
+                                .format(module_config.module_name, module_config.id))
+                else:
+                    logger.debug("Successfully started module '{0}' with the id '{1}'."
+                                 .format(module_config.module_name, module_config.id))
                 # The module seems to handle exceptions during the execution by itself,
                 # so we never try to restart it.
                 break
