@@ -515,11 +515,14 @@ class Configuration:
                 logger.info("Starting configuration stop routine...")
 
             # Stop all variable modules by setting self.active to false and calling the stop method.
+            var_threads = []
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                threading.Thread(target=self._stop_module, args=(module_data,), daemon=True).start()
+                var_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
+            for t in var_threads:
+                t.start()
 
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
@@ -528,36 +531,57 @@ class Configuration:
             time.sleep(0.5)
 
             # Stop all tag modules.
+            tag_threads = []
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.endswith(".tag") and v.module_name.startswith("inputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                threading.Thread(target=self._stop_module, args=(module_data,), daemon=True).start()
+                tag_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
+            for t in tag_threads:
+                t.start()
 
             # Stop all input modules.
+            in_threads = []
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.startswith("inputs.") and not v.module_name.endswith(
                                  ".variable") and not v.module_name.endswith(".tag")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                threading.Thread(target=self._stop_module, args=(module_data,), daemon=True).start()
+                in_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
+            for t in in_threads:
+                t.start()
 
             # Stop all processor modules.
+            pro_threads = []
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.startswith("processors.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                threading.Thread(target=self._stop_module, args=(module_data,), daemon=True).start()
+                pro_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
+            for t in pro_threads:
+                t.start()
 
             # Stop all output modules.
+            out_threads = []
             filtered_dict = {k: v for k, v in data_layer.module_data.items() if
                              v.module_name.startswith("outputs.")}
             sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
             for module_id, module_data in sorted_dict.items():
-                threading.Thread(target=self._stop_module, args=(module_data,), daemon=True).start()
+                out_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
+            for t in out_threads:
+                t.start()
 
+            start_time = time.time()
             # Wait for the stopping threads to finish.
-            time.sleep(config.STOP_TIMEOUT)
+            while time.time() - start_time < config.STOP_TIMEOUT:
+                if all(not t.is_alive() for t in var_threads + tag_threads + in_threads + pro_threads + out_threads):
+                    break
+                time.sleep(0.1)
+            for t in var_threads + tag_threads + in_threads + pro_threads + out_threads:
+                if t.is_alive():
+                    pass
+                else:
+                    t.join()
 
             if data_layer.module_data:
                 # Print a message that we stopped modules, if we actually stopped modules.
