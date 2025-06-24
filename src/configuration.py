@@ -753,7 +753,19 @@ class Configuration:
                     configuration=module_config,
                     module_name=module_config.module_name)
 
-                threading.Thread(target=cls._start_module, args=(module_config, module_instance,), daemon=True).start()
+                t = threading.Thread(target=cls._start_module, args=(module_config, module_instance,), daemon=True)
+                t.start()
+
+                start_time = time.time()
+                # Each module has maximal 1 second to start, otherwise we proceed.
+                while time.time() - start_time < 1:
+                    if not t.is_alive():
+                        break
+                    time.sleep(0.1)
+                if t.is_alive():
+                    pass
+                else:
+                    t.join()
             except ImportError:
                 logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
                                 .format(module_config.module_name, module_config.id))
