@@ -118,7 +118,7 @@ def check_for_updates_with_git(with_submodule: bool = True) -> int | None:
         # Get the current version.
         result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
                                 stdout=subprocess.PIPE, shell=True, universal_newlines=True)
-        # data_layer.version = result.stdout.strip()
+        data_layer.version = result.stdout.strip()
 
         repo.remotes.origin.fetch()
         # Get the commit count of the current branch.
