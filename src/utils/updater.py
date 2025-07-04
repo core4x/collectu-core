@@ -118,7 +118,7 @@ def check_for_updates_with_git(with_submodule: bool = True) -> int | None:
         # Get the current version.
         result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
                                 stdout=subprocess.PIPE, shell=True, universal_newlines=True)
-        data_layer.version = result.stdout.strip()
+        # data_layer.version = result.stdout.strip()
 
         repo.remotes.origin.fetch()
         # Get the commit count of the current branch.
@@ -130,7 +130,6 @@ def check_for_updates_with_git(with_submodule: bool = True) -> int | None:
                             "Trying to clone interface submodule...")
                 repo.git.submodule('update', '--init', '--recursive')
                 logger.info("Successfully cloned interface submodule.")
-                restart_application()
             except Exception as e:
                 logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
     except Exception as e:
@@ -163,7 +162,8 @@ def update_app_with_git() -> str:
             repo.remotes.origin.pull()
         # Update the version.
         check_for_updates_with_git(with_submodule=False)
-        message = "Successfully finished update. Please restart the app."
+        message = "Successfully finished update."
+        restart_application()
         logger.info(message)
         return message
     except Exception as e:
