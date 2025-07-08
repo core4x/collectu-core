@@ -269,6 +269,7 @@ def send_modules(module_names: List[str] | None):
         if module_names:
             for module_name in module_names:
                 # First we search in the custom module folder if it exists.
+                found_path = None
                 if custom_folder_path:
                     found_path = find_file(full_relative_path=module_name.replace(".", os.sep),
                                            search_dir=custom_folder_path)
@@ -278,7 +279,8 @@ def send_modules(module_names: List[str] | None):
                                            search_dir="modules")
                 if found_path is None:
                     logger.error("Could not find module: {0}".format(module_name))
-                send_module(module_name=module_name, code=open(found_path, encoding="utf-8").read())
+                else:
+                    send_module(module_name=module_name, code=open(found_path, encoding="utf-8").read())
         #  2. If modules are defined, search in both module folders and send them (if found in custom, prefer this one).
         else:
             for module_name, values in utils.plugin_interface.get_all_custom_module_files().items():
