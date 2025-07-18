@@ -76,7 +76,8 @@ def check_git_access_token() -> bool:
         else:
             if not find_file_by_filename("git_access_token"):
                 logger.error(f"You haven't a valid git access token for updating submodules (frontend and api). "
-                             f"You can add your git access token by creating a file named 'git_access_token'. "
+                             f"If you have subscribed to a licence, "
+                             f"you can find your git access token in your account details. "
                              f"If you do not have a git access token, please subscribe to a plan or contact: "
                              f"{config.CONTACT}.")
                 valid = False

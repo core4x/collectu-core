@@ -94,7 +94,7 @@ if __name__ == "__main__":
             # Start the API.
             interface.api_v1.app.start()
         except Exception as e:
-            logger.error("Could not start api. Do you have a valid license?".format(str(e)),
+            logger.error("Could not start api. Do you have a valid git access token?".format(str(e)),
                          exc_info=config.EXC_INFO)
 
     if bool(int(os.environ.get('FRONTEND', '1'))):
@@ -107,7 +107,7 @@ if __name__ == "__main__":
             # Start the frontend.
             data_layer.frontend_process = interface.frontend_v1.app.start()
         except Exception as e:
-            logger.error("Could not start frontend. Do you have a valid license?".format(str(e)),
+            logger.error("Could not start frontend. Do you have a valid git access token?".format(str(e)),
                          exc_info=config.EXC_INFO)
 
     # Initialize the configuration.
