@@ -120,7 +120,7 @@ if __name__ == "__main__":
     if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
         utils.usage_statistics.Statistics()
 
-    commits = utils.updater.check_for_updates_with_git()
+    commits = utils.updater.check_for_updates()
     if commits:
         logger.warning(f"{commits} update(s) can be applied.")
     elif commits == 0:

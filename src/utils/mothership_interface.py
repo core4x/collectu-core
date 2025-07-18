@@ -204,7 +204,7 @@ def process_tasks(task: dict[str, str | list]):
             with open("../git_access_token.txt", 'w') as file:
                 logger.info("Successfully updated git_access_key.txt file with your git token.")
                 file.write(git_access_token)
-        utils.updater.update_app_with_git()
+        utils.updater.update_app()
     elif command == "load":
         errors = data_layer.configuration.load_configuration_from_stream(
             content=json.dumps(task.get("configuration")))

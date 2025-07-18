@@ -159,7 +159,7 @@ def _command_update():
     """
     Update the app.
     """
-    utils.updater.update_app_with_git()
+    utils.updater.update_app()
 
 
 def _command_download_modules(requested_module_type: list[str]):
