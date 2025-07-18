@@ -130,7 +130,7 @@ def check_for_updates_with_git(with_submodule: bool = True) -> int | None:
                 logger.info("While checking for updates, we identified an empty interface folder. "
                             "Trying to clone interface submodule...")
                 repo.git.submodule('update', '--init', '--recursive')
-                logger.info("Successfully cloned interface submodule.")
+                logger.info("Successfully cloned interface submodule. Please restart the app...")
             except Exception as e:
                 logger.error("Could not clone interface submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
     except Exception as e:
