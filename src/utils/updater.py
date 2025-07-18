@@ -148,7 +148,7 @@ def update_app() -> str:
     commit_count = check_for_updates()
 
     if commit_count == 0:
-        message = "Already up-to-date."
+        message = f"{config.APP_NAME} is already up-to-date."
         logger.info(message)
         return message
 

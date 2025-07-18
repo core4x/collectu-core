@@ -124,7 +124,7 @@ if __name__ == "__main__":
     if commits:
         logger.warning(f"{commits} update(s) can be applied.")
     elif commits == 0:
-        logger.info(f"{config.APP_NAME} is up to date.")
+        logger.info(f"{config.APP_NAME} is already up-to-date.")
 
     # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
     timer: int = 10
