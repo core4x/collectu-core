@@ -72,7 +72,7 @@ def check_git_access_token() -> bool:
         return False
 
     if not token_file:
-        logger.error("You haven't a valid git access token for updating submodules (frontend and api). "
+        logger.error("You do not have a valid git access token for updating submodules (frontend and api). "
                      "If you have subscribed to a licence, "
                      "you can find your git access token in your account details. "
                      "If you do not have a git access token, please subscribe to a plan or contact: "
@@ -103,12 +103,8 @@ def check_for_updates(with_submodule: bool = True) -> int:
         repo = git.Repo("..")
 
         # Get version info.
-        result = subprocess.run(
-            ["git", "describe", "--abbrev=7", "--always", "--long", "--match", "v*", "main"],
-            stdout=subprocess.PIPE,
-            shell=True,
-            universal_newlines=True
-        )
+        result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
+                                stdout=subprocess.PIPE, shell=True, universal_newlines=True)
         data_layer.version = result.stdout.strip()
 
         # Update local refs.
