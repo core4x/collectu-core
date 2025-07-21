@@ -1,8 +1,8 @@
 FROM python:3.11
 
 # Set environment variables.
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Set default values for the environment variables (if not used with docker-compose).
 ARG API_HOST=0.0.0.0
