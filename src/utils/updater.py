@@ -40,10 +40,10 @@ def find_file_by_filename(searched_file: str) -> str | None:
     :param searched_file: Filename prefix to search for.
     :return: Absolute path or None.
     """
-    parent_dir = Path("..")
-    for file in parent_dir.iterdir():
-        if file.name.startswith(searched_file):
-            return str(file.resolve())
+    parent_dir = "../"
+    for filename in os.listdir(parent_dir):
+        if filename.startswith(searched_file):
+            return os.path.abspath(os.path.join(parent_dir, filename)).replace("\\", "/")
     return None
 
 
