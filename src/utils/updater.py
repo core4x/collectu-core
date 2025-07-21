@@ -102,18 +102,17 @@ def check_for_updates(with_submodule: bool = True) -> int:
     try:
         repo = git.Repo("..")
 
-        # Update local refs.
-        repo.remotes.origin.fetch()
-
         # Get version info.
         result = subprocess.run(
             ["git", "describe", "--abbrev=7", "--always", "--long", "--match", "v*", "main"],
             stdout=subprocess.PIPE,
             shell=True,
-            universal_newlines=True,
-            text=True
+            universal_newlines=True
         )
         data_layer.version = result.stdout.strip()
+
+        # Update local refs.
+        repo.remotes.origin.fetch()
 
         # Count commits ahead.
         commit_count = sum(1 for _ in repo.iter_commits(f"{repo.active_branch}..origin/{repo.active_branch}"))
