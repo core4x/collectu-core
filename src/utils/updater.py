@@ -43,7 +43,7 @@ def find_file_by_filename(searched_file: str) -> str | None:
     parent_dir = "../"
     for filename in os.listdir(parent_dir):
         if filename.startswith(searched_file):
-            return os.path.abspath(os.path.join(parent_dir, filename)).replace("\\", "/")
+            return os.path.abspath(os.path.join(parent_dir, filename)).replace("\\", "/").strip()
     return None
 
 
@@ -82,7 +82,7 @@ def check_git_access_token() -> bool:
     # Apply SSH key securely.
     os.chmod(token_file, 0o600)
     os.environ['GIT_SSH_COMMAND'] = (
-        f'ssh -i {token_file} '
+        f'ssh -i "{token_file}" '
         '-o UserKnownHostsFile=/dev/null '
         '-o StrictHostKeyChecking=no '
         '-o IdentitiesOnly=yes'
