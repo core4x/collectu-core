@@ -25,14 +25,8 @@ RUN pip install --upgrade pip
 # Clone project.
 RUN git clone https://github.com/core4x/collectu-core.git
 
-# Change ownership.
-RUN chown -R 1000:3000 /collectu-core
-
 # Mark as safe repo.
 RUN git config --system --add safe.directory /collectu-core
-
-# Switch to non-root user.
-USER 1000
 
 # Set working directory.
 WORKDIR /collectu-core/src
