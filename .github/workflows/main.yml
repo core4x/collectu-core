@@ -72,6 +72,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=true
+          platforms: linux/amd64,linux/arm/v7
       - name: Build and push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
