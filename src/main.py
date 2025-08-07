@@ -99,16 +99,16 @@ if __name__ == "__main__":
 
     if bool(int(os.environ.get('FRONTEND', '1'))):
         if not bool(int(os.environ.get('API', '1'))):
-            logger.warning("The API is disabled. "
-                           "Some features, such as mothership functionality, are not supported without the API.")
-        try:
-            import interface.frontend_v1.app
+            logger.error("In order to use the frontend, enable the api.")
+        else:
+            try:
+                import interface.frontend_v1.app
 
-            # Start the frontend.
-            data_layer.frontend_process = interface.frontend_v1.app.start()
-        except Exception as e:
-            logger.error("Could not start frontend. Do you have a valid git access token?".format(str(e)),
-                         exc_info=config.EXC_INFO)
+                # Start the frontend.
+                data_layer.frontend_process = interface.frontend_v1.app.start()
+            except Exception as e:
+                logger.error("Could not start frontend. Do you have a valid git access token?".format(str(e)),
+                             exc_info=config.EXC_INFO)
 
     # Initialize the configuration.
     configuration.Configuration()
