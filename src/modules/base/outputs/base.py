@@ -134,8 +134,9 @@ class AbstractOutputModule(AbstractModule):
             try:
                 self._run(data=data)
             except Exception as e:
-                self.logger.error("Something unexpected went wrong while trying to process data: {0}"
-                                  .format(str(e)), exc_info=config.EXC_INFO)
+                self.logger.error("Something went wrong while executing output module {0} ({1}): {2}"
+                                  .format(self.configuration.module_name, self.configuration.id, str(e)),
+                                  exc_info=config.EXC_INFO)
 
     @abstractmethod
     def _run(self, data: models.Data):
@@ -148,7 +149,7 @@ class AbstractOutputModule(AbstractModule):
             # Implement the custom output module logic here.
             ...
         except Exception as e:
-            self.logger.error("Something went wrong while trying to process data. {0}"
+            self.logger.error("Something went wrong while trying to process data: {0}"
                               .format(str(e)), exc_info=config.EXC_INFO)
             # CAUTION: The data object should only be buffered,
             # if a connection error was the original problem for the exception.

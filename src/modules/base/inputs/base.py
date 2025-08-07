@@ -118,7 +118,8 @@ class AbstractTagModule(AbstractModule):
                 # Reset the current data object.
                 self.current_input_data = None
         except Exception as e:
-            self.logger.error("Something went wrong while requesting key-value pair: {0}".format(str(e)),
+            self.logger.error("Something went wrong while executing tag module {0} ({1}): {2}"
+                              .format(self.configuration.module_name, self.configuration.id, str(e)),
                               exc_info=config.EXC_INFO)
 
     @abstractmethod
