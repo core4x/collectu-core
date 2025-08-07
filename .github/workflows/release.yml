@@ -62,11 +62,3 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Delete old GHCR versions
-        uses: actions/delete-package-versions@v4
-        with: 
-          package-name: 'collectu-core'
-          package-type: 'container'
-          min-versions-to-keep: 3
-          delete-only-untagged-versions: 'false'
