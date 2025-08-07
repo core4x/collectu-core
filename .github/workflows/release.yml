@@ -1,9 +1,10 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["Test and Release"]
+    types:
+      - completed
 
 env:
   REGISTRY: ghcr.io
