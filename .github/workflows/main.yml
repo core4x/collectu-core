@@ -70,17 +70,15 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            latest=true
-          platforms: linux/amd64,linux/arm/v7
+          tags: |
+            type=raw,value=latest
       - name: Build and push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: ./
           push: true
           platforms: linux/amd64,linux/arm/v7
-          tags: |
-            ${{ steps.meta.outputs.tags }}
+          tags: |            
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           labels: ${{ steps.meta.outputs.labels }}
       - name: Delete old versions
@@ -118,5 +116,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm/v7
           tags: |
-            collectu/collectu-core:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
