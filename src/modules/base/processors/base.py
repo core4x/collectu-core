@@ -122,7 +122,8 @@ class AbstractProcessorModule(AbstractModule):
                         # Call the subsequent links.
                         self._call_links(data)
         except Exception as e:
-            self.logger.error("Something went wrong while executing processor module: {0}".format(str(e)),
+            self.logger.error("Something went wrong while executing processor module {0} ({1}): {2}"
+                              .format(self.configuration.module_name, self.configuration.id, str(e)),
                               exc_info=config.EXC_INFO)
 
     @abstractmethod
