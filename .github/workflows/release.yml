@@ -1,8 +1,10 @@
 name: Build and Push Docker Images
 
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ["Test and Create Release"]
+    types:
+      - completed
 
 env:
   PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
