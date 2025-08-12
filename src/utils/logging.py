@@ -170,7 +170,7 @@ def start(logger: logging.Logger):
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
         format_5 = '%(levelname)s - %(processName)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        formatter_console = logging.Formatter(format_3)
+        formatter_console = logging.Formatter(format_4)
         console_logging.setFormatter(formatter_console)
         logger.addHandler(console_logging)
         logger.info("Successfully created logger.")
