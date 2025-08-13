@@ -34,6 +34,13 @@ def check_installed_app_packages():
 
     # If we have an interface module, we check those requirements as well.
     if os.path.exists("interface/requirements.txt"):
+        # If MCP server is enabled.
+        if bool(int(os.environ.get('MCP', '1'))):
+            with open("interface/requirements-mcp.txt", "r") as requirements_file:
+                for line in requirements_file.read().splitlines():
+                    if "==" in line:
+                        package_name, version = line.split("==", 1)
+                        required_packages[package_name] = version
         with open("interface/requirements.txt", "r") as requirements_file:
             for line in requirements_file.read().splitlines():
                 if "==" in line:
