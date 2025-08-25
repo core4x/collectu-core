@@ -69,6 +69,9 @@ HUB_TEST_TOKEN_ADDRESS: str = "https://api.collectu.de/api/v1/login/test-token"
 HUB_LOGIN_ADDRESS: str = "https://api.collectu.de/api/v1/login/access-token"
 """The endpoint of the api for logging in."""
 
+HUB_LLM_DOCS_ADDRESS: str = "https://collectu.de/llm_text"
+"""Sitemap for LLM friendly docs from Collectu."""
+
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10
 """The interval in seconds in which error messages are logged 
 if the sending or receiving process with the external api fails."""
