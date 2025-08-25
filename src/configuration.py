@@ -864,7 +864,8 @@ class Configuration:
         if not filename:
             filename = os.environ.get('CONFIG', 'configuration.yml')
         if not content:
-            content = self._configuration_dict
+            content = json.dumps(self._configuration_dict)
+
         # This is the file path including the file name.
         file = os.path.join('..', 'configuration', '{0}').format(filename)
         try:
