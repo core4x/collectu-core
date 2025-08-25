@@ -94,7 +94,7 @@ if __name__ == "__main__":
             # Start the API.
             interface.api_v1.app.start()
         except Exception as e:
-            logger.error("Could not start api. Do you have a valid git access token?".format(str(e)),
+            logger.error("Could not start api ({0}). Do you have a valid git access token?".format(str(e)),
                          exc_info=config.EXC_INFO)
     elif bool(int(os.environ.get('MCP', '0'))):
         logger.error("In order to use the mcp, enable the api.")
@@ -109,7 +109,7 @@ if __name__ == "__main__":
                 # Start the frontend.
                 data_layer.frontend_process = interface.frontend_v1.app.start()
             except Exception as e:
-                logger.error("Could not start frontend. Do you have a valid git access token?".format(str(e)),
+                logger.error("Could not start frontend ({0}). Do you have a valid git access token?".format(str(e)),
                              exc_info=config.EXC_INFO)
 
     # Initialize the configuration.
