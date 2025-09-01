@@ -81,3 +81,6 @@ CHECK_VALUE: str = "jkhdegkjhedlkl"
 
 STOP_TIMEOUT: int = 3
 """The timeout in seconds to stop all modules."""
+
+MCP_ALL_AS_TOOL: bool = True
+"""Currently, some LLMs only support tools (and not resources and resource_templates)."""
