@@ -404,6 +404,7 @@ class Regex(Validation):
     Succeeds if the given value matches regex.
 
     :param regex: The regular expression string to use.
+    :param flags: The expression’s behaviour can be modified by specifying a flags value.
     :param error: Error message to raise in case of a validation error.
                   Can be interpolated with `{input}` and `{regex}`.
     """
