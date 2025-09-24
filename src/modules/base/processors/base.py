@@ -102,7 +102,7 @@ class AbstractProcessorModule(AbstractModule):
                     raise utils.data_validation.ValidationError(
                         "Invalid tag input data: {0}".format(" ".join(messages)))
 
-                if data.fields and data.measurement:
+                if data.measurement:
                     if self._thread_safe:
                         if self._first_execution:
                             self._first_execution = False

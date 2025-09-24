@@ -73,8 +73,8 @@ class AbstractOutputModule(AbstractModule):
                                       "We have currently '{0}' elements in our queue to store."
                                       .format(str(self.queue.qsize())))
 
-                # Store the data in the latest data entry if fields and a measurement are given.
-                if data.fields and data.measurement:
+                # Store the data in the latest data entry if a measurement is given.
+                if data.measurement:
                     # During the stopping procedure, it could happen, that the entry does no longer exist.
                     # We catch it here.
                     if self.configuration.id not in data_layer.module_data:

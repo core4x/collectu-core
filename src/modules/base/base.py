@@ -118,12 +118,12 @@ class AbstractModule(ABC):
 
     def _call_links(self, data: models.Data):
         """
-        Calls all links of the module. This is normally called by the decorator @send_data.
+        Calls all links of the module.
         The linked module is only called if self.active is true.
 
         :param data: The data object.
         """
-        if data.fields and data.measurement:
+        if data.measurement.strip():
             # During the stopping procedure, it could happen, that the entry does no longer exist.
             # We catch it here.
             if self.configuration.id not in data_layer.module_data:
