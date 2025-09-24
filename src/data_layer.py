@@ -57,3 +57,6 @@ if the task receiving process failed."""
 
 frontend_process = None
 """The frontend process."""
+
+mcp = None
+"""The model context protocol (mcp) instance."""
