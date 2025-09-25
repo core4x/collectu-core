@@ -130,7 +130,9 @@ def load_and_process_settings_file() -> bool:
         except Exception as e:
             logger.error("Something went wrong loading API access token: {0}".format(str(e)), exc_info=config.EXC_INFO)
 
-        if os.environ.get("HUB_API_ACCESS_TOKEN", False):
+        if (os.environ.get("HUB_API_ACCESS_TOKEN", False) and
+                os.environ.get("REPORT_TO_HUB", False) and
+                not os.environ.get("HUB_USERNAME", False)):
             # Third party imports.
             import requests
 

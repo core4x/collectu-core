@@ -141,7 +141,9 @@ if __name__ == "__main__":
                 # If the internet connection is broken during initialization
                 # (e.g., if the auto-start of collectu runs before the user configures the VPN),
                 # the username cannot be retrieved. In that case, we will retry.
-                if os.environ.get("HUB_API_ACCESS_TOKEN", False) and not os.environ.get("HUB_USERNAME", False):
+                if (os.environ.get("HUB_API_ACCESS_TOKEN", False) and
+                        os.environ.get("REPORT_TO_HUB", False) and
+                        not os.environ.get("HUB_USERNAME", False)):
                     try:
                         response = requests.post(
                             url=config.HUB_TEST_TOKEN_ADDRESS,
