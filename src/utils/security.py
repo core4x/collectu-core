@@ -1,20 +1,32 @@
 """
 Functions for checking signatures.
 """
+from typing import Optional, Union
 import logging
 import json
 import base64
-import requests
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers, RSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, EllipticCurvePublicKey
 
 # Internal imports.
 import config
 
+# Third-party imports.
+import requests
+
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
+
+# Third-party imports (optional).
+try:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
+    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers, RSAPublicKey
+    from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, EllipticCurvePublicKey
+except ImportError:
+    cryptography = hashes = padding = rsa = ec = RSAPublicNumbers = RSAPublicKey = EllipticCurvePublicNumbers = EllipticCurvePublicKey = None
+    if config.VERIFY_TASK_SIGNATURE:
+        logger.error("Optional cryptography package not installed! Some features may not be supported.")
+
+PublicKeyType = Union[RSAPublicKey, EllipticCurvePublicKey] if cryptography is not None else None
 
 
 def base64url_decode(data: str) -> bytes:
@@ -30,7 +42,7 @@ def base64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data)
 
 
-def get_public_key(kid: str) -> RSAPublicKey | EllipticCurvePublicKey:
+def get_public_key(kid: str) -> Optional[PublicKeyType]:
     """
     Fetch JWKS and return the public key matching the given kid.
 
@@ -78,7 +90,11 @@ def verify_task_signature(task: dict) -> bool:
     :return: True if the signature is valid, False otherwise.
     """
     try:
+        if cryptography is None:
+            logger.error("The cryptography package is not installed. Can not verify task signature.")
+            return False
         if "signature" not in task or "kid" not in task:
+            logger.error("Invalid task: Signature or kid is not defined in task body.")
             return False
 
         fields_to_sign = {k: task[k] for k in ["owner_id", "app_id", "command", "configuration", "git_access_token"]}
@@ -104,7 +120,8 @@ def verify_task_signature(task: dict) -> bool:
                 ec.ECDSA(hashes.SHA256())
             )
         else:
-            raise ValueError("Unsupported key type")
+            logger.error("Invalid task: Unsupported key type.")
+            return False
 
         return True
     except Exception:
