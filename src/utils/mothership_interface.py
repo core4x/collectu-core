@@ -17,6 +17,7 @@ import data_layer
 import models
 import utils.updater
 import utils.plugin_interface
+import utils.security
 
 # Third party imports.
 import requests
@@ -347,8 +348,15 @@ def _request_hub_tasks():
                 json_response = response.json()
                 for task in json_response:
                     logger.info("Received task '{0}' from hub '{1}'."
-                                .format(task.get("command", "No command given..."), config.HUB_APP_ADDRESS))
-                    process_tasks(task)
+                                .format(task.get("command", "-"), config.HUB_APP_ADDRESS))
+                    if config.VERIFY_TASK_SIGNATURE:
+                        if utils.security.verify_task_signature(task=task):
+                            process_tasks(task)
+                        else:
+                            logger.critical("Task signature verification failed for task '{0}' with the command '{1}'."
+                                            .format(task.get("id", "-"), task.get("command", "-")))
+                    else:
+                        process_tasks(task)
             except Exception as e:
                 logged_in = False
                 send = False

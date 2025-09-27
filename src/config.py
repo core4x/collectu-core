@@ -72,6 +72,12 @@ HUB_LOGIN_ADDRESS: str = "https://api.collectu.de/api/v1/login/access-token"
 HUB_LLM_DOCS_ADDRESS: str = "https://collectu.de/docs/llms.txt"
 """Sitemap for LLM friendly docs from Collectu."""
 
+HUB_JWKS_URL: str = "https://api.collectu.de/.well-known/jwks.json"
+"""The jwks url of the hub for validating signatures."""
+
+VERIFY_TASK_SIGNATURE: bool = True
+"""Verify the task signature using the HUB_JWKS_URL."""
+
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = 10
 """The interval in seconds in which error messages are logged 
 if the sending or receiving process with the external api fails."""
