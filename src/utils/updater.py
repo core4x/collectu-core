@@ -119,8 +119,8 @@ def check_for_updates(with_submodule: bool = True) -> int:
                 logger.info("Empty interface folder detected. Trying to initialize submodule...")
                 try:
                     repo.git.submodule("update", "--init", "--recursive")
-                    logger.info("Successfully cloned interface submodule. Please restart.")
-                    commit_count += 1  # Force restart.
+                    logger.info("Successfully cloned interface submodule. Restarting...")
+                    restart_application()
                 except Exception as e:
                     logger.error("Could not initialize interface submodule: {0}"
                                  .format(str(e)), exc_info=config.EXC_INFO)
