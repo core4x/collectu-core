@@ -21,12 +21,15 @@ try:
     from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers, RSAPublicKey
     from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, EllipticCurvePublicKey
+
+    cryptography_available = True
 except ImportError:
-    cryptography = hashes = padding = rsa = ec = RSAPublicNumbers = RSAPublicKey = EllipticCurvePublicNumbers = EllipticCurvePublicKey = None
+    cryptography_available = False
+    hashes = padding = rsa = ec = RSAPublicNumbers = RSAPublicKey = EllipticCurvePublicNumbers = EllipticCurvePublicKey = None
     if config.VERIFY_TASK_SIGNATURE:
         logger.error("Optional cryptography package not installed! Some features may not be supported.")
 
-PublicKeyType = Union[RSAPublicKey, EllipticCurvePublicKey] if cryptography is not None else None
+PublicKeyType = Union[RSAPublicKey, EllipticCurvePublicKey] if cryptography_available else None
 
 
 def base64url_decode(data: str) -> bytes:
@@ -90,7 +93,7 @@ def verify_task_signature(task: dict) -> bool:
     :return: True if the signature is valid, False otherwise.
     """
     try:
-        if cryptography is None:
+        if not cryptography_available:
             logger.error("The cryptography package is not installed. Can not verify task signature.")
             return False
         if "signature" not in task or "kid" not in task:
