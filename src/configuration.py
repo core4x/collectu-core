@@ -477,7 +477,7 @@ class Configuration:
         self._create_input_modules()
         self._create_tag_modules()
         self._create_variable_modules()
-        logger.info("Finished configuration start routine (started {0} modules).".format(len(self.configuration_dict)))
+        logger.info("Finished configuration start routine (started {0} module(s)).".format(len(self.configuration_dict)))
 
     def restart(self):
         """
@@ -510,9 +510,7 @@ class Configuration:
         Stop the execution of a configuration. Everything is reset.
         """
         try:
-            if data_layer.module_data:
-                # Print a message that we stopped modules, if we actually stopped modules.
-                logger.info("Starting configuration stop routine...")
+            logger.info("Starting configuration stop routine...")
 
             # Stop all variable modules by setting self.active to false and calling the stop method.
             var_threads = []
@@ -583,9 +581,7 @@ class Configuration:
                 else:
                     t.join()
 
-            if data_layer.module_data:
-                # Print a message that we stopped modules, if we actually stopped modules.
-                logger.info("Successfully finished configuration stop routine.")
+            logger.info("Successfully finished configuration stop routine (stopped {0} module(s)).".format(len(data_layer.module_data.keys())))
         except Exception as e:
             logger.critical("Something unexpected went wrong while trying to stop modules: {0}"
                             .format(str(e)), exc_info=config.EXC_INFO)
