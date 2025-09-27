@@ -28,43 +28,66 @@ except ImportError as e:
     markdown = None
     logger.error("Optional markdown package not installed! Some features may not be supported.")
 
+try:
+    from packaging.requirements import Requirement
+    from packaging.version import parse as parse_version
+except ImportError as e:
+    Requirement = None
+    logger.error("Optional packaging package not installed! Some features may not be supported.")
 
-def install_plugin_requirement(package: str):
+
+def install_plugin_requirement(package: str) -> int:
     """
-    Installs the given requirement.
+    Checks and installs the given requirement if necessary.
 
-    :param package: The requirement to be installed (e.g. "Flask==2.0.2").
+    - Supports pip-style specifiers (==, >=, <=, >, <, ~=, !=, and composite ones like 'pkg>=1.0,<2.0').
+    - If `packaging` is available it will check the installed version and skip pip if already satisfied.
+    - If `packaging` is not available it will fall back to calling `pip install <package>` directly
+      (pip itself will report "Requirement already satisfied" when appropriate).
 
-    :returns: The return code. 0 if successful, otherwise 1.
+    :param package: The requirement string (e.g. "Flask==2.0.2", "requests>=2.0", "Django>=3.0,<4.0").
+    :returns: The return code. 0 if successful, otherwise non-zero.
     """
-    return_code = 1
     try:
-        # Check if it is already installed.
-        installed_packages = {pkg.metadata['Name'].lower(): pkg.version for pkg in importlib.metadata.distributions()}
-        # Check if the package is already installed with the correct version.
-        if '==' in package:
-            package_name, version = package.split('==')
+        # If packaging is available, try to parse the requirement and check installed version first.
+        if Requirement is not None:
+            try:
+                req = Requirement(package)
+            except Exception:
+                # malformed requirement string — fall back to pip
+                req = None
+
+            if req is not None:
+                pkg_name = req.name  # canonical package name (without extras/specifiers).
+                specifier = req.specifier  # SpecifierSet (may be empty).
+
+                # Try to get installed version.
+                try:
+                    installed_version = importlib.metadata.version(pkg_name)
+                except importlib.metadata.PackageNotFoundError:
+                    installed_version = None
+
+                if installed_version is not None and (
+                        not specifier or specifier.contains(parse_version(installed_version), prereleases=True)):
+                    logger.info("Package '%s' already installed (version %s satisfies '%s').", pkg_name,
+                                installed_version, str(specifier) or "any")
+                    return 0
+                # else: either not installed or installed version doesn't satisfy; we'll call pip below.
+
+        # Either packaging isn't available, or we determined installation is needed.
+        # Use pip to install. We pass the original package string to pip so extras/specifiers remain intact.
+        result = subprocess.run([sys.executable, "-m", "pip", "install", package],
+                                capture_output=True, text=True, check=True)
+        if result.returncode != 0:
+            logger.error("Could not install package '%s': %s", package, result.stderr)
         else:
-            package_name = package
-            version = None
-        installed_version = installed_packages.get(package_name.lower())
-        if not installed_version or (version and installed_version != version):
-            result = subprocess.run([sys.executable, "-m", "pip", "install", package],
-                                    capture_output=True, text=True, check=True)
-            return_code = result.returncode
-            if return_code != 0:
-                logger.error("Could not install package '{0}': {1}".format(package, str(result.stderr)))
-            else:
-                logger.info("Successfully installed '{0}'.".format(package))
-        else:
-            logger.info("Package '{0}' already installed.".format(package))
-            return_code = 0
-    except subprocess.CalledProcessError as e:
-        logger.error("Something went wrong while trying to install package '{0}': {1}".format(package, str(e)),
+            logger.info("Successfully installed '%s'. %s", package, result.stdout.splitlines()[:1])
+        return result.returncode
+
+    except Exception as e:
+        logger.error("Something went wrong while trying to install package '%s': %s", package, str(e),
                      exc_info=config.EXC_INFO)
-        return_code = 1
-    finally:
-        return return_code
+        return 1
 
 
 def get_plugin_requirement_status() -> list[dict]:
