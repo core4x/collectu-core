@@ -38,102 +38,102 @@ def exit_handler():
 
 # This is the entrypoint of the application.
 if __name__ == "__main__":
-    # Set /src as working directory.
-    os.chdir(sys.path[0])
+    try:
+        # Set /src as working directory.
+        os.chdir(sys.path[0])
 
-    # Check the python version.
-    if sys.version_info < (3, 10):
-        raise Exception("Python 3.10 or a more recent version is required. We recommend Python 3.11.")
+        # Check the python version.
+        if sys.version_info < (3, 10):
+            raise Exception("Python 3.10 or a more recent version is required. We recommend Python 3.11.")
 
-    # Set up the logging.
-    import utils.logging
+        # Set up the logging.
+        import utils.logging
 
-    utils.logging.start(logger)
+        utils.logging.start(logger)
 
-    # Exit handler.
-    atexit.register(exit_handler)
+        # Exit handler.
+        atexit.register(exit_handler)
 
-    # Internal imports.
-    # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
-    # Imported after configuring the logger, since importing can already cause log messages.
-    import utils.initialization
+        # Internal imports.
+        # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
+        # Imported after configuring the logger, since importing can already cause log messages.
+        import utils.initialization
 
-    # Check if all requirements of third party packages are met.
-    utils.initialization.check_installed_app_packages()
+        # Check if all requirements of third party packages are met.
+        utils.initialization.check_installed_app_packages()
 
-    import configuration
-    import utils.arg_parser
-    import utils.mothership_interface
-    import utils.usage_statistics
-    import utils.updater
-    import utils.plugin_interface
-    import utils.hub_connection
+        import configuration
+        import utils.arg_parser
+        import utils.mothership_interface
+        import utils.usage_statistics
+        import utils.updater
+        import utils.plugin_interface
+        import utils.hub_connection
 
-    # Set the default environment variables and install plugins defined in the settings file.
-    settings_updated = utils.initialization.load_and_process_settings_file()
+        # Set the default environment variables and install plugins defined in the settings file.
+        settings_updated = utils.initialization.load_and_process_settings_file()
 
-    # Load all available modules.
-    utils.plugin_interface.load_modules()
+        # Load all available modules.
+        utils.plugin_interface.load_modules()
 
-    # Check if additional commands are given.
-    utils.arg_parser.process_commands()
+        # Check if additional commands are given.
+        utils.arg_parser.process_commands()
 
-    if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
-            settings_updated or len(data_layer.registered_modules) == 0):
-        if bool(os.environ.get('HUB_API_ACCESS_TOKEN', False)):
-            utils.hub_connection.download_modules(requested_module_types="all")
-        else:
-            logger.warning("Could not initially download modules from hub since no HUB_API_ACCESS_TOKEN was provided.")
+        if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
+                settings_updated or len(data_layer.registered_modules) == 0):
+            if bool(os.environ.get('HUB_API_ACCESS_TOKEN', False)):
+                utils.hub_connection.download_modules(requested_module_types="all")
+            else:
+                logger.warning("Could not initially download modules from hub since no HUB_API_ACCESS_TOKEN was provided.")
 
-    if bool(int(os.environ.get('API', '1'))):
-        # Once we set up the logger and initialized everything, we can import the other things.
-        # This guarantees, that we already have set all environment variables.
-        try:
-            import interface.api_v1.app
-
-            # Start the API.
-            interface.api_v1.app.start()
-        except Exception as e:
-            logger.error("Could not start api ({0}). Do you have a valid git access token?".format(str(e)),
-                         exc_info=config.EXC_INFO)
-    elif bool(int(os.environ.get('MCP', '0'))):
-        logger.error("In order to use the mcp, enable the api.")
-
-    if bool(int(os.environ.get('FRONTEND', '1'))):
-        if not bool(int(os.environ.get('API', '1'))):
-            logger.error("In order to use the frontend, enable the api.")
-        else:
+        if bool(int(os.environ.get('API', '1'))):
+            # Once we set up the logger and initialized everything, we can import the other things.
+            # This guarantees, that we already have set all environment variables.
             try:
-                import interface.frontend_v1.app
+                import interface.api_v1.app
 
-                # Start the frontend.
-                data_layer.frontend_process = interface.frontend_v1.app.start()
+                # Start the API.
+                interface.api_v1.app.start()
             except Exception as e:
-                logger.error("Could not start frontend ({0}). Do you have a valid git access token?".format(str(e)),
-                             exc_info=config.EXC_INFO)
+                logger.error("Could not start api ({0}). Do you have a valid git access token?".format(str(e)),
+                            exc_info=config.EXC_INFO)
+        elif bool(int(os.environ.get('MCP', '0'))):
+            logger.error("In order to use the mcp, enable the api.")
 
-    # Initialize the configuration.
-    configuration.Configuration()
+        if bool(int(os.environ.get('FRONTEND', '1'))):
+            if not bool(int(os.environ.get('API', '1'))):
+                logger.error("In order to use the frontend, enable the api.")
+            else:
+                try:
+                    import interface.frontend_v1.app
 
-    # Start the mothership reporting.
-    utils.mothership_interface.start()
+                    # Start the frontend.
+                    data_layer.frontend_process = interface.frontend_v1.app.start()
+                except Exception as e:
+                    logger.error("Could not start frontend ({0}). Do you have a valid git access token?".format(str(e)),
+                                exc_info=config.EXC_INFO)
 
-    # Initialize the usage statistic sender.
-    if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
-        utils.usage_statistics.Statistics()
+        # Initialize the configuration.
+        configuration.Configuration()
 
-    commits = utils.updater.check_for_updates()
-    if commits:
-        logger.warning(f"{commits} update(s) can be applied.")
-    elif commits == 0:
-        logger.info(f"{config.APP_NAME} is already up-to-date.")
+        # Start the mothership reporting.
+        utils.mothership_interface.start()
 
-    # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
-    timer: int = 10
-    """Time in seconds a function below will be called."""
-    counter: int = timer
-    while data_layer.running:
-        try:
+        # Initialize the usage statistic sender.
+        if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
+            utils.usage_statistics.Statistics()
+
+        commits = utils.updater.check_for_updates()
+        if commits:
+            logger.warning(f"{commits} update(s) can be applied.")
+        elif commits == 0:
+            logger.info(f"{config.APP_NAME} is already up-to-date.")
+
+        # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
+        timer: int = 10
+        """Time in seconds a function below will be called."""
+        counter: int = timer
+        while data_layer.running:
             if counter >= timer:
                 counter = 0
                 # This is called every 'timer' seconds.
@@ -155,15 +155,15 @@ if __name__ == "__main__":
                         os.environ["HUB_USERNAME"] = username
                     except Exception as e:
                         logger.error("Could not get your current username. "
-                                     "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
-                                     "Please check or create an api access token on your hub profile."
-                                     .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+                                        "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
+                                        "Please check or create an api access token on your hub profile."
+                                        .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
             counter += 1
             time.sleep(1)
-        except KeyboardInterrupt:
-            # Stop all running modules.
-            data_layer.configuration.stop()
-            # Stop all processes and other loops.
-            data_layer.running = False
-            sys.exit(0)
+    except KeyboardInterrupt:
+        # Stop all running modules.
+        data_layer.configuration.stop()
+        # Stop all processes and other loops.
+        data_layer.running = False
+        sys.exit(0)
