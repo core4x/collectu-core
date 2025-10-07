@@ -59,17 +59,23 @@ def check_installed_app_packages():
     if not_installed_required_packages:
         # Check if the package is missing, or installed in another version.
         for missing_package in not_installed_required_packages:
+            missing_package_str = f"{missing_package[0]}=={missing_package[1]}"
             if next(iter(missing_package)) not in installed_packages.keys():
-                logger.critical("Missing package installation: {0}=={1}. Trying to install missing package..."
-                                .format(missing_package[0], missing_package[1]))
-                utils.plugin_interface.install_plugin_requirement(
-                    package=missing_package[0] + "==" + missing_package[1])
+                if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
+                    logger.error("Missing package installation: {0}. Attempting to install..."
+                                .format(missing_package_str))
+                    utils.plugin_interface.install_plugin_requirement(package=missing_package_str)
+                else:
+                    logger.critical("Missing package installation: {0}. AUTO_INSTALL is disabled, skipping installation."
+                                    .format(missing_package_str))
             else:
-                logger.error("Package version differs from the one defined in requirements.txt: {0}=={1}. "
-                             "Trying to install required package..."
-                             .format(missing_package[0], missing_package[1]))
-                utils.plugin_interface.install_plugin_requirement(
-                    package=missing_package[0] + "==" + missing_package[1])
+                logger.error("Package version differs from the one defined in requirements.txt: {0}."
+                             .format(missing_package_str))
+                if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
+                    utils.plugin_interface.install_plugin_requirement(package=missing_package_str)
+                else:
+                    logger.critical("Wrong package version: {0}. AUTO_INSTALL is disabled, skipping upgrade."
+                                    .format(missing_package_str))
 
 
 def load_and_process_settings_file() -> bool:
@@ -134,21 +140,26 @@ def load_and_process_settings_file() -> bool:
                 os.environ.get("REPORT_TO_HUB", False) and
                 not os.environ.get("HUB_USERNAME", False)):
             # Third party imports.
-            import requests
-
-            session = requests.Session()
-            session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
             try:
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
-                response.raise_for_status()
-                username = response.json().get("username")
-                logger.info("Your authentication token belongs to {0}.".format(username))
-                os.environ["HUB_USERNAME"] = username
-            except Exception as e:
+                import requests
+            except ImportError:
                 logger.error("Could not get your current username. "
-                             "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
-                             "Please check or create an api access token on your hub profile."
-                             .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+                                "Authentication with hub '{0}' failed. Requests package is not installed. Retrying later..."
+                                .format(config.HUB_TEST_TOKEN_ADDRESS))
+            else:
+                session = requests.Session()
+                session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
+                try:
+                    response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+                    response.raise_for_status()
+                    username = response.json().get("username")
+                    logger.info("Your authentication token belongs to {0}.".format(username))
+                    os.environ["HUB_USERNAME"] = username
+                except Exception as e:
+                    logger.error("Could not get your current username. "
+                                "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
+                                "Please check or create an api access token on your hub profile."
+                                .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
         # Write updated settings.ini file.
         if updated:
