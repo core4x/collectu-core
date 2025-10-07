@@ -14,9 +14,6 @@ import atexit
 import config
 import data_layer
 
-# Third party imports.
-import requests
-
 logger = logging.getLogger()
 """The logger instance."""
 
@@ -59,6 +56,9 @@ if __name__ == "__main__":
         # Imported after configuring the logger, since importing can already cause log messages.
         import utils.initialization
 
+        # Set the default environment variables and install plugins defined in the settings file.
+        settings_updated = utils.initialization.load_and_process_settings_file()
+
         # Check if all requirements of third party packages are met.
         utils.initialization.check_installed_app_packages()
 
@@ -69,9 +69,6 @@ if __name__ == "__main__":
         import utils.updater
         import utils.plugin_interface
         import utils.hub_connection
-
-        # Set the default environment variables and install plugins defined in the settings file.
-        settings_updated = utils.initialization.load_and_process_settings_file()
 
         # Load all available modules.
         utils.plugin_interface.load_modules()
@@ -145,14 +142,24 @@ if __name__ == "__main__":
                         os.environ.get("REPORT_TO_HUB", False) and
                         not os.environ.get("HUB_USERNAME", False)):
                     try:
-                        response = requests.post(
-                            url=config.HUB_TEST_TOKEN_ADDRESS,
-                            timeout=(5, 5),
-                            headers={"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
-                        response.raise_for_status()
-                        username = response.json().get("username")
-                        logger.info("Your authentication token belongs to {0}.".format(username))
-                        os.environ["HUB_USERNAME"] = username
+                        # Third party imports.
+                        try:
+                            import requests
+                        except ImportError:
+                            logger.error(
+                                "Could not get your current username. "
+                                "Authentication with hub '{0}' failed. Requests package is not installed."
+                                .format(config.HUB_TEST_TOKEN_ADDRESS)
+                            )
+                        else:
+                            response = requests.post(
+                                url=config.HUB_TEST_TOKEN_ADDRESS,
+                                timeout=(5, 5),
+                                headers={"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
+                            response.raise_for_status()
+                            username = response.json().get("username")
+                            logger.info("Your authentication token belongs to {0}.".format(username))
+                            os.environ["HUB_USERNAME"] = username
                     except Exception as e:
                         logger.error("Could not get your current username. "
                                         "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
