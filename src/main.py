@@ -35,6 +35,7 @@ def exit_handler():
 
 # This is the entrypoint of the application.
 if __name__ == "__main__":
+    exit_code: int = 0
     try:
         # Set /src as working directory.
         os.chdir(sys.path[0])
@@ -81,7 +82,8 @@ if __name__ == "__main__":
             if bool(os.environ.get('HUB_API_ACCESS_TOKEN', False)):
                 utils.hub_connection.download_modules(requested_module_types="all")
             else:
-                logger.warning("Could not initially download modules from hub since no HUB_API_ACCESS_TOKEN was provided.")
+                logger.warning(
+                    "Could not initially download modules from hub since no HUB_API_ACCESS_TOKEN was provided.")
 
         if bool(int(os.environ.get('API', '1'))):
             # Once we set up the logger and initialized everything, we can import the other things.
@@ -92,8 +94,8 @@ if __name__ == "__main__":
                 # Start the API.
                 interface.api_v1.app.start()
             except Exception as e:
-                logger.error("Could not start api ({0}). Do you have a valid git access token?".format(str(e)),
-                            exc_info=config.EXC_INFO)
+                logger.error("Could not start api ({0}). Do you have a valid git access token?"
+                             .format(str(e)), exc_info=config.EXC_INFO)
         elif bool(int(os.environ.get('MCP', '0'))):
             logger.error("In order to use the mcp, enable the api.")
 
@@ -107,8 +109,8 @@ if __name__ == "__main__":
                     # Start the frontend.
                     data_layer.frontend_process = interface.frontend_v1.app.start()
                 except Exception as e:
-                    logger.error("Could not start frontend ({0}). Do you have a valid git access token?".format(str(e)),
-                                exc_info=config.EXC_INFO)
+                    logger.error("Could not start frontend ({0}). Do you have a valid git access token?"
+                                 .format(str(e)), exc_info=config.EXC_INFO)
 
         # Initialize the configuration.
         configuration.Configuration()
@@ -162,21 +164,20 @@ if __name__ == "__main__":
                             os.environ["HUB_USERNAME"] = username
                     except Exception as e:
                         logger.error("Could not get your current username. "
-                                        "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
-                                        "Please check or create an api access token on your hub profile."
-                                        .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
+                                     "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "
+                                     "Please check or create an api access token on your hub profile."
+                                     .format(config.HUB_TEST_TOKEN_ADDRESS, str(e)), exc_info=config.EXC_INFO)
 
             counter += 1
             time.sleep(1)
-    
-        exit_code: int = 0
+
     except KeyboardInterrupt:
         exit_code: int = 0
-        if data_layer.configuration is not None:
-            data_layer.configuration.stop()
     except Exception as e:
         exit_code = 1
         logger.critical("A critical error occurred: {0}".format(str(e)), exc_info=config.EXC_INFO)
     finally:
+        if data_layer.configuration is not None:
+            data_layer.configuration.stop()
         data_layer.running = False
         sys.exit(exit_code)
