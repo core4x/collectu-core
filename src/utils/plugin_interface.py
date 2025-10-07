@@ -49,6 +49,12 @@ def install_plugin_requirement(package: str) -> int:
     :returns: The return code. 0 if successful, otherwise non-zero.
     """
     try:
+        if bool(int(os.environ.get('AUTO_INSTALL', '0'))): 
+            logger.info("Trying to install package '%s'...", package)
+        else:
+            logger.critical("Package installation for '%s' needed but AUTO_INSTALL is not enabled.", package)
+            return 1
+        
         # If packaging is available, try to parse the requirement and check installed version first.
         if Requirement is not None:
             try:
@@ -83,7 +89,6 @@ def install_plugin_requirement(package: str) -> int:
         else:
             logger.info("Successfully installed '%s'. %s", package, result.stdout.splitlines()[:1])
         return result.returncode
-
     except Exception as e:
         logger.error("Something went wrong while trying to install package '%s': %s", package, str(e),
                      exc_info=config.EXC_INFO)
