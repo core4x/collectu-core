@@ -161,9 +161,15 @@ if __name__ == "__main__":
 
             counter += 1
             time.sleep(1)
+    
+        exit_code: int = 0
     except KeyboardInterrupt:
-        # Stop all running modules.
-        data_layer.configuration.stop()
-        # Stop all processes and other loops.
+        exit_code: int = 0
+        if data_layer.configuration is not None:
+            data_layer.configuration.stop()
+    except Exception as e:
+        exit_code = 1
+        logger.critical("A critical error occurred: {0}".format(str(e)), exc_info=config.EXC_INFO)
+    finally:
         data_layer.running = False
-        sys.exit(0)
+        sys.exit(exit_code)
