@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Get the script's directory (even if symlinked)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to that directory
+cd "$SCRIPT_DIR"
+
 cd ../.. || { echo "Failed to change directory."; exit 1; }
 
 cd src || { echo "Failed to change to 'src' directory."; exit 1; }
