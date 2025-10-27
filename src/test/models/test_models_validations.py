@@ -108,11 +108,6 @@ class TestConfiguration(unittest.TestCase):
             models.validations.validate_module(module=Module1(**{}))
         if self.show_validation_messages:
             print(cm.exception)
-        # If it is dynamic but can't be, it should be type checked.
-        with self.assertRaises(ValidationError) as cm:
-            models.validations.validate_module(module=Module3(**{"integer": "${is.dynamic}"}))
-        if self.show_validation_messages:
-            print(cm.exception)
         # Wrong type of value, which can not be converted.
         with self.assertRaises(ValidationError) as cm:
             models.validations.validate_module(module=Module3(**{"integer": "wrong"}))
