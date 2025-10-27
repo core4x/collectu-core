@@ -33,7 +33,7 @@ def validate_module(module):
     # Check that the field values are of the correct data type.
     for field in fields(module):
         value = getattr(module, field.name)
-        if (str(value).startswith("${") and str(value).endswith("}")) and field.metadata.get('dynamic', False):
+        if str(value).startswith("${") and str(value).endswith("}"):
             # The complete value is a dynamic variable. We have to assume, the replacement will fit the type.
             # Make them always a string.
             setattr(module, field.name, str(value))
@@ -138,7 +138,7 @@ def validate_module(module):
 
         validation_class: Validation = field.metadata.get('validate', None)
         if validation_class is not None:
-            if (str(value).startswith("${") and str(value).endswith("}")) and field.metadata.get('dynamic', False):
+            if str(value).startswith("${") and str(value).endswith("}"):
                 # The complete value is a dynamic variable. We have to assume, the replacement will fit the type.
                 # Make them always a string.
                 setattr(module, field.name, str(value))
