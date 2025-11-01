@@ -330,6 +330,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
      {"key": field_name,
       "data_type": "data_type",
       "required": True/False,
+      "category": "basic/advanced/...",
       "description": "description",
       "default": "default_value",
       "dynamic": True/False}
@@ -358,6 +359,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
                                        getattr(getattr(field, "type"), "__class__"), "__name__") != "type" else str(
                                        getattr(getattr(field, "type"), "__name__")),
                                    "required": field.metadata.get("required", False),
+                                   "category": field.metadata.get("category", "basic").lower(),
                                    "description": field.metadata.get("description", "-"),
                                    "default": default_value,
                                    "dynamic": field.metadata.get('dynamic', False)}, )

@@ -20,39 +20,48 @@ class Module:
     """
     id: str = field(
         metadata=dict(description="The unique id of the module.",
+                      category="general",
                       required=False),
         default=''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(19)))
     module_name: str = field(
         metadata=dict(description="The name of the module.",
+                      category="general",
                       required=True),
         default=None)
     version: int = field(
         metadata=dict(description="The version of the module.",
+                      category="general",
                       required=False),
         default=0)
     active: bool = field(
         metadata=dict(description="Is this module active.",
+                      category="general",
                       required=False),
         default=True)
     name: str = field(
         metadata=dict(description="The user-specific name of the module.",
+                      category="general",
                       required=False),
         default="")
     description: str = field(
         metadata=dict(description="The description of the module.",
+                      category="general",
                       required=False),
         default="")
     panel: str = field(
         metadata=dict(description="The panel where the module is placed.",
+                      category="general",
                       required=False,
                       validate=models.validations.OneOf(["panel-1", "panel-2", "panel-3", "panel-4", "panel-5"])),
         default="panel-1")
     x: int = field(
         metadata=dict(description="The x position of the module on the canvas.",
+                      category="general",
                       required=False),
         default=0)
     y: int = field(
         metadata=dict(description="The y position of the module on the canvas.",
+                      category="general",
                       required=False),
         default=0)
     start_priority: int = field(
@@ -60,6 +69,7 @@ class Module:
                                   "A module with greater priority is started before (and stopped after) "
                                   "a module of the same type with a lower priority. "
                                   "If the start priority is 0, the regular starting order is used.",
+                      category="general",
                       required=False,
                       validate=models.validations.Range(min=0, exclusive=False)),
         default=0)
@@ -163,6 +173,7 @@ class ProcessorModule(Module):
     """
     links: list[str] = field(
         metadata=dict(description="The links of this module.",
+                      category="general",
                       required=False),
         default_factory=list)
 
@@ -174,14 +185,17 @@ class TagModule(Module):
     """
     is_tag: bool = field(
         metadata=dict(description="Boolean indicating if the data is to be stored as a tags.",
+                      category="basic",
                       required=False),
         default=False)
     is_field: bool = field(
         metadata=dict(description="Boolean indicating if the data is to be stored as fields.",
+                      category="basic",
                       required=False),
         default=True)
     links: list[str] = field(
         metadata=dict(description="The links of this module.",
+                      category="general",
                       required=False),
         default_factory=list)
 
@@ -193,10 +207,12 @@ class VariableModule(Module):
     """
     links: list[str] = field(
         metadata=dict(description="The links of this module.",
+                      category="general",
                       required=False),
         default_factory=list)
     measurement: str = field(
         metadata=dict(description="The measurement name.",
+                      category="basic",
                       required=False),
         default="test")
 
@@ -217,11 +233,13 @@ class OutputModule(Module):
     buffered: bool = field(
         metadata=dict(description="If true, data is buffered, when the output module is not accessible. "
                                   "An output module with is_buffer is `True` has to be configured.",
+                      category="basic",
                       required=False),
         default=False)
     is_buffer: bool = field(
         metadata=dict(description="Is this output module a buffer. "
                                   "Module attribute can_be_buffer has to be `True`. "
                                   "Exactly one buffer can be configured.",
+                      category="basic",
                       required=False),
         default=False)
