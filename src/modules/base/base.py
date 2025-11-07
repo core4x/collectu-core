@@ -58,7 +58,7 @@ class AbstractModule(ABC):
             """Import the required third party packages."""
         except ImportError as e:
             if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
-                self.logger.warning("Third party requirements are not fulfilled: {0} "
+                self.logger.warning("Third party requirements are not fulfilled: {0}. "
                                     "Trying to auto install required third party packages: '{1}'."
                                     .format(str(e), ', '.join(map(str, self.third_party_requirements))))
                 for package in self.third_party_requirements:
