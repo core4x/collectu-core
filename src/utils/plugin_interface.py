@@ -109,8 +109,9 @@ def get_plugin_requirement_status() -> list[dict]:
     """
     requirements = []
     for module_name, module_class in data_layer.registered_modules.items():
+        installed: bool = True
         try:
-            installed = module_class.import_third_party_requirements()
+            module_class.import_third_party_requirements()
         except ImportError:
             installed = False
         requirements.append({"name": module_name,
@@ -363,12 +364,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
                                    "description": field.metadata.get("description", "-"),
                                    "default": default_value,
                                    "dynamic": field.metadata.get('dynamic', False)}, )
-        """ No longer used, since this takes a lot of time.
-        try:
-            installed = module.import_third_party_requirements()
-        except ImportError:
-            installed = False
-        """
+
         if module_name.startswith("inputs."):
             module_type = "input"
         elif module_name.startswith("outputs."):

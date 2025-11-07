@@ -58,15 +58,15 @@ class AbstractModule(ABC):
             """Import the required third party packages."""
         except ImportError as e:
             if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
-                self.logger.warning("Third party requirements are not fulfilled. "
-                                    "Trying to auto install required third party packages: '{0}'."
-                                    .format(', '.join(map(str, self.third_party_requirements))))
+                self.logger.warning("Third party requirements are not fulfilled: {0} "
+                                    "Trying to auto install required third party packages: '{1}'."
+                                    .format(str(e), ', '.join(map(str, self.third_party_requirements))))
                 for package in self.third_party_requirements:
                     utils.plugin_interface.install_plugin_requirement(package)
                 self.import_third_party_requirements()
             else:
-                self.logger.critical("Could not import required packages. Please install '{0}'."
-                                     .format(', '.join(map(str, self.third_party_requirements))))
+                self.logger.critical("Could not import required packages: {0}. Please try to install '{1}'."
+                                     .format(str(e), ', '.join(map(str, self.third_party_requirements))))
                 raise ImportError
         self.active: bool = self.configuration.active
         """Is the module currently active. 
