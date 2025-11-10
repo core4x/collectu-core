@@ -112,7 +112,7 @@ def load_and_process_settings_file() -> bool:
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
             # Set in settings but not in env.
-            elif not os.environ.get(name.upper(), False) and not name.startswith("#") and bool(value.strip()):
+            elif not os.environ.get(name.upper(), False) and not name.startswith("#"):
                 os.environ[name.upper()] = str(value)
                 data_layer.settings[name.upper()] = str(value)
             # Set in env.
