@@ -81,8 +81,17 @@ def download_modules(requested_module_types: str = "all"):
                 logger.error("Invalid module type: {0}.".format(requested_module_types))
                 return
 
-            for module in modules:
-                download_module(module_name=module.get('module_name'), version=0, session=s)
+            logger.info("Starting download of {0} modules...".format(len(modules)))
+            total = len(modules)
+            for idx, module in enumerate(modules, start=1):
+                name = module.get('module_name', '<unknown>')
+                percent = int(idx / total * 100)
+                bar_len = 30
+                filled = int(percent / 100 * bar_len)
+                bar = '=' * filled + ' ' * (bar_len - filled)
+                logger.info(f"[{idx}/{total}] [{bar}] {percent}% - Downloading {name}")
+                download_module(module_name=name, version=0, session=s)
+            logger.info("Finished download procedure of {0} modules.".format(len(modules)))
         except Exception as e:
             logger.error("Could not download modules: {0}.".format(str(e)),
                          exc_info=config.EXC_INFO)
