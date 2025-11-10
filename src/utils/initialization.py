@@ -113,6 +113,9 @@ def load_and_process_settings_file() -> bool:
                 data_layer.settings[name.upper()] = str(value)
             # Set in settings but not in env.
             elif not os.environ.get(name.upper(), False) and not name.startswith("#"):
+                # We do not set empty hub_api_access_token values, as it would appear in frontend settings empty and overwrite existing ones if saved.
+                if name.lower() == "hub_api_access_token" and not bool(value.strip()):
+                    continue
                 os.environ[name.upper()] = str(value)
                 data_layer.settings[name.upper()] = str(value)
             # Set in env.
