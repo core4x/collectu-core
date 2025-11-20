@@ -94,7 +94,7 @@ class Module:
             return input_value
 
         # Get the data type.
-        annotations = super().__getattribute__('__annotations__')
+        annotations = getattr(type(self), '__annotations__', {})
         data_type = annotations.get(name, None)
 
         # Replace dynamic environment variables.
