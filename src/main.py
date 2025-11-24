@@ -52,6 +52,11 @@ if __name__ == "__main__":
         # Exit handler.
         atexit.register(exit_handler)
 
+        import utils.updater
+
+        # Restore stashed changes.
+        utils.updater.restore_stashed_changes()
+
         # Internal imports.
         # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
         # Imported after configuring the logger, since importing can already cause log messages.
@@ -67,7 +72,6 @@ if __name__ == "__main__":
         import utils.arg_parser
         import utils.mothership_interface
         import utils.usage_statistics
-        import utils.updater
         import utils.plugin_interface
         import utils.hub_connection
 

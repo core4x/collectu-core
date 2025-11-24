@@ -131,6 +131,23 @@ def check_for_updates(with_submodule: bool = True) -> int:
         return commit_count
 
 
+def restore_stashed_changes():
+    """
+    Restores stashed changes.
+    """
+    try:
+        repo = git.Repo("..")
+        stash_list = repo.git.stash("list")
+        
+        if stash_list:
+            logger.info("Stashed changes detected. Restoring...")
+            repo.git.stash("pop")
+            logger.info("Stashed changes restored successfully.")
+        
+    except Exception as e:
+        logger.warning("Could not restore stashed changes: {0}".format(str(e)), exc_info=config.EXC_INFO)
+
+
 def update_app() -> str:
     """
     Pulls updates and restarts if needed.
@@ -149,13 +166,24 @@ def update_app() -> str:
 
     try:
         repo = git.Repo("..")
+
+        # Configure merge strategy to handle conflicts automatically.
+        repo.git.config("merge.conflictStyle", "diff3")
+        repo.git.config("merge.defaultToUpstream", "true")
+
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
             logger.info("Updating app and submodules...")
             repo.git.submodule("update", "--init", "--recursive")
-            repo.remotes.origin.pull()
         else:
             logger.info("Updating app...")
-            repo.remotes.origin.pull()
+
+        # Handle uncommitted local changes before pulling.
+        if repo.is_dirty():
+            logger.info("Local changes detected. Stashing before update...")
+            repo.git.stash("push")
+
+        # Pull with automatic conflict resolution: use 'theirs' strategy with 'patience' diff algorithm.
+        repo.remotes.origin.pull(strategy_option=["theirs", "patience"])
 
         # Refresh version info.
         check_for_updates(with_submodule=False)
