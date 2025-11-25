@@ -8,6 +8,8 @@ import logging
 import uuid
 import socket
 import importlib.metadata
+import secrets
+import string
 
 # Internal imports.
 import config
@@ -100,7 +102,15 @@ def load_and_process_settings_file() -> bool:
                     value = str(uuid.uuid4())
                     parser.set('env', name.lower(), value)
                     updated = True
-                    logger.info(f"Auto-generated app_id: '{value}'.")
+                    logger.info(f"Auto-generated app_id: {value}")
+                os.environ[name.upper()] = value
+                data_layer.settings[name.upper()] = str(value)
+            elif name.lower() == "local_admin_password" and not os.environ.get(name.upper(), False):
+                if not bool(value.strip()):
+                    value = ''.join(secrets.choice(string.ascii_letters + string.digits + "!#$%&()*+-/<>?@[]_{}") for _ in range(16))
+                    parser.set('env', name.lower(), value)
+                    updated = True
+                    logger.info(f"Auto-generated local_admin_password: {value}")
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
             # If no app_description is set, we generate one.
@@ -108,7 +118,7 @@ def load_and_process_settings_file() -> bool:
                 if not bool(value.strip()):
                     value = socket.gethostname()
                     parser.set('env', name.lower(), value)
-                    logger.info(f"Auto-generated app_description: '{value}'.")
+                    logger.info(f"Auto-generated app_description: {value}")
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
             # Set in settings but not in env.
