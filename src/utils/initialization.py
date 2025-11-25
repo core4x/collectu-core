@@ -109,6 +109,7 @@ def load_and_process_settings_file() -> bool:
                 if not bool(value.strip()):
                     value = ''.join(secrets.choice(string.ascii_letters + string.digits + "!$&*+-<>?@_") for _ in range(16))
                     parser.set('env', name.lower(), value)
+                    updated = True
                     logger.info(f"Auto-generated local_admin_password: {value}")
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
@@ -117,6 +118,7 @@ def load_and_process_settings_file() -> bool:
                 if not bool(value.strip()):
                     value = socket.gethostname()
                     parser.set('env', name.lower(), value)
+                    updated = True
                     logger.info(f"Auto-generated app_description: {value}")
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
