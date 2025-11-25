@@ -131,23 +131,6 @@ def check_for_updates(with_submodule: bool = True) -> int:
         return commit_count
 
 
-def restore_stashed_changes():
-    """
-    Restores stashed changes.
-    """
-    try:
-        repo = git.Repo("..")
-        stash_list = repo.git.stash("list")
-        
-        if stash_list:
-            logger.info("Stashed changes detected. Restoring...")
-            repo.git.stash("pop")
-            logger.info("Stashed changes restored successfully.")
-        
-    except Exception as e:
-        logger.warning("Could not restore stashed changes: {0}".format(str(e)), exc_info=config.EXC_INFO)
-
-
 def update_app() -> str:
     """
     Pulls updates and restarts if needed.
@@ -176,11 +159,6 @@ def update_app() -> str:
             repo.git.submodule("update", "--init", "--recursive")
         else:
             logger.info("Updating app...")
-
-        # Handle uncommitted local changes before pulling.
-        if repo.is_dirty():
-            logger.info("Local changes detected. Stashing before update...")
-            repo.git.stash("push")
 
         # Pull with automatic conflict resolution: use 'theirs' strategy with 'patience' diff algorithm.
         repo.remotes.origin.pull(strategy_option=["theirs", "patience"])

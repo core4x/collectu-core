@@ -52,11 +52,6 @@ if __name__ == "__main__":
         # Exit handler.
         atexit.register(exit_handler)
 
-        import utils.updater
-
-        # Restore stashed changes.
-        utils.updater.restore_stashed_changes()
-
         # Internal imports.
         # Caution: Make sure we have set the environment variables, before you (globally) try to access them.
         # Imported after configuring the logger, since importing can already cause log messages.
@@ -74,6 +69,7 @@ if __name__ == "__main__":
         import utils.usage_statistics
         import utils.plugin_interface
         import utils.hub_connection
+        import utils.updater
 
         # Load all available modules.
         utils.plugin_interface.load_modules()
@@ -82,7 +78,7 @@ if __name__ == "__main__":
         utils.arg_parser.process_commands()
 
         if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
-                settings_updated or len(data_layer.registered_modules) == 0):
+                settings_updated and len(data_layer.registered_modules) == 0):
             if bool(os.environ.get('HUB_API_ACCESS_TOKEN', False)):
                 utils.hub_connection.download_modules(requested_module_types="all")
             else:
@@ -128,9 +124,9 @@ if __name__ == "__main__":
 
         commits = utils.updater.check_for_updates()
         if commits:
-            logger.warning(f"{commits} update(s) can be applied.")
+            logger.warning(f"{commits} update(s) can be applied. Updating will overwrite any local changes and restart the application.")
         elif commits == 0:
-            logger.info(f"{config.APP_NAME} is already up-to-date.")
+            logger.info(f"{config.APP_NAME} is up-to-date.")
 
         # This loop is needed to keep the main script alive. Otherwise, the application and all daemon threads are closed.
         timer: int = 10
