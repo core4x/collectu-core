@@ -166,7 +166,7 @@ def start(logger: logging.Logger):
         """Simplified format (without process and thread info)."""
         format_3 = '%(levelname)s - %(pathname)s:%(lineno)d: %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        format_4 = '%(levelname)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
+        format_4 = '%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
         format_5 = '%(levelname)s - %(processName)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
         """Simplified format with the path name instead of the logger name (without process and thread info)."""
