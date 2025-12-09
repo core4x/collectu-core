@@ -8,6 +8,7 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from dataclasses import fields
 import re
+from datetime import datetime
 
 
 class ValidationError(Exception):
@@ -77,6 +78,22 @@ def validate_module(module):
                             f'Expected field {field.name} to be of type {ftype}. '
                             f'Got {value} of type {type(value)} instead.'
                         )
+            continue
+
+        # -------------------------
+        # Datetime
+        # -------------------------
+        if ftype is datetime:
+            if isinstance(value, datetime):
+                continue
+            try:
+                parsed = datetime.fromisoformat(value)
+                setattr(module, field.name, parsed)
+            except Exception:
+                errors.append(
+                    f'Expected field {field.name} to be a datetime (ISO 8601). '
+                    f'Got {value} of type {type(value)} instead.'
+                )
             continue
 
         # -------------------------
