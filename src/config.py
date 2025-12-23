@@ -70,6 +70,9 @@ HUB_TEST_TOKEN_ADDRESS: str = os.getenv("HUB_TEST_TOKEN_ADDRESS", f"{HUB_ADDRESS
 HUB_LOGIN_ADDRESS: str = os.getenv("HUB_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/access-token")
 """The endpoint of the api for logging in."""
 
+HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
+"""The endpoint of the api for refreshing token."""
+
 HUB_LLM_DOCS_ADDRESS: str = os.getenv("HUB_LLM_DOCS_ADDRESS", "https://collectu.de/docs/llms.txt")
 """Sitemap for LLM friendly docs from Collectu."""
 
@@ -81,6 +84,9 @@ VERIFY_TASK_SIGNATURE: bool = os.getenv("VERIFY_TASK_SIGNATURE", "True").lower()
 
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = int(os.getenv("STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL", 10))
 """The interval in seconds in which error messages are logged if the sending or receiving process with the external api fails."""
+
+ACCESS_TOKEN_EXPIRE_HOURS: float = os.environ.get('ACCESS_TOKEN_EXPIRE_HOURS', 0.25)
+"""The time in hours after an access token expires."""
 
 CHECK_VALUE: str = "jkhdegkjhedlkl"
 """A check value."""
