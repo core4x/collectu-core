@@ -164,7 +164,7 @@ def load_and_process_settings_file() -> bool:
                 session = requests.Session()
                 session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
                 try:
-                    response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+                    response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
                     response.raise_for_status()
                     username = response.json().get("username")
                     logger.info("Your authentication token belongs to {0}.".format(username))

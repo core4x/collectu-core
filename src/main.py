@@ -154,7 +154,7 @@ if __name__ == "__main__":
                                 .format(config.HUB_TEST_TOKEN_ADDRESS)
                             )
                         else:
-                            response = requests.post(
+                            response = requests.get(
                                 url=config.HUB_TEST_TOKEN_ADDRESS,
                                 timeout=(5, 5),
                                 headers={"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})

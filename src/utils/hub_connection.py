@@ -34,7 +34,7 @@ def create_authenticated_session() -> requests.Session | None:
     session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
     # Test the token.
     try:
-        response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+        response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
         response.raise_for_status()
         return session
     except Exception as e:
