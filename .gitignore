@@ -18,6 +18,7 @@ api_access_token.txt
 
 # Virtual environment.
 venv/
+.venv/
 
 # Docker volumes.
 volumes/
