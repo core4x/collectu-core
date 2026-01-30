@@ -96,6 +96,10 @@ class MothershipData:
         metadata=dict(description="The configuration of the reporting app.",
                       required=False),
         default_factory=list)
+    allowed_commands: list[str] | None = field(
+        metadata=dict(description="The allowed commands accepted by the reporting app.",
+                      required=False),
+        default=None)
     latest_logs: list[Log] = field(
         metadata=dict(description="The latest logs of the reporting app.",
                       required=False),

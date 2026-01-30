@@ -166,7 +166,8 @@ def _get_report_data() -> Dict[str, Any]:
         "status": "running" if len(data_layer.module_data) > 0 else "inactive",
         "version": data_layer.version,
         "description": os.environ.get("APP_DESCRIPTION", "-"),
-        "configuration": getattr(data_layer.configuration, "configuration_dict", [])
+        "configuration": getattr(data_layer.configuration, "configuration_dict", []),
+        "allowed_commands": [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if item] if os.environ.get("ALLOWED_COMMANDS", "") else []
     }
 
     # Get the new logs.
@@ -192,6 +193,10 @@ def process_tasks(task: dict[str, str | list]):
     :param task: The task to process.
     """
     command = task.get("command", None)
+    if command not in [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if item] if os.environ.get("ALLOWED_COMMANDS", "") else []:
+        logger.error("Received not permitted task with command: '{0}'.".format(command))
+        return
+
     if command == "restart":
         utils.updater.restart_application()
     elif command == "start":
