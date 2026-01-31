@@ -163,7 +163,8 @@ def update_app() -> str:
         # 4. Update submodules if applicable.
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
             logger.info("Updating app and submodules...")
-            repo.git.submodule("update", "--init", "--recursive")
+            repo.git.submodule("sync", "--recursive")  # Update .git/config
+            repo.git.submodule("update", "--init", "--recursive", "--force")
         else:
             logger.info("Updating app...")
         # 5. Best-effort restore local changes.
