@@ -149,19 +149,29 @@ def update_app() -> str:
 
     try:
         repo = git.Repo("..")
+        branch = repo.active_branch.name
 
-        # Configure merge strategy to handle conflicts automatically.
-        repo.git.config("merge.conflictStyle", "diff3")
-        repo.git.config("merge.defaultToUpstream", "true")
+        # --- AUTO-UPDATER POLICY ---
+        # Never merge on dirty trees. Never prompt. Remote always updates.
 
+        # 1. Stash ALL local changes (tracked + untracked).
+        repo.git.stash("push", "-u", "-m", "auto-update")
+        # 2. Fetch latest remote state.
+        repo.git.fetch("origin")
+        # 3. Force working tree to remote HEAD (deterministic update).
+        repo.git.reset("--hard", f"origin/{branch}")
+        # 4. Update submodules if applicable.
         if check_git_access_token() and not folder_exists_and_empty("./interface"):
             logger.info("Updating app and submodules...")
             repo.git.submodule("update", "--init", "--recursive")
         else:
             logger.info("Updating app...")
-
-        # Pull with automatic conflict resolution: use 'theirs' strategy with 'patience' diff algorithm.
-        repo.remotes.origin.pull(strategy_option=["theirs", "patience"])
+        # 5. Best-effort restore local changes.
+        try:
+            repo.git.stash("pop")
+        except git.exc.GitCommandError:
+            # Do NOT fail updater — stash is preserved for safety.
+            logger.warning("Local changes could not be reapplied automatically. They remain stashed.")
 
         # Refresh version info.
         check_for_updates(with_submodule=False)
@@ -170,7 +180,6 @@ def update_app() -> str:
         logger.info(message)
         restart_application()
         return message
-
     except Exception as e:
         message = f"Update failed: {e}"
         logger.error(message, exc_info=config.EXC_INFO)
