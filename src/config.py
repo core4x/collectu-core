@@ -2,7 +2,6 @@
 The config file holds all global constants.
 """
 import os
-from typing import Optional
 
 APP_NAME: str = os.getenv("APP_NAME", "Collectu")
 """The application name."""
@@ -25,8 +24,8 @@ NUMBER_OF_BUFFERED_LOGS: int = int(os.getenv("NUMBER_OF_BUFFERED_LOGS", 50))
 AUTOSAVE_NUMBER: int = int(os.getenv("AUTOSAVE_NUMBER", 10))
 """The number of autosave entries in the configuration database."""
 
-RETRY_INTERVAL: Optional[int] = int(os.getenv("RETRY_INTERVAL", 10))
-"""The sleep time in seconds between retry attempts to start a module. If 'None', it is directly retried."""
+RETRY_INTERVAL: int = int(os.getenv("RETRY_INTERVAL", 10))
+"""The sleep time in seconds between retry attempts to start a module."""
 
 WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 1000))
 """Print a warning log message, as soon as we have more than warning_limit elements in the queue of an output module."""
@@ -70,7 +69,7 @@ HUB_TEST_TOKEN_ADDRESS: str = os.getenv("HUB_TEST_TOKEN_ADDRESS", f"{HUB_ADDRESS
 HUB_LOGIN_ADDRESS: str = os.getenv("HUB_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/access-token")
 """The endpoint of the api for logging in."""
 
-HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
+HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_REFRESH_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
 """The endpoint of the api for refreshing token."""
 
 HUB_LLM_DOCS_ADDRESS: str = os.getenv("HUB_LLM_DOCS_ADDRESS", "https://collectu.de/docs/llms.txt")
