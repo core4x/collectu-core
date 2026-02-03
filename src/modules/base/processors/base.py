@@ -98,7 +98,7 @@ class AbstractProcessorModule(AbstractModule):
                 valid_tag_data, tag_requirement_index, tag_validation_messages = utils.data_validation.validate(
                     data=data.tags, requirements=self.tag_requirements)
                 if not valid_tag_data:
-                    messages = utils.data_validation.format_message(field_validation_messages)
+                    messages = utils.data_validation.format_message(tag_validation_messages)
                     raise utils.data_validation.ValidationError(
                         "Invalid tag input data: {0}".format(" ".join(messages)))
 

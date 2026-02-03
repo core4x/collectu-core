@@ -20,7 +20,7 @@ logger = logging.getLogger()
 
 def exit_handler():
     """
-    This functions gets called when the application exits.
+    This function gets called when the application exits.
 
     Note: The exit function is not called when the program is killed by a signal,
     when a Python fatal internal error is detected, or when os._exit() is called.

@@ -275,15 +275,18 @@ def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
         return {}
 
     found_modules: dict[str, dict[str, Any]] = {}
+    inputs_root = custom_folder_path / "inputs"
+    outputs_root = custom_folder_path / "outputs"
+    processors_root = custom_folder_path / "processors"
     for dirpath, dirnames, filenames in os.walk(custom_folder_path):
         for filename in filenames:
-            if filename.endswith('.py') and filename != "__init__.py" and (pathlib.Path(
-                    os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "inputs")).is_relative_to(
-                custom_folder_path) or pathlib.Path(
-                os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"), "outputs")).is_relative_to(
-                custom_folder_path) or pathlib.Path(
-                os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"),
-                             "processors")).is_relative_to(custom_folder_path)):
+            dir_path_obj = pathlib.Path(dirpath)
+            is_module_dir = (
+                dir_path_obj.is_relative_to(inputs_root)
+                or dir_path_obj.is_relative_to(outputs_root)
+                or dir_path_obj.is_relative_to(processors_root)
+            )
+            if filename.endswith('.py') and filename != "__init__.py" and is_module_dir:
                 found_path = pathlib.Path(os.path.join(dirpath, filename))
                 module_name = dirpath.replace(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")),
                                               "").replace(os.sep, ".")[1:] + "." + filename[:-3]

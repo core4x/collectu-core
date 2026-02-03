@@ -36,7 +36,7 @@ buffer_instance = None
 """The instantiated buffer output module."""
 
 dashboard_modules: list[Any] = []
-"""List of processor visualization instances. Processors register them self here."""
+"""List of processor visualization instances. Processors register themselves here."""
 
 mothership_data: dict[str, "models.MothershipData"] = {}
 """The received mothership data with the app_id as key."""
