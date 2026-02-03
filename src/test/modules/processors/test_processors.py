@@ -17,9 +17,7 @@ class TestProcessors(unittest.TestCase):
         This method is called before each test.
         """
         # Load the validation test data.
-        data_path = Path(__file__).parents[2] / "data" / "test_utils_data_validation" / "validation_data.json"
-        
-        with data_path.open() as json_file:
+        with open('./data/test_utils_data_validation/validation_data.json') as json_file:
             self.test_data = json.load(json_file)
 
     def tearDown(self):
