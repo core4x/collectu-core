@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.47.1 (2026-02-14)
+
+### Bug Fixes
+
+- Fixed replace_existing behavior.
+  ([`870a3a2`](https://github.com/core4x/collectu-core/commit/870a3a2dac7cc7ee2f852f452d88e6b926abc486))
+
+
 ## v1.47.0 (2026-02-14)
 
 ### Features
