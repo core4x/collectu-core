@@ -107,14 +107,16 @@ class AbstractTagModule(AbstractModule):
                 self.current_input_data = data
                 # Execute the module specific logic.
                 key_values = self._run() or {}
+                if self.configuration.is_field:
+                    if self.configuration.replace_existing:
+                        data.fields = {}
+                if self.configuration.is_tag:
+                    if self.configuration.replace_existing:
+                        data.tags = {}
                 for key, value in key_values.items():
                     if self.configuration.is_field:
-                        if self.configuration.replace_existing:
-                            data.fields = {}
                         data.fields[key] = value
                     if self.configuration.is_tag:
-                        if self.configuration.replace_existing:
-                            data.tags = {}
                         data.tags[key] = value
 
                 # Call the subsequent links.
