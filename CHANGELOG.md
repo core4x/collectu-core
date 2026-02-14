@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.47.0 (2026-02-14)
+
+### Features
+
+- Fixed typo and added 'replace_existing' configuration param for all tag modules.
+  ([`a16e564`](https://github.com/core4x/collectu-core/commit/a16e564eb3d6bcc268904f3ece1c7b654eb8d3da))
+
+
 ## v1.46.3 (2026-02-03)
 
 ### Bug Fixes
