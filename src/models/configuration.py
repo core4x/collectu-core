@@ -184,7 +184,7 @@ class TagModule(Module):
     The abstract TagModule class.
     """
     is_tag: bool = field(
-        metadata=dict(description="Boolean indicating if the data is to be stored as a tags.",
+        metadata=dict(description="Boolean indicating if the data is to be stored as tags.",
                       category="basic",
                       required=False),
         default=False)
@@ -193,6 +193,11 @@ class TagModule(Module):
                       category="basic",
                       required=False),
         default=True)
+    replace_existing: bool = field(
+        metadata=dict(description="Boolean indicating if the data shall replace all existing fields/tags.",
+                      category="basic",
+                      required=False),
+        default=False)
     links: list[str] = field(
         metadata=dict(description="The links of this module.",
                       category="general",
