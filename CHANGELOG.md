@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.47.2 (2026-02-15)
+
+### Bug Fixes
+
+- Replaced timeout with interval for token refresh.
+  ([`b859fe4`](https://github.com/core4x/collectu-core/commit/b859fe480a87e455cdd6441cddb88dd6e01c6a00))
+
+
 ## v1.47.1 (2026-02-14)
 
 ### Bug Fixes
