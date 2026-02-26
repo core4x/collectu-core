@@ -5,6 +5,7 @@ from pathlib import Path
 # Internal imports.
 import data_layer
 import utils.data_validation
+import utils.plugin_interface
 
 
 class TestProcessors(unittest.TestCase):
@@ -16,6 +17,7 @@ class TestProcessors(unittest.TestCase):
         """
         This method is called before each test.
         """
+        utils.plugin_interface.load_modules()
         # Load the validation test data.
         with open('./data/test_utils_data_validation/validation_data.json') as json_file:
             self.test_data = json.load(json_file)
