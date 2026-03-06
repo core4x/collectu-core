@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.48.0 (2026-03-06)
+
+### Bug Fixes
+
+- Load all available modules before testing processors.
+  ([`122793a`](https://github.com/core4x/collectu-core/commit/122793ac62291253eb2fd67157a07565dc94410e))
+
+### Features
+
+- Added bar chart.
+  ([`7722fc1`](https://github.com/core4x/collectu-core/commit/7722fc1e4d4c96ad228a2d78a1d26a3f120f02c6))
+
+
 ## v1.47.2 (2026-02-15)
 
 ### Bug Fixes
