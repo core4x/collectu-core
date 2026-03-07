@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.49.0 (2026-03-07)
+
+### Bug Fixes
+
+- Added documentation to hub config.
+  ([`d04a662`](https://github.com/core4x/collectu-core/commit/d04a66288e0f639535ed8f1cd31496496a50ee07))
+
+### Features
+
+- Added commit message for configurations.
+  ([`1cf82aa`](https://github.com/core4x/collectu-core/commit/1cf82aaf0ff042e19ef9e175663b7d7f673ba5b8))
+
+
 ## v1.48.0 (2026-03-06)
 
 ### Bug Fixes
