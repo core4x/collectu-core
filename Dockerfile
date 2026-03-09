@@ -1,4 +1,9 @@
-FROM python:3.11
+FROM python:3.14.3-slim
+
+LABEL maintainer="info@collectu.de" \
+      org.opencontainers.image.source="https://github.com/core4x/collectu-core" \
+      org.opencontainers.image.description="Collectu Core" \
+      org.opencontainers.image.version="latest"
 
 # Set environment variables.
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -19,20 +24,21 @@ ENV FRONTEND_PORT=${FRONTEND_PORT}
 EXPOSE ${API_PORT}
 EXPOSE ${FRONTEND_PORT}
 
-# Update everything.
-RUN pip install --upgrade pip
+# Clean up apt cache in the same layer to keep image size down.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+ && rm -rf /var/lib/apt/lists/*
 
-# Clone project.
-RUN git clone https://github.com/core4x/collectu-core.git
-
-# Mark as safe repo.
-RUN git config --system --add safe.directory /collectu-core
+# Clone project and mark as safe repo.
+RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
+ && git config --system --add safe.directory /collectu-core
 
 # Set working directory.
 WORKDIR /collectu-core/src
 
 # Install requirements.
-RUN pip install -r requirements.txt
+RUN pip install --upgrade pip --no-cache-dir \
+ && pip install --no-cache-dir -r requirements.txt
 
 # Define entrypoint.
 ENTRYPOINT [ "python", "main.py" ]
