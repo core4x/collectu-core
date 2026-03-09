@@ -1,4 +1,4 @@
-FROM python:3.14.3-slim
+FROM python:3.14.3
 
 LABEL maintainer="info@collectu.de" \
       org.opencontainers.image.source="https://github.com/core4x/collectu-core" \
@@ -23,11 +23,6 @@ ENV FRONTEND_PORT=${FRONTEND_PORT}
 # Expose the ports of the API and FRONTEND.
 EXPOSE ${API_PORT}
 EXPOSE ${FRONTEND_PORT}
-
-# Clean up apt cache in the same layer to keep image size down.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
- && rm -rf /var/lib/apt/lists/*
 
 # Clone project and mark as safe repo.
 RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
