@@ -98,7 +98,6 @@ def check_for_updates(with_submodule: bool = True) -> int:
     :return: Number of open commits.
     """
     commit_count = 0
-
     try:
         repo = git.Repo("..")
 
@@ -124,11 +123,9 @@ def check_for_updates(with_submodule: bool = True) -> int:
                 except Exception as e:
                     logger.error("Could not initialize interface submodule: {0}"
                                  .format(str(e)), exc_info=config.EXC_INFO)
-
     except Exception as e:
         logger.error("Update check failed: {0}".format(str(e)), exc_info=config.EXC_INFO)
-    finally:
-        return commit_count
+    return commit_count
 
 
 def update_app() -> str:

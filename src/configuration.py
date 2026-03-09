@@ -333,8 +333,7 @@ class Configuration:
             errors = self.load_configuration_from_stream(content=content)
         except Exception as e:
             errors = {"-": ["Failed to load configuration file '{0}': {1}".format(filename, str(e))]}
-        finally:
-            return errors
+        return errors
 
     def load_configuration_from_stream(self, content: str) -> dict[str, list[str]]:
         """
@@ -367,8 +366,7 @@ class Configuration:
                 logger.info("Successfully set new configuration.")
         except Exception as e:
             errors = {"-": ["Failed to process configuration stream: {0}".format(str(e))]}
-        finally:
-            return errors
+        return errors
 
     @staticmethod
     def validate_configuration_from_stream(content: str) -> tuple[list, list, dict[str, list[str]]]:
@@ -460,10 +458,9 @@ class Configuration:
             configuration = []
             configuration_dict = []
             errors = {"-": ["Failed to validate configuration: {0}".format(str(e))]}
-        finally:
-            # Make a 'normal' dict from the defaultdict().
-            errors = dict(errors.items())
-            return configuration, configuration_dict, errors
+        # Make a 'normal' dict from the defaultdict().
+        errors = dict(errors.items())
+        return configuration, configuration_dict, errors
 
     def _start(self):
         """
