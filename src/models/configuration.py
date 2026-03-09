@@ -162,8 +162,7 @@ class Module:
 
         except Exception as e:
             pass
-        finally:
-            return input_value
+        return input_value
 
 
 @dataclass
