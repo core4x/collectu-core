@@ -180,8 +180,7 @@ class AbstractOutputModule(AbstractModule):
         except Exception as e:
             self.logger.error("Could not store data in buffer: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
-        finally:
-            return success
+        return success
 
     def _get_buffer(self) -> Optional[models.Data]:
         """
@@ -196,8 +195,7 @@ class AbstractOutputModule(AbstractModule):
         except Exception as e:
             self.logger.error("Could not get data from buffer: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
-        finally:
-            return data
+        return data
 
     def store_buffer_data(self, module_id: str, data: models.Data) -> bool:
         """
@@ -218,8 +216,7 @@ class AbstractOutputModule(AbstractModule):
         except Exception as e:
             self.logger.error("Could not store data in buffer: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
-        finally:
-            return success
+        return success
 
     def get_buffer_data(self, module_id: str) -> Optional[models.Data]:
         """
@@ -238,5 +235,4 @@ class AbstractOutputModule(AbstractModule):
         except Exception as e:
             self.logger.error("Could not get buffered data: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
-        finally:
-            return data
+        return data
