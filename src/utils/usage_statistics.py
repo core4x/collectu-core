@@ -46,7 +46,7 @@ class Statistics:
                                                  "running_modules_count": len(data_layer.module_data.keys())},
                                                  default=str),
                                              allow_redirects=True,
-                                             timeout=(3, 3))
+                                             timeout=(config.REPORT_INTERVAL, config.REPORT_INTERVAL))
                 response.raise_for_status()
             except Exception as e:
                 logger.error("Something unexpected went wrong while trying to send usage statistics: {0}"

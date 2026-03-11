@@ -34,7 +34,8 @@ def create_authenticated_session() -> requests.Session | None:
     session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
     # Test the token.
     try:
-        response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+        response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS,
+                               timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
         response.raise_for_status()
         return session
     except Exception as e:
@@ -60,21 +61,25 @@ def download_modules(requested_module_types: str = "all"):
         try:
             if "all" == requested_module_types:
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
-                                 allow_redirects=True, timeout=(5, 5))
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 modules = response.json()
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
-                                 allow_redirects=True, timeout=(5, 5))
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 modules = modules + response.json()
             elif "my" == requested_module_types:
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
-                                 allow_redirects=True, timeout=(5, 5))
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 modules = response.json()
             elif "official" == requested_module_types:
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
-                                 allow_redirects=True, timeout=(5, 5))
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 modules = response.json()
             else:
@@ -118,7 +123,8 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
     try:
         response = session.get(url=f"{config.HUB_MODULES_ADDRESS}/get_by_module_name",
                                params={"module_name": module_name, "version": version},
-                               allow_redirects=True, timeout=(5, 5))
+                               allow_redirects=True,
+                               timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
         response.raise_for_status()
         logger.info("Successfully downloaded module '{0}' with version {1} from {2} with the id: {3}"
                     .format(module_name,
@@ -230,7 +236,8 @@ def send_modules(module_names: List[str] | None):
                 # Check if the module already exists.
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/get_by_module_name",
                                  params={"module_name": module_name},
-                                 allow_redirects=True, timeout=(5, 5))
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
 
                 if response.ok:
                     module = response.json()
@@ -244,7 +251,8 @@ def send_modules(module_names: List[str] | None):
                         # Update the module in the hub.
                         response = s.put(url=f"{config.HUB_MODULES_ADDRESS}/{module.get('id')}",
                                          data=json.loads(json.dumps(json.dumps(data))),
-                                         allow_redirects=True, timeout=(5, 5))
+                                         allow_redirects=True,
+                                         timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                         response.raise_for_status()
                         logger.info("Successfully updated module '{0}' on {1}: {2}"
                                     .format(module_name, config.HUB_MODULES_ADDRESS,
@@ -258,7 +266,8 @@ def send_modules(module_names: List[str] | None):
                     # Create the module in the hub.
                     response = s.post(url=config.HUB_MODULES_ADDRESS,
                                       data=json.loads(json.dumps(json.dumps(data | {"module_name": module_name}))),
-                                      allow_redirects=True, timeout=(5, 5))
+                                      allow_redirects=True,
+                                      timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                     response.raise_for_status()
                     logger.info("Successfully created module '{0}' on {1}: {2}"
                                 .format(module_name, config.HUB_MODULES_ADDRESS, str(response.json().get("id"))))
