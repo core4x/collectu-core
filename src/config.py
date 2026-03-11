@@ -33,14 +33,17 @@ WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 1000))
 STOP_LIMIT: int = int(os.getenv("STOP_LIMIT", 10000))
 """Do not store elements in the queue of an output module as long as there are more elements than STOP_LIMIT."""
 
-REPORT_INTERVAL: int = int(os.getenv("REPORT_INTERVAL", 3))
+REPORT_INTERVAL: int = int(os.getenv("REPORT_INTERVAL", 5))
 """The interval in seconds for sending the app info to the mothership and the statistics endpoint."""
 
-REPORTER_TIMEOUT: int = int(os.getenv("REPORTER_TIMEOUT", 9))
+REPORTER_TIMEOUT: int = int(os.getenv("REPORTER_TIMEOUT", 15))
 """The time in seconds, when we will reset the db entry of a reporter to unknown."""
 
-REQUEST_INTERVAL: int = int(os.getenv("REQUEST_INTERVAL", 3))
-"""The interval in seconds for requesting todos from the mothership."""
+REQUEST_INTERVAL: int = int(os.getenv("REQUEST_INTERVAL", 5))
+"""The interval in seconds for requesting tasks from the mothership."""
+
+DEFAULT_REQUEST_TIMEOUT: int = int(os.getenv("DEFAULT_REQUEST_TIMEOUT", 5))
+"""The timeout in seconds for general requests."""
 
 HUB_ADDRESS: str = os.getenv("HUB_ADDRESS", "https://api.collectu.de/api/v1")
 """The base address of the api."""

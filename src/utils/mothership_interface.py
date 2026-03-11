@@ -245,7 +245,8 @@ def _report_hub():
                                         "Content-Type": "application/json",
                                         "Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
                 # Test the token.
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS,
+                                        timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
             except Exception as e:
                 send = False
@@ -271,7 +272,7 @@ def _report_hub():
                 json_data = _get_report_data()
                 json_data["app_id"] = os.environ.get("APP_ID")
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
-                                        timeout=(5, 5),
+                                        timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                         json=json.loads(json.dumps(json_data, default=str)))
                 response.raise_for_status()
             except Exception as e:
@@ -324,7 +325,8 @@ def _request_hub_tasks():
                                         "Content-Type": "application/json",
                                         "Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"})
                 # Test the token.
-                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
+                response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS,
+                                        timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
             except Exception as e:
                 send = False
@@ -348,7 +350,7 @@ def _request_hub_tasks():
         if logged_in:
             try:
                 response = session.get(url=f'{config.HUB_TASK_ADDRESS}/{os.environ.get("APP_ID")}',
-                                       timeout=(5, 5))
+                                       timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 json_response = response.json()
                 for task in json_response:
@@ -402,7 +404,7 @@ def _report(mothership: str):
             json_data = _get_report_data()
             json_data["app_id"] = os.environ.get("APP_ID")
             response = session.post(url=f"{mothership}/api/v1/app",
-                                    timeout=(5, 5),
+                                    timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                     json=json_data)
             response.raise_for_status()
         except Exception as e:
@@ -448,7 +450,7 @@ def _request_tasks(mothership):
     while data_layer.running and session:
         try:
             response = session.get(url=f"{mothership}/api/v1/task/{os.environ.get('APP_ID')}",
-                                   timeout=(5, 5),
+                                   timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
             response.raise_for_status()
             json_response = response.json()
