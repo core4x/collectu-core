@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.5 (2026-03-11)
+
+### Bug Fixes
+
+- Increased app requests and timeouts.
+  ([`c6bb87f`](https://github.com/core4x/collectu-core/commit/c6bb87f02ac08ee73810680fbb649b49760b17d4))
+
+
 ## v1.49.4 (2026-03-10)
 
 
