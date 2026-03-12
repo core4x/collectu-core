@@ -1,5 +1,9 @@
 FROM python:3.14.3
 
+# gosu sets up the user environment and then executes (replaces itself with) the Python process.
+# Your Python app becomes PID 1. When Docker sends a shutdown signal, it goes directly to Python.
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+
 LABEL maintainer="info@collectu.de" \
       org.opencontainers.image.source="https://github.com/core4x/collectu-core" \
       org.opencontainers.image.description="Collectu Core" \
@@ -50,5 +54,10 @@ ENV PATH="$VENV_PATH/bin:$PATH"
 RUN pip install --upgrade pip --no-cache-dir \
  && pip install --no-cache-dir -r requirements.txt
 
+# Stop using "USER appuser" here so we start as root to fix permissions.
+USER root
+
+RUN chmod +x ../entrypoint.sh
+
 # Define entrypoint.
-ENTRYPOINT [ "python", "main.py" ]
+ENTRYPOINT ["../entrypoint.sh"]

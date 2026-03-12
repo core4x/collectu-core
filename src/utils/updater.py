@@ -69,19 +69,13 @@ def check_git_access_token() -> bool:
 
     # Apply SSH key securely.
     try:
-        # 1. Create a temp file and immediately close the handle so we can use the path safely.
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.key') as tmp:  # TODO: This always creates a new file.
-            ssh_key_path = tmp.name
-        # 2. Copy the contents from the mounted (read-only/un-chmod-able) file.
-        shutil.copyfile(git_access_token_path, ssh_key_path)
-        # 3. Apply the strict permissions SSH demands.
-        os.chmod(ssh_key_path, 0o600)
+        os.chmod(git_access_token_path, 0o600)
     except Exception as e:
         logger.error("Could not prepare SSH key from git access token. Try to run app as root. Error was: {0}"
                      .format(str(e)), exc_info=config.EXC_INFO)
         return False
     os.environ['GIT_SSH_COMMAND'] = (
-        f'ssh -i "{ssh_key_path}" '
+        f'ssh -i "{git_access_token_path}" '
         '-o UserKnownHostsFile=/dev/null '
         '-o StrictHostKeyChecking=no '
         '-o IdentitiesOnly=yes'
