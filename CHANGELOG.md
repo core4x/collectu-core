@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.6 (2026-03-12)
+
+### Bug Fixes
+
+- Added non-root user.
+  ([`32c7ced`](https://github.com/core4x/collectu-core/commit/32c7cede47ab36fa25f24f461d3276c95fe7b826))
+
+
 ## v1.49.5 (2026-03-11)
 
 ### Bug Fixes
