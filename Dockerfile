@@ -8,6 +8,9 @@ LABEL maintainer="info@collectu.de" \
 # Set environment variables.
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_ROOT_USER_ACTION=ignore
 
 # Set default values for the environment variables (if not used with docker-compose).
 ARG API_HOST=0.0.0.0
@@ -28,7 +31,22 @@ EXPOSE ${FRONTEND_PORT}
 RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
  && git config --system --add safe.directory /collectu-core
 
+# Add non-root user.
+RUN groupadd -g 1000 appuser \
+ && useradd -u 1000 -g 1000 -m -s /bin/bash appuser \
+ && chown -R appuser:appuser /collectu-core
+
+USER appuser
+
 # Set working directory.
+WORKDIR /collectu-core/src
+
+# Create virtual environment.
+ENV VENV_PATH=/collectu-core/venv
+
+RUN python -m venv $VENV_PATH
+ENV PATH="$VENV_PATH/bin:$PATH"
+
 WORKDIR /collectu-core/src
 
 # Install requirements.
