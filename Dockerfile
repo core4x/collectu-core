@@ -57,7 +57,7 @@ RUN pip install --upgrade pip --no-cache-dir \
 # Stop using "USER appuser" here so we start as root to fix permissions.
 USER root
 
-RUN chmod +x ../entrypoint.sh
+RUN chmod +x /collectu-core/entrypoint.sh
 
 # Define entrypoint.
-ENTRYPOINT ["../entrypoint.sh"]
+ENTRYPOINT ["/collectu-core/entrypoint.sh"]
