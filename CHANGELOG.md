@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.7 (2026-03-12)
+
+### Bug Fixes
+
+- Run as root user.
+  ([`c4e1e26`](https://github.com/core4x/collectu-core/commit/c4e1e26f88691c5684f7e5845ca97544fa4662bb))
+
+
 ## v1.49.6 (2026-03-12)
 
 ### Bug Fixes
