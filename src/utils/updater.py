@@ -7,6 +7,8 @@ import sys
 import logging
 import subprocess
 from pathlib import Path
+import tempfile
+import shutil
 
 # Internal imports
 import config
@@ -80,10 +82,11 @@ def check_git_access_token() -> bool:
         return False
 
     # Apply SSH key securely.
-    try:
-        os.chmod(token_file, 0o600)
-    except OSError:
-        logger.warning("Could not set permissions on git access token file (this is expected on Windows).")
+    # Copy to a temp file so chmod works (required on Windows Docker Desktop).
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+    shutil.copy2(token_file, tmp.name)
+    os.chmod(tmp.name, 0o600)
+
     os.environ['GIT_SSH_COMMAND'] = (
         f'ssh -i "{token_file}" '
         '-o UserKnownHostsFile=/dev/null '
