@@ -31,12 +31,20 @@ EXPOSE ${FRONTEND_PORT}
 RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
  && git config --system --add safe.directory /collectu-core
 
+# Add non-root user.
+RUN groupadd -g 1000 appuser \
+ && useradd -u 1000 -g 1000 -m -s /bin/bash appuser \
+ && chown -R appuser:appuser /collectu-core
+
+USER appuser
+
+# Set working directory.
+WORKDIR /collectu-core/src
+
 # Create virtual environment.
 ENV VENV_PATH=/collectu-core/venv
 RUN python -m venv $VENV_PATH
 ENV PATH="$VENV_PATH/bin:$PATH"
-
-WORKDIR /collectu-core/src
 
 # Install requirements.
 RUN pip install --upgrade pip --no-cache-dir \
