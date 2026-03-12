@@ -35,20 +35,6 @@ def restart_application():
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-def find_file_by_filename(searched_file: str) -> str | None:
-    """
-    Finds a file by name in the parent directory.
-
-    :param searched_file: Filename prefix to search for.
-    :return: Absolute path or None.
-    """
-    parent_dir = "../"
-    for filename in os.listdir(parent_dir):
-        if filename.startswith(searched_file):
-            return os.path.abspath(os.path.join(parent_dir, filename)).replace("\\", "/").strip()
-    return None
-
-
 def folder_exists_and_empty(path: str) -> bool:
     """
     Checks if a folder exists and is empty.
@@ -67,13 +53,13 @@ def check_git_access_token() -> bool:
     :return: True if valid.
     """
     repo_path = Path("../.git")
-    token_file = find_file_by_filename("git_access_token")
+    git_access_token_path = '../git_access_token.txt'
 
     if not repo_path.is_dir():
         logger.error("No git repository found. Clone the project to use update functionality.")
         return False
 
-    if not token_file:
+    if not os.path.exists(git_access_token_path):
         logger.error("You do not have a valid git access token for updating submodules (frontend and api). "
                      "If you have subscribed to a licence, "
                      "you can find your git access token in your account details. "
@@ -86,7 +72,9 @@ def check_git_access_token() -> bool:
     tmp = tempfile.NamedTemporaryFile(delete=False,
                                       dir=None if os.name == "nt" else "/tmp",  # Use container /tmp on Linux, OS temp on Windows.
                                       suffix=".txt")
-    shutil.copyfile(token_file, tmp.name)
+    with open(git_access_token_path, "rb") as src:
+        tmp.write(src.read())
+    tmp.close()
     # Only chmod if OS supports it.
     try:
         os.chmod(tmp.name, 0o600)
