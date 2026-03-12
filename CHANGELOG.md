@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.8 (2026-03-12)
+
+### Bug Fixes
+
+- Added fix for permission setting of git access token on windows.
+  ([`7b6b5c2`](https://github.com/core4x/collectu-core/commit/7b6b5c27e552c6bcb22a553ec40e8c0ea67f4421))
+
+
 ## v1.49.7 (2026-03-12)
 
 ### Bug Fixes
