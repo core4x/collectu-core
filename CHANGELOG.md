@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.15 (2026-03-12)
+
+### Bug Fixes
+
+- Read git access token file and write it to temp file.
+  ([`9dd4a03`](https://github.com/core4x/collectu-core/commit/9dd4a03ae75f4fcfacf1643d7b13741758b39f9f))
+
+
 ## v1.49.14 (2026-03-12)
 
 
