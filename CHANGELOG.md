@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.16 (2026-03-12)
+
+### Bug Fixes
+
+- Improved ssh key permission things.
+  ([`853aa47`](https://github.com/core4x/collectu-core/commit/853aa47182a8cab1cb10a1ce09c862c2d8151e9b))
+
+
 ## v1.49.15 (2026-03-12)
 
 ### Bug Fixes
