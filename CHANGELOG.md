@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.17 (2026-03-12)
+
+### Bug Fixes
+
+- Added entrypoint.sh for fixing git_access_token permissions.
+  ([`4f85581`](https://github.com/core4x/collectu-core/commit/4f85581509318891faf02d59f8467c9bf96571b0))
+
+
 ## v1.49.16 (2026-03-12)
 
 ### Bug Fixes
