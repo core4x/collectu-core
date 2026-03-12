@@ -80,7 +80,10 @@ def check_git_access_token() -> bool:
         return False
 
     # Apply SSH key securely.
-    os.chmod(token_file, 0o600)
+    try:
+        os.chmod(token_file, 0o600)
+    except OSError:
+        logger.warning("Could not set permissions on git access token file (this is expected on Windows).")
     os.environ['GIT_SSH_COMMAND'] = (
         f'ssh -i "{token_file}" '
         '-o UserKnownHostsFile=/dev/null '
