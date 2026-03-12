@@ -93,8 +93,9 @@ def check_git_access_token() -> bool:
     except PermissionError:
         logger.warning("Cannot chmod tmp token file on this OS. Skipping...")
 
+    ssh_key_path = os.path.abspath(tmp.name)
     os.environ['GIT_SSH_COMMAND'] = (
-        f'ssh -i "{tmp.name}" '
+        f'ssh -i "{ssh_key_path}" '
         '-o UserKnownHostsFile=/dev/null '
         '-o StrictHostKeyChecking=no '
         '-o IdentitiesOnly=yes'
