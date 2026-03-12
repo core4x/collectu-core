@@ -83,9 +83,15 @@ def check_git_access_token() -> bool:
 
     # Apply SSH key securely.
     # Copy to a temp file so chmod works (required on Windows Docker Desktop).
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+    tmp = tempfile.NamedTemporaryFile(delete=False,
+                                      dir=None if os.name == "nt" else "/tmp",  # Use container /tmp on Linux, OS temp on Windows.
+                                      suffix=".txt")
     shutil.copyfile(token_file, tmp.name)
-    os.chmod(tmp.name, 0o600)
+    # Only chmod if OS supports it.
+    try:
+        os.chmod(tmp.name, 0o600)
+    except PermissionError:
+        logger.warning("Cannot chmod tmp token file on this OS. Skipping...")
 
     os.environ['GIT_SSH_COMMAND'] = (
         f'ssh -i "{tmp.name}" '
