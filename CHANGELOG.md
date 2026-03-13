@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.50.0 (2026-03-13)
+
+### Bug Fixes
+
+- Create dirs and add correct permissions.
+  ([`c9f3567`](https://github.com/core4x/collectu-core/commit/c9f35670926e3bdd2de304bcb53c0525cad0746d))
+
+### Features
+
+- Initial commit.
+  ([`389a764`](https://github.com/core4x/collectu-core/commit/389a764a1834953ee89bb29c2b8c4e1dbc8e561e))
+
+
 ## v1.49.18 (2026-03-12)
 
 
