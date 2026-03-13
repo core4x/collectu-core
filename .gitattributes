@@ -1,0 +1,45 @@
+# Handle line endings automatically for files detected as text and leave binary files untouched.
+* text=auto
+
+# Force LF for files that MUST run in the Linux container.
+# This prevents Windows from "fixing" them into CRLF.
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+.gitignore text eol=lf
+
+# Docker Compose files
+docker-compose*.yml text eol=lf
+compose*.yml text eol=lf
+
+# Python specific: keep line endings consistent across devs
+*.py text eol=lf
+*.pyi text eol=lf
+
+# Config files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ini text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+
+# Ensure web/frontend files are consistent
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+
+# Mark binary files to ensure Git doesn't try to "fix" them
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pyc binary
+*.db binary
+*.sqlite binary
+*.pkl binary
+*.parquet binary
+*.whl binary
+*.zip binary
+*.gz binary
+*.tar binary
