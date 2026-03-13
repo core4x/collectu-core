@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.50.1 (2026-03-13)
+
+### Bug Fixes
+
+- Fixed error in git access token path.
+  ([`0b3b77f`](https://github.com/core4x/collectu-core/commit/0b3b77f323b665ed29c0fe1baa2e115a060bb7f5))
+
+
 ## v1.50.0 (2026-03-13)
 
 ### Bug Fixes
