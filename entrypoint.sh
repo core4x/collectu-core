@@ -22,9 +22,9 @@ done
 
 # Path to the mounted token.
 GIT_ACCESS_TOKEN_PATH="/collectu-core/git_access_token.txt"
-if [ -f "$TOKEN_PATH" ]; then
-    chown appuser:appuser "GIT_ACCESS_TOKEN_PATH"
-    chmod 600 "GIT_ACCESS_TOKEN_PATH"
+if [ -f "$GIT_ACCESS_TOKEN_PATH" ]; then
+    chown appuser:appuser "$GIT_ACCESS_TOKEN_PATH"
+    chmod 600 "$GIT_ACCESS_TOKEN_PATH"
 fi
 
 echo "Starting Collectu Core..."
