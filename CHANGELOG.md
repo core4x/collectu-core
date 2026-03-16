@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.51.0 (2026-03-16)
+
+### Documentation
+
+- Fixed typo in logger text.
+  ([`79e2f1f`](https://github.com/core4x/collectu-core/commit/79e2f1fd2031d30ebb9122429c9fd22ba57d0c90))
+
+### Features
+
+- Write git access token to file if passed as base64-encoded env var.
+  ([`2215dee`](https://github.com/core4x/collectu-core/commit/2215dee9f4d736320d362759aa63daf1f517991f))
+
+
 ## v1.50.1 (2026-03-13)
 
 ### Bug Fixes
