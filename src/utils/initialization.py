@@ -10,6 +10,7 @@ import socket
 import importlib.metadata
 import secrets
 import string
+import base64
 
 # Internal imports.
 import config
@@ -133,6 +134,14 @@ def load_and_process_settings_file() -> bool:
             elif os.environ.get(name.upper(), False):
                 # Already set environment variables.
                 data_layer.settings[name.upper()] = os.environ.get(name.upper())
+
+        # Safe GIT_ACCESS_TOKEN (base64-encoded) as file.
+        git_access_token = os.environ.get("GIT_ACCESS_TOKEN", False)
+        if git_access_token:
+            decoded_token = base64.b64decode(git_access_token).decode("utf-8")
+            with open("../git_access_token.txt", 'w') as file:
+                logger.info("Successfully updated git_access_token.txt file with your git token.")
+                file.write(decoded_token)
 
         # Load the api_access_token.txt file if it exists.
         api_access_token_path = '../api_access_token.txt'
