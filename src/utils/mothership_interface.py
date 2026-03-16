@@ -208,7 +208,7 @@ def process_tasks(task: dict[str, str | list]):
         if git_access_token:
             # A git access token was passed. Store it as file.
             with open("../git_access_token.txt", 'w') as file:
-                logger.info("Successfully updated git_access_key.txt file with your git token.")
+                logger.info("Successfully updated git_access_token.txt file with your git token.")
                 file.write(git_access_token)
         utils.updater.update_app()
     elif command == "load":
