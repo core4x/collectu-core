@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.52.0 (2026-03-19)
+
+### Features
+
+- If no name or no description is present, remove the according elements.
+  ([`66958c4`](https://github.com/core4x/collectu-core/commit/66958c4be637c089ab87848e377e208bcdc1e0d6))
+
+
 ## v1.51.0 (2026-03-16)
 
 ### Documentation
