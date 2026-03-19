@@ -12,22 +12,25 @@ REQUIRED_DIRS=(
 )
 
 echo "Ensuring permissions for mounted volumes..."
-
 for dir in "${REQUIRED_DIRS[@]}"; do
     # Create the directory if it doesn't exist (e.g., if volume wasn't mounted).
     mkdir -p "$dir"
-    # Change ownership to appuser (UID 1000)
-    chown -R appuser:appuser "$dir"
+    # Attempt chown — may fail if running as non-root (e.g. Kubernetes).
+    chown -R appuser:appuser "$dir" 2>/dev/null || echo "Warning: Could not chown '$dir' (skipping)."
 done
 
-# Path to the mounted token.
+# Path to the mounted git access token.
 GIT_ACCESS_TOKEN_PATH="/collectu-core/git_access_token.txt"
 if [ -f "$GIT_ACCESS_TOKEN_PATH" ]; then
-    chown appuser:appuser "$GIT_ACCESS_TOKEN_PATH"
-    chmod 600 "$GIT_ACCESS_TOKEN_PATH"
+    chown appuser:appuser "$GIT_ACCESS_TOKEN_PATH" 2>/dev/null || echo "Warning: Could not chown git access token (skipping)."
+    chmod 600 "$GIT_ACCESS_TOKEN_PATH" 2>/dev/null || echo "Warning: Could not chmod git access token (skipping)."
 fi
 
 echo "Starting Collectu Core..."
 
-# Hand over to the Python app as appuser.
-exec gosu appuser python main.py
+# Use gosu to drop to appuser if running as root, otherwise exec directly.
+if [ "$(id -u)" = "0" ]; then
+    exec gosu appuser python main.py
+else
+    exec python main.py
+fi
