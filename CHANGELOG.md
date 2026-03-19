@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.53.1 (2026-03-19)
+
+### Bug Fixes
+
+- Added try/except if entrypoint is initially not started as root.
+  ([`7967ba0`](https://github.com/core4x/collectu-core/commit/7967ba07c60dbbb7e11d0b5ecf266e07e9ec52d4))
+
+
 ## v1.53.0 (2026-03-19)
 
 ### Features
