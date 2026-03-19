@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.53.0 (2026-03-19)
+
+### Features
+
+- Added worker threads for each linked module instead of spawning new threads for each data object.
+  ([`efb4c9d`](https://github.com/core4x/collectu-core/commit/efb4c9d97bf3e61c332cc5a805aaf6ae38554953))
+
+
 ## v1.52.0 (2026-03-19)
 
 ### Features
