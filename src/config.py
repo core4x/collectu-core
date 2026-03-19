@@ -28,10 +28,10 @@ RETRY_INTERVAL: int = int(os.getenv("RETRY_INTERVAL", 10))
 """The sleep time in seconds between retry attempts to start a module."""
 
 WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 1000))
-"""Print a warning log message, as soon as we have more than warning_limit elements in the queue of an output module."""
+"""Print a warning log message, as soon as we have more than warning_limit elements in the queue of a module."""
 
 STOP_LIMIT: int = int(os.getenv("STOP_LIMIT", 10000))
-"""Do not store elements in the queue of an output module as long as there are more elements than STOP_LIMIT."""
+"""Do not store elements in the queue of a module as long as there are more elements than STOP_LIMIT."""
 
 REPORT_INTERVAL: int = int(os.getenv("REPORT_INTERVAL", 5))
 """The interval in seconds for sending the app info to the mothership and the statistics endpoint."""

@@ -6,7 +6,8 @@ __version__: int = 1
 from abc import ABC
 import logging
 import os
-from threading import Thread
+from threading import Thread, Lock
+from queue import Queue
 from typing import Any, Optional, Union
 import copy
 import ast
@@ -24,6 +25,76 @@ class DynamicVariableException(Exception):
     The exception contains an error message.
     """
     pass
+
+
+class ModuleWorker:
+    """
+    A single persistent worker thread for one linked module.
+    """
+
+    def __init__(self, module_id: str, logger: logging.Logger):
+        self.module_id = module_id
+        self._logger = logger
+        self._queue: Queue = Queue(maxsize=config.STOP_LIMIT)
+        self._thread = Thread(
+            target=self._loop,
+            name=f"Worker_{module_id}",
+            daemon=True,
+        )
+        self._thread.start()
+        self._warning_issued: bool = False
+        """Flag showing if a warning log message, that the queue is growing, was issued."""
+        self._error_issued: bool = False
+        """Flag showing if a error log message, that the queue is full, was issued."""
+
+    def submit(self, data: models.Data):
+        qsize = self._queue.qsize()
+        if self._queue.full():
+            if not self._error_issued:
+                self._logger.error(
+                    f"Queue for linked module '{self.module_id}' is full "
+                    f"({config.STOP_LIMIT} data objects). Dropping data."
+                )
+                self._error_issued = True
+            return
+        elif qsize < config.STOP_LIMIT and self._error_issued:
+            self._logger.info(
+                f"Queue for linked module '{self.module_id}' is back below stop limit."
+            )
+            self._error_issued = False
+
+        if qsize >= config.WARNING_LIMIT and not self._warning_issued:
+            self._logger.warning(
+                f"Queue for linked module '{self.module_id}' is filling up "
+                f"({qsize}/{config.STOP_LIMIT} data objects)."
+            )
+            self._warning_issued = True
+        elif qsize < config.WARNING_LIMIT and self._warning_issued:
+            self._logger.info(
+                f"Queue for linked module '{self.module_id}' is back below warning limit."
+            )
+            self._warning_issued = False
+
+        self._queue.put_nowait(data)
+
+    def _loop(self):
+        while True:
+            data = self._queue.get()
+            if data is None:
+                break
+            try:
+                linked = data_layer.module_data.get(self.module_id)
+                if linked and linked.instance.active:
+                    linked.instance.run(data)
+            except Exception as e:
+                self._logger.error(f"Could not execute linked module '{self.module_id}': {e}",
+                                   exc_info=config.EXC_INFO)
+            finally:
+                self._queue.task_done()
+
+    def stop(self):
+        self._queue.put(None)
+        self._thread.join()
 
 
 class AbstractModule(ABC):
@@ -71,6 +142,13 @@ class AbstractModule(ABC):
         self.active: bool = self.configuration.active
         """Is the module currently active. 
         Not the same as self.configuration.active, which represents the general state!"""
+        self._workers_lock = Lock()
+        """A lock for checking existing workers thread-safe."""
+        self._workers: dict[str, ModuleWorker] = {
+            module_id: ModuleWorker(module_id=module_id, logger=self.logger)
+            for module_id in getattr(self.configuration, "links", [])
+        }
+        """Worker threads for calling linked modules."""
 
     @classmethod
     def import_third_party_requirements(cls) -> bool:
@@ -109,12 +187,36 @@ class AbstractModule(ABC):
         """
         ...
 
+    def __init_subclass__(cls, **kwargs):
+        """
+        Automatically wrap any stop() defined in a subclass so worker cleanup always runs,
+        without touching child implementations.
+        """
+        super().__init_subclass__(**kwargs)
+        if "stop" in cls.__dict__:
+            original_stop = cls.__dict__["stop"]
+
+            def _wrapped_stop(self, *args, **kwargs):
+                try:
+                    original_stop(self, *args, **kwargs)
+                finally:
+                    AbstractModule._stop_workers(self)
+
+            cls.stop = _wrapped_stop
+
+    def _stop_workers(self):
+        """
+        Shuts down all persistent link worker threads.
+        """
+        for worker in self._workers.values():
+            worker.stop()
+
     def stop(self):
         """
         Method for stopping the module. Is called by a separate thread.
         TagModules and ProcessorModules do (normally) not need to implement a stop routine.
         """
-        ...
+        self._stop_workers()
 
     def _call_links(self, data: models.Data):
         """
@@ -123,29 +225,40 @@ class AbstractModule(ABC):
 
         :param data: The data object.
         """
-        if data.measurement.strip():
-            # During the stopping procedure, it could happen, that the entry does no longer exist.
-            # We catch it here.
-            if self.configuration.id not in data_layer.module_data:
-                self.logger.error("Could not find module '{0}' in data layer."
-                                  .format(str(self.configuration.id)))
-            else:
-                # Store the data in the latest data entry.
-                data_layer.module_data[self.configuration.id].latest_data = data
-            for module_id in getattr(self.configuration, "links", []):
-                try:
-                    if data_layer.module_data[module_id].instance.active:
-                        Thread(target=data_layer.module_data[module_id].instance.run,
-                               # Make a deepcopy before sending to the next module.
-                               # Otherwise, the original object is manipulated by the module.
-                               args=(copy.deepcopy(data),),
-                               daemon=False,
-                               name="Link_{0}_to_{1}".format(self.configuration.id, module_id)).start()
-                except KeyError as e:
-                    self.logger.error("Could not find linked module '{0}' in the module data.".format(module_id))
-                except Exception as e:
-                    self.logger.error("Could not execute linked module '{0}': {1}".format(module_id, str(e)),
-                                      exc_info=config.EXC_INFO)
+        if not data.measurement.strip():
+            return
+
+        config_id = self.configuration.id
+        module_entry = data_layer.module_data.get(config_id)
+        if module_entry is None:
+            self.logger.error(f"Could not find module '{config_id}' in data layer.")
+        else:
+            module_entry.latest_data = data
+
+        current_links = set(getattr(self.configuration, "links", []))
+
+        with self._workers_lock:
+            existing = set(self._workers.keys())
+
+            # Add workers for newly linked modules.
+            for module_id in current_links - existing:
+                self.logger.info(f"Detected new link to module '{module_id}'. Starting worker.")
+                self._workers[module_id] = ModuleWorker(module_id, self.logger)
+
+            # Remove workers for unlinked modules.
+            removed = {}
+            for module_id in existing - current_links:
+                self.logger.info(f"Detected removed link to module '{module_id}'. Stopping worker.")
+                removed[module_id] = self._workers.pop(module_id)
+
+            workers_snapshot = list(self._workers.items())
+
+        # Stop removed workers outside the lock — .stop() blocks until thread joins.
+        for worker in removed.values():
+            worker.stop()
+
+        for module_id, worker in workers_snapshot:
+            worker.submit(copy.deepcopy(data))
 
     def _dyn(self, input_data: Any, data_type: Optional[Union[list[str], str]] = None) -> Any:
         """
