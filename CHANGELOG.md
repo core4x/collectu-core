@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.54.0 (2026-03-28)
+
+### Features
+
+- Added forward-only-latest-data-object as functionality in worker thread as configurable mode.
+  ([`ad604c9`](https://github.com/core4x/collectu-core/commit/ad604c941dd88dcdfef00406e4b7dbf8e35a6812))
+
+
 ## v1.53.2 (2026-03-28)
 
 ### Bug Fixes
