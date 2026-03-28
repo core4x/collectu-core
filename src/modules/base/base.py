@@ -372,7 +372,7 @@ class AbstractModule(ABC):
         for module_id, worker in workers_snapshot:
             worker.submit(copy.deepcopy(data))
 
-    def _dyn(self, input_data: Any, data_type: Optional[Union[list[str], str]] = None) -> Any:
+    def _dyn(self, input_data: Any, data_type: list[str] | str | None = None) -> Any:
         """
         This method receives an input value and replaces all dynamic variables e.g. '${module_id.key}'
         with the current value of the linked module.
@@ -404,15 +404,17 @@ class AbstractModule(ABC):
             if not isinstance(data_type, list):
                 data_type = [data_type]
             # Make every entry a lowered string.
-            converted_data_types = [str(item).lower() for item in data_type]
-            # Check if it is an allowed data type.
-            for index, item in enumerate(data_type):
-                if item not in available_data_types.keys():
-                    raise DynamicVariableException(f"Unknown data type {item}. "
-                                                   f"Allowed types are: {', '.join(available_data_types.keys())}.")
-                else:
-                    # Replace the string with a python data type.
-                    converted_data_types[index] = available_data_types[item]
+            converted_data_types: list[type] = []
+            for item in data_type:
+                key = str(item).lower()
+
+                if key not in available_data_types:
+                    raise DynamicVariableException(
+                        f"Unknown data type {item}. "
+                        f"Allowed types are: {', '.join(available_data_types)}."
+                    )
+
+                converted_data_types.append(available_data_types[key])
 
             extracted_variables: list[str] = []
             """The extracted dynamic variables as str, without the markers (e.g. 'REST_Test.[0]')."""
@@ -534,11 +536,12 @@ class AbstractModule(ABC):
                 except Exception as e:
                     continue
             if not successfully_converted and converted_data_types:
-                raise DynamicVariableException(f"Could not convert dynamic variable '{processed_input_string}' "
-                                               f"to one of the given data types: {', '.join(data_type)}.")
+                raise DynamicVariableException(
+                    f"Could not convert dynamic variable '{processed_input_string}' "
+                    f"to one of the given data types: {', '.join(str(x) for x in data_type)}.")
             return processed_input_string
-        except DynamicVariableException as e:
-            raise DynamicVariableException(str(e))
+        except DynamicVariableException:
+            raise
         except Exception as e:
             raise DynamicVariableException("Something unexpected went wrong while trying to "
                                            "replace dynamic variable '{0}': {1}"
