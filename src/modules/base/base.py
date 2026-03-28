@@ -218,15 +218,12 @@ class AbstractModule(ABC):
     third_party_requirements: list[str] = []
     """Define your requirements here."""
 
-    def __init__(self, configuration, forward_latest_data_only: bool = False):
+    def __init__(self, configuration):
         self.logger: logging.Logger = logging.getLogger(
             f"{config.APP_NAME.lower()}.{configuration.module_name}.{configuration.id}")
         """The logger of the instantiated child class."""
         self.configuration = configuration
         """The configuration of the module."""
-        self._forward_latest_data_only: bool = forward_latest_data_only
-        """If enabled, only the latest data object if forwarded to the linked modules. 
-        May be overwritten by module config."""
         try:
             self.import_third_party_requirements()
             """Import the required third party packages."""
@@ -253,7 +250,7 @@ class AbstractModule(ABC):
                 module_id=module_id,
                 logger=self.logger,
                 forward_latest_data_only=getattr(
-                    self.configuration, "forward_latest_data_only", self._forward_latest_data_only))
+                    self.configuration, "forward_latest_data_only", False))
             for module_id in getattr(self.configuration, "links", [])
         }
         """Worker threads for calling linked modules."""
@@ -270,11 +267,7 @@ class AbstractModule(ABC):
 
         :returns: True if the import was successful.
         """
-        try:
-            return True
-        except Exception:
-            raise ImportError("Could not import required packages. Please install '{0}'."
-                              .format(' '.join(map(str, cls.third_party_requirements))))
+        pass
 
     @staticmethod
     def get_config_data(input_module_instance=None) -> dict[str, Any]:
@@ -355,7 +348,7 @@ class AbstractModule(ABC):
                     configuration_id=self.configuration.id,
                     module_id=module_id,
                     logger=self.logger,
-                    forward_latest_data_only=getattr(self, "forward_latest_data_only", self._forward_latest_data_only))
+                    forward_latest_data_only=getattr(self, "forward_latest_data_only", False))
 
             # Remove workers for unlinked modules.
             removed = {}
