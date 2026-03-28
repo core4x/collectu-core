@@ -17,19 +17,17 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PIP_ROOT_USER_ACTION=ignore
 
 # Set default values for the environment variables (if not used with docker-compose).
-ARG API_HOST=0.0.0.0
-ARG API_PORT=8181
-ARG FRONTEND_HOST=0.0.0.0
-ARG FRONTEND_PORT=8282
+ENV API_HOST=0.0.0.0
+ENV API_PORT=8181
+ENV FRONTEND_HOST=0.0.0.0
+ENV FRONTEND_PORT=8282
 
-ENV API_HOST=${API_HOST}
-ENV API_PORT=${API_PORT}
-ENV FRONTEND_HOST=${FRONTEND_HOST}
-ENV FRONTEND_PORT=${FRONTEND_PORT}
+# Default to non-root user (appuser).
+ENV RUN_AS_ROOT=0
 
 # Expose the ports of the API and FRONTEND.
-EXPOSE ${API_PORT}
-EXPOSE ${FRONTEND_PORT}
+EXPOSE 8181
+EXPOSE 8282
 
 # Clone project and mark as safe repo.
 RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
