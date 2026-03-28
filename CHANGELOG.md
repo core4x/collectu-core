@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.54.1 (2026-03-28)
+
+### Bug Fixes
+
+- Fixed some minor bugs with types in _dyn.
+  ([`d80de15`](https://github.com/core4x/collectu-core/commit/d80de1558ac8cfde8b68e5a41b7208ddd385d9e2))
+
+
 ## v1.54.0 (2026-03-28)
 
 ### Features
