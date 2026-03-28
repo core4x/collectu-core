@@ -682,33 +682,32 @@ class Configuration:
         return False
 
     @staticmethod
-    def _start_module(module_config, module_instance):
+    def _start_module(module_data: models.ModuleData):
         """
         Calls the start method of the given module instance.
         Should be called in a separate thread.
 
-        :param module_config: The configuration of the module.
-        :param module_instance: The instance of the module.
+        :param module_data: The module data.
         """
         retries: int = 0
-        while getattr(module_instance, "active", False):
+        while getattr(module_data.instance, "active", False):
             try:
-                module_instance.start()
+                module_data.instance.start()
             except Exception as e:
                 logger.error("Could not start module '{0}' with the id '{1}': {2}"
-                             .format(module_config.module_name, module_config.id, str(e)),
+                             .format(module_data.module_name, module_data.configuration.id, str(e)),
                              exc_info=config.EXC_INFO)
                 time.sleep(config.RETRY_INTERVAL)
                 retries += 1
                 logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
-                             .format(module_config.module_name, module_config.id, str(retries)))
+                             .format(module_data.module_name, module_data.configuration.id, str(retries)))
             else:
                 if retries > 0:
                     logger.info("Successfully started module '{0}' with the id '{1}'."
-                                .format(module_config.module_name, module_config.id))
+                                .format(module_data.module_name, module_data.configuration.id))
                 else:
                     logger.debug("Successfully started module '{0}' with the id '{1}'."
-                                 .format(module_config.module_name, module_config.id))
+                                 .format(module_data.module_name, module_data.configuration.id))
                 # The module seems to handle exceptions during the execution by itself,
                 # so we never try to restart it.
                 break
@@ -746,7 +745,9 @@ class Configuration:
                     configuration=module_config,
                     module_name=module_config.module_name)
 
-                t = threading.Thread(target=cls._start_module, args=(module_config, module_instance,), daemon=True)
+                t = threading.Thread(target=cls._start_module,
+                                     args=(data_layer.module_data[module_config.id],),
+                                     daemon=True)
                 t.start()
 
                 start_time = time.time()
