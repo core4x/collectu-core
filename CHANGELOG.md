@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.55.0 (2026-03-28)
+
+### Features
+
+- Added start/stop button to each module.
+  ([`dd5811f`](https://github.com/core4x/collectu-core/commit/dd5811f4c4a723b1a6088b693137499624d9e587))
+
+- Added start/stop module methods.
+  ([`52984dc`](https://github.com/core4x/collectu-core/commit/52984dc59d52b9b057fd9ed12ce66500f7938068))
+
+
 ## v1.54.1 (2026-03-28)
 
 ### Bug Fixes
