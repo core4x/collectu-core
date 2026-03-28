@@ -6,7 +6,7 @@ __version__: int = 1
 from abc import ABC
 import logging
 import os
-from threading import Thread, Lock
+import threading
 from queue import Queue
 from typing import Any, Optional, Union
 import copy
@@ -30,24 +30,61 @@ class DynamicVariableException(Exception):
 class ModuleWorker:
     """
     A single persistent worker thread for one linked module.
+
+    :param configuration_id: The id of the current module.
+    :param module_id: The id of the linked module.
+    :param logger: The logger instance of the parent module.
+    :param forward_latest_data_only: If True, only the most recent submitted data object is kept.
+    Any pending data is overwritten by newer arrivals.
+    Use for high-frequency sensors where backlog processing is meaningless.
+    If False (default), all data objects are queued and processed in order.
     """
 
-    def __init__(self, module_id: str, logger: logging.Logger):
+    def __init__(
+            self,
+            configuration_id: str,
+            module_id: str,
+            logger: logging.Logger,
+            forward_latest_data_only: bool = False
+    ):
         self.module_id = module_id
         self._logger = logger
-        self._queue: Queue = Queue(maxsize=config.STOP_LIMIT)
-        self._thread = Thread(
-            target=self._loop,
-            name=f"Worker_{module_id}",
-            daemon=True,
-        )
+        self._forward_latest_data_only = forward_latest_data_only
+
+        if forward_latest_data_only:
+            # Latest-only mode.
+            self._slot_lock: threading.Lock = threading.Lock()
+            self._slot: Optional[models.Data] = None
+            self._has_data: threading.Event = threading.Event()
+            self._stop_flag: bool = False
+            target = self._loop_latest
+        else:
+            # Queue mode.
+            self._queue: Queue = Queue(maxsize=config.STOP_LIMIT)
+            self._warning_issued: bool = False
+            """Flag showing if a warning log message, that the queue is growing, was issued."""
+            self._error_issued: bool = False
+            """Flag showing if a error log message, that the queue is full, was issued."""
+            target = self._loop
+
+        self._thread = threading.Thread(
+            target=target,
+            name=f"Link_{0}_to_{1}".format(configuration_id, module_id),
+            daemon=True)
         self._thread.start()
-        self._warning_issued: bool = False
-        """Flag showing if a warning log message, that the queue is growing, was issued."""
-        self._error_issued: bool = False
-        """Flag showing if a error log message, that the queue is full, was issued."""
 
     def submit(self, data: models.Data):
+        # Latest-only mode.
+        if self._forward_latest_data_only:
+            with self._slot_lock:
+                self._slot = data
+            if self._slot is not None:
+                self._logger.debug(f"Latest-only worker for '{self.module_id}': "
+                                   f"dropped pending data, replaced with newer object.")
+            self._has_data.set()  # Wake the worker (idempotent if already set).
+            return
+
+        # Queue mode.
         qsize = self._queue.qsize()
         if self._queue.full():
             if not self._error_issued:
@@ -77,6 +114,31 @@ class ModuleWorker:
 
         self._queue.put_nowait(data)
 
+    def _loop_latest(self):
+        """
+        Blocks on _has_data. When woken, takes whatever is in the slot, clears it, and runs the module.
+        Any submit() that races in between simply sets the event again — the worker will immediately loop.
+        """
+        while True:
+            self._has_data.wait()  # Sleep until something arrives.
+            with self._slot_lock:
+                if self._stop_flag:
+                    break
+                data = self._slot  # Grab current latest.
+                self._slot = None
+                self._has_data.clear()  # Reset: new submits re-set it.
+
+            if data is None:
+                continue  # Spurious wake (shouldn't happen).
+
+            try:
+                linked = data_layer.module_data.get(self.module_id)
+                if linked and linked.instance.active:
+                    linked.instance.run(data)
+            except Exception as e:
+                self._logger.error(f"Could not execute linked module '{self.module_id}': {e}",
+                                   exc_info=config.EXC_INFO)
+
     def _loop(self):
         while True:
             data = self._queue.get()
@@ -93,7 +155,13 @@ class ModuleWorker:
                 self._queue.task_done()
 
     def stop(self):
-        self._queue.put(None)
+        if self._forward_latest_data_only:
+            with self._slot_lock:
+                self._stop_flag = True
+                self._slot = None
+            self._has_data.set()  # Wake the thread so it can see stop_flag.
+        else:
+            self._queue.put(None)
         self._thread.join()
 
 
@@ -118,12 +186,15 @@ class AbstractModule(ABC):
     third_party_requirements: list[str] = []
     """Define your requirements here."""
 
-    def __init__(self, configuration):
+    def __init__(self, configuration, forward_latest_data_only: bool = False):
         self.logger: logging.Logger = logging.getLogger(
             f"{config.APP_NAME.lower()}.{configuration.module_name}.{configuration.id}")
         """The logger of the instantiated child class."""
         self.configuration = configuration
         """The configuration of the module."""
+        self._forward_latest_data_only: bool = forward_latest_data_only
+        """If enabled, only the latest data object if forwarded to the linked modules. 
+        May be overwritten by module config."""
         try:
             self.import_third_party_requirements()
             """Import the required third party packages."""
@@ -142,10 +213,15 @@ class AbstractModule(ABC):
         self.active: bool = self.configuration.active
         """Is the module currently active. 
         Not the same as self.configuration.active, which represents the general state!"""
-        self._workers_lock = Lock()
+        self._workers_lock = threading.Lock()
         """A lock for checking existing workers thread-safe."""
         self._workers: dict[str, ModuleWorker] = {
-            module_id: ModuleWorker(module_id=module_id, logger=self.logger)
+            module_id: ModuleWorker(
+                configuration_id=self.configuration.id,
+                module_id=module_id,
+                logger=self.logger,
+                forward_latest_data_only=getattr(
+                    self.configuration, "forward_latest_data_only", self._forward_latest_data_only))
             for module_id in getattr(self.configuration, "links", [])
         }
         """Worker threads for calling linked modules."""
@@ -243,7 +319,11 @@ class AbstractModule(ABC):
             # Add workers for newly linked modules.
             for module_id in current_links - existing:
                 self.logger.info(f"Detected new link to module '{module_id}'. Starting worker.")
-                self._workers[module_id] = ModuleWorker(module_id, self.logger)
+                self._workers[module_id] = ModuleWorker(
+                    configuration_id=self.configuration.id,
+                    module_id=module_id,
+                    logger=self.logger,
+                    forward_latest_data_only=getattr(self, "forward_latest_data_only", self._forward_latest_data_only))
 
             # Remove workers for unlinked modules.
             removed = {}

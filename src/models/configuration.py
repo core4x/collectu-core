@@ -175,6 +175,12 @@ class ProcessorModule(Module):
                       category="general",
                       required=False),
         default_factory=list)
+    forward_latest_data_only: bool = field(
+        metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
+                                  "Pending data is dropped when a newer object arrives.",
+                      category="general",
+                      required=False),
+        default=False)
 
 
 @dataclass
@@ -202,6 +208,12 @@ class TagModule(Module):
                       category="general",
                       required=False),
         default_factory=list)
+    forward_latest_data_only: bool = field(
+        metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
+                                  "Pending data is dropped when a newer object arrives.",
+                      category="general",
+                      required=False),
+        default=False)
 
 
 @dataclass
@@ -214,6 +226,12 @@ class VariableModule(Module):
                       category="general",
                       required=False),
         default_factory=list)
+    forward_latest_data_only: bool = field(
+        metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
+                                  "Pending data is dropped when a newer object arrives.",
+                      category="general",
+                      required=False),
+        default=False)
     measurement: str = field(
         metadata=dict(description="The measurement name.",
                       category="basic",
