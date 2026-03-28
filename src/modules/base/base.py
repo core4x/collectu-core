@@ -47,6 +47,19 @@ class ModuleWorker:
             logger: logging.Logger,
             forward_latest_data_only: bool = False
     ):
+        """
+        Initialize the worker thread for the linked module.
+
+        Depending on ``forward_latest_data_only``, the worker either runs in:
+
+        - **Latest-only mode**: keeps only the newest submitted data object.
+        - **Queue mode**: processes all submitted data objects in FIFO order.
+
+        :param configuration_id: The id of the current module.
+        :param module_id: The id of the linked module.
+        :param logger: The logger instance of the parent module.
+        :param forward_latest_data_only: Whether only the latest data object should be processed.
+        """
         self.module_id = module_id
         self._logger = logger
         self._forward_latest_data_only = forward_latest_data_only
@@ -74,13 +87,20 @@ class ModuleWorker:
         self._thread.start()
 
     def submit(self, data: models.Data):
+        """
+        Submit a data object for processing by the worker.
+
+        In latest-only mode, any previously pending data is replaced by the newly submitted object.
+
+        In queue mode, the data is appended to the internal queue unless the queue is full,
+        in which case the data is dropped.
+
+        :param data: The data object to forward to the linked module.
+        """
         # Latest-only mode.
         if self._forward_latest_data_only:
             with self._slot_lock:
                 self._slot = data
-            if self._slot is not None:
-                self._logger.debug(f"Latest-only worker for '{self.module_id}': "
-                                   f"dropped pending data, replaced with newer object.")
             self._has_data.set()  # Wake the worker (idempotent if already set).
             return
 
@@ -88,36 +108,32 @@ class ModuleWorker:
         qsize = self._queue.qsize()
         if self._queue.full():
             if not self._error_issued:
-                self._logger.error(
-                    f"Queue for linked module '{self.module_id}' is full "
-                    f"({config.STOP_LIMIT} data objects). Dropping data."
-                )
+                self._logger.error(f"Queue for linked module '{self.module_id}' is full "
+                                   f"({config.STOP_LIMIT} data objects). Dropping data.")
                 self._error_issued = True
             return
         elif qsize < config.STOP_LIMIT and self._error_issued:
-            self._logger.info(
-                f"Queue for linked module '{self.module_id}' is back below stop limit."
-            )
+            self._logger.info(f"Queue for linked module '{self.module_id}' is back below stop limit.")
             self._error_issued = False
 
         if qsize >= config.WARNING_LIMIT and not self._warning_issued:
-            self._logger.warning(
-                f"Queue for linked module '{self.module_id}' is filling up "
-                f"({qsize}/{config.STOP_LIMIT} data objects)."
-            )
+            self._logger.warning(f"Queue for linked module '{self.module_id}' is filling up "
+                                 f"({qsize}/{config.STOP_LIMIT} data objects).")
             self._warning_issued = True
         elif qsize < config.WARNING_LIMIT and self._warning_issued:
-            self._logger.info(
-                f"Queue for linked module '{self.module_id}' is back below warning limit."
-            )
+            self._logger.info(f"Queue for linked module '{self.module_id}' is back below warning limit.")
             self._warning_issued = False
 
         self._queue.put_nowait(data)
 
     def _loop_latest(self):
         """
-        Blocks on _has_data. When woken, takes whatever is in the slot, clears it, and runs the module.
-        Any submit() that races in between simply sets the event again — the worker will immediately loop.
+        Worker loop for latest-only mode.
+
+        Waits until new data is available, retrieves the most recent submitted object, clears the slot,
+        and executes the linked module.
+
+        If multiple submissions happen while the worker is busy, only the most recent object is processed.
         """
         while True:
             self._has_data.wait()  # Sleep until something arrives.
@@ -140,6 +156,13 @@ class ModuleWorker:
                                    exc_info=config.EXC_INFO)
 
     def _loop(self):
+        """
+        Worker loop for queue mode.
+
+        Continuously consumes data objects from the queue and forwards them to the linked module in submission order.
+
+        Stops when a ``None`` sentinel value is received.
+        """
         while True:
             data = self._queue.get()
             if data is None:
@@ -155,6 +178,15 @@ class ModuleWorker:
                 self._queue.task_done()
 
     def stop(self):
+        """
+        Stop the worker thread gracefully.
+
+        In latest-only mode, this wakes the worker so it can detect the stop flag.
+
+        In queue mode, a ``None`` sentinel value is added to the queue to terminate the worker loop.
+
+        This method blocks until the worker thread has fully exited.
+        """
         if self._forward_latest_data_only:
             with self._slot_lock:
                 self._stop_flag = True
