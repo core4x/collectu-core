@@ -9,6 +9,7 @@ REQUIRED_DIRS=(
     "/collectu-core/src/modules/inputs"
     "/collectu-core/src/modules/outputs"
     "/collectu-core/src/modules/processors"
+    "/collectu-core/src/interface"
 )
 
 echo "Ensuring permissions for mounted volumes..."
@@ -30,7 +31,12 @@ echo "Starting Collectu Core..."
 
 # Use gosu to drop to appuser if running as root, otherwise exec directly.
 if [ "$(id -u)" = "0" ]; then
-    exec gosu appuser python main.py
+    if [ "${RUN_AS_ROOT}" = "1" ]; then
+        echo "RUN_AS_ROOT=1 — running as root."
+        exec python main.py
+    else
+        exec gosu appuser python main.py
+    fi
 else
     exec python main.py
 fi
