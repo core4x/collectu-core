@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.53.2 (2026-03-28)
+
+### Bug Fixes
+
+- Added RUN_AS_ROOT default env variable (0).
+  ([`695e302`](https://github.com/core4x/collectu-core/commit/695e3023cae6ed9bade04c5fcf0342fae100c9ae))
+
+- Added RUN_AS_ROOT feature.
+  ([`738a1fe`](https://github.com/core4x/collectu-core/commit/738a1fe457c2984abae715b421606294291f0399))
+
+
 ## v1.53.1 (2026-03-19)
 
 ### Bug Fixes
