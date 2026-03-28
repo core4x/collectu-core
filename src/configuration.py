@@ -474,7 +474,8 @@ class Configuration:
         self._create_input_modules()
         self._create_tag_modules()
         self._create_variable_modules()
-        logger.info("Finished configuration start routine (started {0} module(s)).".format(len(self.configuration_dict)))
+        logger.info("Finished configuration start routine ({0} module(s) running)."
+                    .format(len(self.configuration_dict)))
 
     def restart(self):
         """
@@ -483,6 +484,138 @@ class Configuration:
         """
         self.stop()
         self._start()
+
+    def start_module(self, module_id: str = None, module_config: dict = None) -> dict[str, list[str]]:
+        """
+        Start a module. Behavior depends on what is provided:
+
+        - Only module_id: The module must already exist and will be restarted with its current config.
+        - Only module_config: The id is extracted from module_config. If the module exists, it is
+          updated with the new config and restarted. Otherwise, it is freshly started.
+        - Both module_id and module_config: The module_id takes precedence as the identifier.
+          If the module exists, it is updated with the new config and restarted.
+          Otherwise, it is freshly started.
+
+        :param module_id: The id of the module to start.
+        :param module_config: The module configuration as a dict.
+        :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
+        """
+        try:
+            if module_id is None and module_config is None:
+                return {"-": ["Either module_id or module_config must be provided."]}
+
+            if module_id is None:
+                # Derive module_id from module_config.
+                module_id = module_config.get("id")
+                if module_id is None:
+                    return {"-": ["module_config must contain an 'id' field."]}
+            elif module_config is not None:
+                # Ensure the id in the config is consistent with the given module_id.
+                module_config["id"] = module_id
+
+            if module_id in data_layer.module_data:
+                module_data = data_layer.module_data[module_id]
+
+                if module_config is not None:
+                    # Validate the new module config in the context of the full configuration,
+                    # replacing the old entry for this module_id.
+                    candidate_dict = [m for m in self._configuration_dict if m.get("id") != module_id]
+                    candidate_dict += [module_config]
+                else:
+                    # No new config — reuse the existing config dict as-is.
+                    candidate_dict = self._configuration_dict
+
+                configuration, configuration_dict, errors = self.validate_configuration_from_stream(
+                    json.dumps(candidate_dict, default=lambda o: o.__dict__))
+                if errors:
+                    return errors
+
+                # Stop the running instance and wait for it to finish.
+                t = threading.Thread(target=self._stop_module, args=(module_data,), daemon=True)
+                t.start()
+                t.join()
+
+                if module_config is not None:
+                    # Remove the old instance from the data layer.
+                    if getattr(module_data.configuration, "is_buffer", False):
+                        data_layer.buffer_instance = None
+                    data_layer.module_data.pop(module_id)
+                    for dashboard_module in data_layer.dashboard_modules:
+                        if dashboard_module.configuration.id == module_id:
+                            data_layer.dashboard_modules.remove(dashboard_module)
+
+                # Update the stored configuration.
+                self._configuration = configuration
+                self._configuration_dict = configuration_dict
+
+                # Extract the validated config object for this module and create it.
+                module_configuration = next((m for m in configuration if m.id == module_id), None)
+                if module_configuration is None:
+                    return {module_id: ["Could not find validated configuration for module '{0}'.".format(module_id)]}
+
+                if module_config is not None:
+                    self._create_module(module_config=module_configuration)
+                else:
+                    # No new config — restart the existing instance by re-activating it.
+                    module_data.instance.active = True
+                    t = threading.Thread(target=self._start_module, args=(module_data,), daemon=True)
+                    t.start()
+
+            else:
+                # Module does not exist yet — module_config is required.
+                if module_config is None:
+                    return {module_id: ["Module '{0}' does not exist. Please provide a module_config to start it."
+                                        .format(module_id)]}
+                logger.info("Module '{0}' does not exist yet. Starting fresh.".format(module_id))
+                errors = self.add_modules_to_configuration(
+                    content=json.dumps([module_config], default=lambda o: o.__dict__))
+                if errors:
+                    return errors
+
+            logger.info("Successfully started module '{0}' with the id '{1}'."
+                        .format(data_layer.module_data[module_id].module_name,
+                                data_layer.module_data[module_id].configuration.id))
+            return {}
+
+        except Exception as e:
+            logger.error("Unexpected error while trying to start module '{0}': {1}".format(module_id, str(e)),
+                         exc_info=config.EXC_INFO)
+            return {module_id or "-": ["Unexpected error while trying to start module: {0}".format(str(e))]}
+
+    def stop_module(self, module_id: str) -> dict[str, list[str]]:
+        """
+        Stop a running module by its id without removing it from the configuration.
+        The module can be restarted later with start_module(module_id=...).
+        If the module does not exist, a warning is logged and an empty dict is returned.
+
+        :param module_id: The id of the module to stop.
+        :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
+        """
+        try:
+            if module_id not in data_layer.module_data:
+                logger.warning("Could not stop module '{0}': module does not exist.".format(module_id))
+                return {}
+
+            module_data = data_layer.module_data[module_id]
+            logger.debug("Trying to stop module '{0}' with the id '{1}'."
+                         .format(module_data.module_name, module_data.configuration.id))
+            t = threading.Thread(target=self._stop_module,
+                                 args=(module_data,),
+                                 daemon=True)
+            t.start()
+            t.join(timeout=5)
+            if t.is_alive():
+                logger.error("Could not stop module '{0}' with id '{1}'."
+                             .format(module_data.module_name, str(module_data.configuration.id)))
+                return {module_id: ["Could not stop module within time."]}
+            else:
+                logger.info("Successfully stopped module '{0}' with the id '{1}'."
+                            .format(module_data.module_name, str(module_data.configuration.id)))
+            return {}
+        except Exception as e:
+            logger.error("Unexpected error while trying to stop module '{0}': {1}".format(module_id, str(e)),
+                         exc_info=config.EXC_INFO)
+            return {module_id: ["Unexpected error while trying to stop module: {0}".format(str(e))]}
 
     @staticmethod
     def _stop_module(module_data):
@@ -578,7 +711,8 @@ class Configuration:
                 else:
                     t.join()
 
-            logger.info("Successfully finished configuration stop routine (stopped {0} module(s)).".format(len(data_layer.module_data.keys())))
+            logger.info("Successfully finished configuration stop routine (stopped {0} module(s))."
+                        .format(len(data_layer.module_data.keys())))
         except Exception as e:
             logger.critical("Something unexpected went wrong while trying to stop modules: {0}"
                             .format(str(e)), exc_info=config.EXC_INFO)
@@ -720,7 +854,10 @@ class Configuration:
         :param module_config: The config of the module to be started.
         """
         # Check if this module is already instantiated.
-        if module_config.id not in data_layer.module_data:
+        if module_config.id in data_layer.module_data:
+            logger.info("Module '{0}' already exists. Skipping starting procedure..."
+                        .format(str(module_config.id)))
+        else:
             try:
                 # Get the according module.
                 module = data_layer.registered_modules.get(module_config.module_name)
