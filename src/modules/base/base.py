@@ -240,20 +240,26 @@ class AbstractModule(ABC):
                                      .format(str(e), ', '.join(map(str, self.third_party_requirements))))
                 raise ImportError
         self.active: bool = self.configuration.active
-        """Is the module currently active. 
+        """Is the module currently active.
         Not the same as self.configuration.active, which represents the general state!"""
         self._workers_lock = threading.Lock()
         """A lock for checking existing workers thread-safe."""
-        self._workers: dict[str, ModuleWorker] = {
-            module_id: ModuleWorker(
-                configuration_id=self.configuration.id,
-                module_id=module_id,
-                logger=self.logger,
-                forward_latest_data_only=getattr(
-                    self.configuration, "forward_latest_data_only", False))
-            for module_id in getattr(self.configuration, "links", [])
-        }
+        self._workers: dict[str, list[ModuleWorker]] = {}
         """Worker threads for calling linked modules."""
+        self._worker_index: dict[str, int] = {}
+        """Round-robin worker index for each linked module."""
+        for module_id in getattr(self.configuration, "links", []):
+            self._workers[module_id] = [
+                ModuleWorker(
+                    configuration_id=self.configuration.id,
+                    module_id=module_id,
+                    logger=self.logger,
+                    forward_latest_data_only=getattr(
+                        self.configuration, "forward_latest_data_only", False)
+                )
+                for _ in range(getattr(self.configuration, "worker_count_per_link", 1))
+            ]
+            self._worker_index[module_id] = 0
 
     @classmethod
     def import_third_party_requirements(cls) -> bool:
@@ -309,8 +315,9 @@ class AbstractModule(ABC):
         """
         Shuts down all persistent link worker threads.
         """
-        for worker in self._workers.values():
-            worker.stop()
+        for worker_list in self._workers.values():
+            for worker in worker_list:
+                worker.stop()
 
     def stop(self):
         """
@@ -344,26 +351,40 @@ class AbstractModule(ABC):
             # Add workers for newly linked modules.
             for module_id in current_links - existing:
                 self.logger.info(f"Detected new link to module '{module_id}'. Starting worker.")
-                self._workers[module_id] = ModuleWorker(
-                    configuration_id=self.configuration.id,
-                    module_id=module_id,
-                    logger=self.logger,
-                    forward_latest_data_only=getattr(self, "forward_latest_data_only", False))
+                self._workers[module_id] = [
+                    ModuleWorker(
+                        configuration_id=self.configuration.id,
+                        module_id=module_id,
+                        logger=self.logger,
+                        forward_latest_data_only=getattr(self.configuration, "forward_latest_data_only", False)
+                    )
+                    for _ in range(getattr(self.configuration, "worker_count_per_link", False))
+                ]
+                self._worker_index[module_id] = 0
 
             # Remove workers for unlinked modules.
             removed = {}
             for module_id in existing - current_links:
                 self.logger.info(f"Detected removed link to module '{module_id}'. Stopping worker.")
                 removed[module_id] = self._workers.pop(module_id)
+                self._worker_index.pop(module_id, None)
 
             workers_snapshot = list(self._workers.items())
 
         # Stop removed workers outside the lock — .stop() blocks until thread joins.
-        for worker in removed.values():
-            worker.stop()
+        for worker_list in removed.values():
+            for worker in worker_list:
+                worker.stop()
 
-        for module_id, worker in workers_snapshot:
+        for module_id, worker_list in workers_snapshot:
+            if not worker_list:
+                self.logger.error(f"Could not find worker(s) for linked module '{module_id}'.")
+                continue
+
+            index = self._worker_index.get(module_id, 0)
+            worker = worker_list[index % len(worker_list)]
             worker.submit(copy.deepcopy(data))
+            self._worker_index[module_id] = (index + 1) % len(worker_list)
 
     def _dyn(self, input_data: Any, data_type: list[str] | str | None = None) -> Any:
         """

@@ -181,6 +181,13 @@ class ProcessorModule(Module):
                       category="general",
                       required=False),
         default=False)
+    worker_count_per_link: int = field(
+        metadata=dict(description="The number of worker threads created for each linked module. "
+                                  "Data objects are distributed between workers in round-robin order. "
+                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                      category="general",
+                      required=False),
+        default=1)
 
 
 @dataclass
@@ -214,6 +221,13 @@ class TagModule(Module):
                       category="general",
                       required=False),
         default=False)
+    worker_count_per_link: int = field(
+        metadata=dict(description="The number of worker threads created for each linked module. "
+                                  "Data objects are distributed between workers in round-robin order. "
+                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                      category="general",
+                      required=False),
+        default=1)
 
 
 @dataclass
@@ -232,6 +246,13 @@ class VariableModule(Module):
                       category="general",
                       required=False),
         default=False)
+    worker_count_per_link: int = field(
+        metadata=dict(description="The number of worker threads created for each linked module. "
+                                  "Data objects are distributed between workers in round-robin order. "
+                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                      category="general",
+                      required=False),
+        default=1)
     measurement: str = field(
         metadata=dict(description="The measurement name.",
                       category="basic",
