@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.56.1 (2026-03-31)
+
+### Bug Fixes
+
+- Fixed logging of installation.
+  ([`54eef7a`](https://github.com/core4x/collectu-core/commit/54eef7a988943359f68e16fb1b9142ccc8a5d946))
+
+
 ## v1.56.0 (2026-03-28)
 
 
