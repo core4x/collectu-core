@@ -49,12 +49,13 @@ def install_plugin_requirement(package: str) -> int:
     :returns: The return code. 0 if successful, otherwise non-zero.
     """
     try:
-        if bool(int(os.environ.get('AUTO_INSTALL', '0'))): 
-            logger.info("Trying to install package '%s'...", package)
+        if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
+            logger.info("Trying to install package '{0}'...".format(package))
         else:
-            logger.critical("Package installation for '%s' needed but AUTO_INSTALL is not enabled.", package)
+            logger.critical("Package installation for '{0}' needed but AUTO_INSTALL is not enabled."
+                            .format(package))
             return 1
-        
+
         # If packaging is available, try to parse the requirement and check installed version first.
         if Requirement is not None:
             try:
@@ -75,23 +76,29 @@ def install_plugin_requirement(package: str) -> int:
 
                 if installed_version is not None and (
                         not specifier or specifier.contains(parse_version(installed_version), prereleases=True)):
-                    logger.info("Package '%s' already installed (version %s satisfies '%s').", pkg_name,
-                                installed_version, str(specifier) or "any")
+                    logger.info("Package '{0}' already installed (version {1} satisfies '{2}')."
+                                .format(pkg_name, installed_version, str(specifier) or "any"))
                     return 0
                 # else: either not installed or installed version doesn't satisfy; we'll call pip below.
 
         # Either packaging isn't available, or we determined installation is needed.
         # Use pip to install. We pass the original package string to pip so extras/specifiers remain intact.
-        result = subprocess.run([sys.executable, "-m", "pip", "install", package],
-                                capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", package],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
         if result.returncode != 0:
-            logger.error("Could not install package '%s': %s", package, result.stderr)
+            logger.error("Could not install package '{0}': {1}".format(package, result.stderr))
         else:
-            logger.info("Successfully installed '%s'. %s", package, result.stdout.splitlines()[:1])
+            logger.info("Successfully installed '{0}'. {1}".format(package, result.stdout.splitlines()[:1]))
+
         return result.returncode
     except Exception as e:
-        logger.error("Something went wrong while trying to install package '%s': %s", package, str(e),
-                     exc_info=config.EXC_INFO)
+        logger.error("Something went wrong while trying to install package '{0}': {1}"
+                     .format(package, e), exc_info=config.EXC_INFO)
         return 1
 
 
@@ -282,9 +289,9 @@ def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
         for filename in filenames:
             dir_path_obj = pathlib.Path(dirpath)
             is_module_dir = (
-                dir_path_obj.is_relative_to(inputs_root)
-                or dir_path_obj.is_relative_to(outputs_root)
-                or dir_path_obj.is_relative_to(processors_root)
+                    dir_path_obj.is_relative_to(inputs_root)
+                    or dir_path_obj.is_relative_to(outputs_root)
+                    or dir_path_obj.is_relative_to(processors_root)
             )
             if filename.endswith('.py') and filename != "__init__.py" and is_module_dir:
                 found_path = pathlib.Path(os.path.join(dirpath, filename))
