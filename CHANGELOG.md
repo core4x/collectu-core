@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.56.2 (2026-03-31)
+
+### Bug Fixes
+
+- Added worker_count_per_link as configuration parameter and adjusted code to have multiple workers
+  per link.
+  ([`790aaae`](https://github.com/core4x/collectu-core/commit/790aaae541c340277182775f7c728790318a3d73))
+
+
 ## v1.56.1 (2026-03-31)
 
 ### Bug Fixes
