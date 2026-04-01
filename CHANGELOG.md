@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.56.3 (2026-04-01)
+
+### Bug Fixes
+
+- Increased height of iframe.
+  ([`68b7084`](https://github.com/core4x/collectu-core/commit/68b7084c932afccd96521a2dde165fe50ba22466))
+
+
 ## v1.56.2 (2026-03-31)
 
 ### Bug Fixes
