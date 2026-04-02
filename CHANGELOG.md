@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.57.0 (2026-04-02)
+
+### Bug Fixes
+
+- Fixed wrong f-string.
+  ([`6570446`](https://github.com/core4x/collectu-core/commit/6570446926480875f13829fc13313ad2ef73f9ad))
+
+### Features
+
+- Made xy_list dashboard accept multiple y keys.
+  ([`984293c`](https://github.com/core4x/collectu-core/commit/984293c4ddc290cc4504cda27448670dd77d6d48))
+
+
 ## v1.56.5 (2026-04-01)
 
 
