@@ -82,7 +82,7 @@ class ModuleWorker:
 
         self._thread = threading.Thread(
             target=target,
-            name=f"Link_{0}_to_{1}".format(configuration_id, module_id),
+            name="Link_{0}_to_{1}".format(configuration_id, module_id),
             daemon=True)
         self._thread.start()
 
