@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.58.0 (2026-04-08)
+
+### Features
+
+- Added spawn mode functionality by setting worker_count_per_link to 0.
+  ([`d9954f2`](https://github.com/core4x/collectu-core/commit/d9954f2d2e9e17405791b22215d5c1e5118e5145))
+
+
 ## v1.57.1 (2026-04-08)
 
 ### Bug Fixes
