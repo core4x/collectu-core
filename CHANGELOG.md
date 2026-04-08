@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.57.1 (2026-04-08)
+
+### Bug Fixes
+
+- Fixed bug, where an ID starting with a number, causes css query selector to fail.
+  ([`2007388`](https://github.com/core4x/collectu-core/commit/200738863e525046777f10ba53e265b94e9fcf70))
+
+
 ## v1.57.0 (2026-04-02)
 
 ### Bug Fixes
