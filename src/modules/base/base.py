@@ -248,18 +248,25 @@ class AbstractModule(ABC):
         """Worker threads for calling linked modules."""
         self._worker_index: dict[str, int] = {}
         """Round-robin worker index for each linked module."""
+
+        worker_count = getattr(self.configuration, "worker_count_per_link", 1)
         for module_id in getattr(self.configuration, "links", []):
-            self._workers[module_id] = [
-                ModuleWorker(
-                    configuration_id=self.configuration.id,
-                    module_id=module_id,
-                    logger=self.logger,
-                    forward_latest_data_only=getattr(
-                        self.configuration, "forward_latest_data_only", False)
-                )
-                for _ in range(getattr(self.configuration, "worker_count_per_link", 1))
-            ]
-            self._worker_index[module_id] = 0
+            if worker_count > 0:
+                # Persistent-worker mode.
+                self._workers[module_id] = [
+                    ModuleWorker(
+                        configuration_id=self.configuration.id,
+                        module_id=module_id,
+                        logger=self.logger,
+                        forward_latest_data_only=getattr(
+                            self.configuration, "forward_latest_data_only", False)
+                    )
+                    for _ in range(worker_count)
+                ]
+                self._worker_index[module_id] = 0
+            else:
+                # Spawn mode: register the link with an empty list as a sentinel.
+                self._workers[module_id] = []
 
     @classmethod
     def import_third_party_requirements(cls) -> bool:
@@ -331,6 +338,11 @@ class AbstractModule(ABC):
         Calls all links of the module.
         The linked module is only called if self.active is true.
 
+        When worker_count_per_link > 0, submits data to the persistent round-robin worker pool.
+
+        When worker_count_per_link == 0 (spawn mode), a fresh daemon thread is created for every call instead.
+        forward_latest_data_only is ignored in spawn mode.
+
         :param data: The data object.
         """
         if not data.measurement.strip():
@@ -344,23 +356,28 @@ class AbstractModule(ABC):
             module_entry.latest_data = data
 
         current_links = set(getattr(self.configuration, "links", []))
+        worker_count = getattr(self.configuration, "worker_count_per_link", 1)
 
         with self._workers_lock:
             existing = set(self._workers.keys())
 
             # Add workers for newly linked modules.
             for module_id in current_links - existing:
-                self.logger.info(f"Detected new link to module '{module_id}'. Starting worker.")
-                self._workers[module_id] = [
-                    ModuleWorker(
-                        configuration_id=self.configuration.id,
-                        module_id=module_id,
-                        logger=self.logger,
-                        forward_latest_data_only=getattr(self.configuration, "forward_latest_data_only", False)
-                    )
-                    for _ in range(getattr(self.configuration, "worker_count_per_link", False))
-                ]
-                self._worker_index[module_id] = 0
+                if worker_count == 0:
+                    self.logger.info(f"Detected new link to module '{module_id}'. Using spawn mode.")
+                    self._workers[module_id] = []
+                else:
+                    self.logger.info(f"Detected new link to module '{module_id}'. Starting worker.")
+                    self._workers[module_id] = [
+                        ModuleWorker(
+                            configuration_id=self.configuration.id,
+                            module_id=module_id,
+                            logger=self.logger,
+                            forward_latest_data_only=getattr(self.configuration, "forward_latest_data_only", False)
+                        )
+                        for _ in range(worker_count)
+                    ]
+                    self._worker_index[module_id] = 0
 
             # Remove workers for unlinked modules.
             removed = {}
@@ -377,14 +394,32 @@ class AbstractModule(ABC):
                 worker.stop()
 
         for module_id, worker_list in workers_snapshot:
-            if not worker_list:
-                self.logger.error(f"Could not find worker(s) for linked module '{module_id}'.")
-                continue
+            data_copy = copy.deepcopy(data)
 
-            index = self._worker_index.get(module_id, 0)
-            worker = worker_list[index % len(worker_list)]
-            worker.submit(copy.deepcopy(data))
-            self._worker_index[module_id] = (index + 1) % len(worker_list)
+            if worker_count == 0:
+                # Spawn mode: each call gets its own thread.
+                def _target(d=data_copy, mid=module_id):
+                    try:
+                        linked = data_layer.module_data.get(mid)
+                        if linked and linked.instance.active:
+                            linked.instance.run(d)
+                    except Exception as e:
+                        self.logger.error(f"Could not execute linked module '{mid}': {e}",
+                                          exc_info=config.EXC_INFO)
+
+                t = threading.Thread(
+                    target=_target,
+                    name=f"Link_{config_id}_to_{module_id}",
+                    daemon=True)
+                t.start()
+            else:
+                # Persistent-worker mode: round-robin dispatch.
+                if not worker_list:
+                    self.logger.error(f"Could not find worker(s) for linked module '{module_id}'.")
+                    continue
+                index = self._worker_index.get(module_id, 0)
+                worker_list[index % len(worker_list)].submit(data_copy)
+                self._worker_index[module_id] = (index + 1) % len(worker_list)
 
     def _dyn(self, input_data: Any, data_type: list[str] | str | None = None) -> Any:
         """

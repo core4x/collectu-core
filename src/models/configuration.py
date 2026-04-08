@@ -177,14 +177,17 @@ class ProcessorModule(Module):
         default_factory=list)
     forward_latest_data_only: bool = field(
         metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
-                                  "Pending data is dropped when a newer object arrives.",
+                                  "Pending data is dropped when a newer object arrives. "
+                                  "Has no effect when worker_count_per_link is 0 (spawn mode).",
                       category="general",
                       required=False),
         default=False)
     worker_count_per_link: int = field(
         metadata=dict(description="The number of worker threads created for each linked module. "
                                   "Data objects are distributed between workers in round-robin order. "
-                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                                  "Higher values can improve throughput but may result in out-of-order processing. "
+                                  "Set to 0 to use spawn mode: a new thread is created for every call instead "
+                                  "of using persistent workers. In this mode, forward_latest_data_only is ignored.",
                       category="general",
                       required=False),
         default=1)
@@ -217,14 +220,17 @@ class TagModule(Module):
         default_factory=list)
     forward_latest_data_only: bool = field(
         metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
-                                  "Pending data is dropped when a newer object arrives.",
+                                  "Pending data is dropped when a newer object arrives. "
+                                  "Has no effect when worker_count_per_link is 0 (spawn mode).",
                       category="general",
                       required=False),
         default=False)
     worker_count_per_link: int = field(
         metadata=dict(description="The number of worker threads created for each linked module. "
                                   "Data objects are distributed between workers in round-robin order. "
-                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                                  "Higher values can improve throughput but may result in out-of-order processing. "
+                                  "Set to 0 to use spawn mode: a new thread is created for every call instead "
+                                  "of using persistent workers. In this mode, forward_latest_data_only is ignored.",
                       category="general",
                       required=False),
         default=1)
@@ -242,14 +248,17 @@ class VariableModule(Module):
         default_factory=list)
     forward_latest_data_only: bool = field(
         metadata=dict(description="If true, only the latest data object is forwarded to linked modules. "
-                                  "Pending data is dropped when a newer object arrives.",
+                                  "Pending data is dropped when a newer object arrives. "
+                                  "Has no effect when worker_count_per_link is 0 (spawn mode).",
                       category="general",
                       required=False),
         default=False)
     worker_count_per_link: int = field(
         metadata=dict(description="The number of worker threads created for each linked module. "
                                   "Data objects are distributed between workers in round-robin order. "
-                                  "Higher values can improve throughput but may result in out-of-order processing.",
+                                  "Higher values can improve throughput but may result in out-of-order processing. "
+                                  "Set to 0 to use spawn mode: a new thread is created for every call instead "
+                                  "of using persistent workers. In this mode, forward_latest_data_only is ignored.",
                       category="general",
                       required=False),
         default=1)
