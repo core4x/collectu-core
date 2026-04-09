@@ -6,6 +6,8 @@ __version__: int = 1
 from abc import ABC
 import logging
 import os
+import asyncio
+import inspect
 import threading
 from queue import Queue
 from typing import Any, Optional
@@ -197,6 +199,57 @@ class ModuleWorker:
         self._thread.join()
 
 
+_thread_local = threading.local()
+"""
+Thread-local storage for persistent async event loops.
+
+Each thread that calls _invoke_async gets its own event loop created on first use
+and reused for all subsequent calls on that thread. The loop is stored under
+_thread_local.event_loop and is never shared between threads.
+"""
+
+
+def _invoke_async(method, *args, **kwargs):
+    """
+    Executes an async method from a synchronous context.
+
+    Used internally by __init_subclass__ to safely call async stop()
+    implementations. Follows the same two-branch strategy used across all
+    module base classes:
+
+      - No running loop: a persistent thread-local event loop is reused.
+      - Running loop detected: the coroutine is dispatched to a dedicated
+        daemon thread to avoid a deadlock.
+
+    :param method: The async method to invoke.
+    :param args: Positional arguments forwarded to the method.
+    :param kwargs: Keyword arguments forwarded to the method.
+    """
+    try:
+        asyncio.get_running_loop()
+        result, exc = [None], [None]
+
+        def _run_in_thread():
+            try:
+                result[0] = asyncio.run(method(*args, **kwargs))
+            except Exception as e:
+                exc[0] = e
+
+        t = threading.Thread(target=_run_in_thread, daemon=True)
+        t.start()
+        t.join()
+        if exc[0]:
+            raise exc[0]
+        return result[0]
+
+    except RuntimeError:
+        loop = getattr(_thread_local, "event_loop", None)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            _thread_local.event_loop = loop
+        return loop.run_until_complete(method(*args, **kwargs))
+
+
 class AbstractModule(ABC):
     """
     All modules have to be derived from this one.
@@ -296,15 +349,20 @@ class AbstractModule(ABC):
     def start(self):
         """
         Method for starting the module. Is called by a separate thread.
-        InputModules and OutputModules normally connect to a data source. VariableModules start a subscription.
+        InputModules and OutputModules normally connect to a data source.
+        VariableModules start a subscription. May be implemented as either a regular or an async method.
         The start method is only called if the module is active (self.configuration.active).
         """
         ...
 
     def __init_subclass__(cls, **kwargs):
         """
-        Automatically wrap any stop() defined in a subclass so worker cleanup always runs,
-        without touching child implementations.
+        Automatically wraps any stop() defined in a subclass so worker cleanup always
+        runs, without touching child implementations.
+
+        Supports both synchronous and asynchronous stop() implementations.
+        If the child defines async def stop(), the wrapper invokes it via _invoke_async so
+        the coroutine is actually awaited rather than silently discarded.
         """
         super().__init_subclass__(**kwargs)
         if "stop" in cls.__dict__:
@@ -312,7 +370,10 @@ class AbstractModule(ABC):
 
             def _wrapped_stop(self, *args, **kwargs):
                 try:
-                    original_stop(self, *args, **kwargs)
+                    if inspect.iscoroutinefunction(original_stop):
+                        _invoke_async(original_stop, self, *args, **kwargs)
+                    else:
+                        original_stop(self, *args, **kwargs)
                 finally:
                     AbstractModule._stop_workers(self)
 
@@ -330,6 +391,8 @@ class AbstractModule(ABC):
         """
         Method for stopping the module. Is called by a separate thread.
         TagModules and ProcessorModules do (normally) not need to implement a stop routine.
+        May be implemented as either a regular or an async method — both are supported.
+        Worker cleanup always runs after stop() completes, regardless of implementation type.
         """
         self._stop_workers()
 

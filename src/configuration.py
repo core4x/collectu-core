@@ -8,12 +8,13 @@ import logging
 import time
 import pathlib
 import uuid
+import asyncio
+import inspect
+import threading
 from collections import defaultdict
 from typing import Any, Union, Optional
 from pprint import pformat
 import queue
-import threading
-import inspect
 
 # Internal imports.
 import config
@@ -39,6 +40,18 @@ try:
 except ImportError as e:
     tinydb = None
     logger.error("Optional tinydb package not installed! Some features may not be supported.")
+
+
+_thread_local = threading.local()
+"""
+Thread-local storage for persistent async event loops.
+
+Each thread that calls _invoke with an async method gets its own event loop created
+on first use and reused for all subsequent calls on that thread. This avoids the
+overhead of creating and tearing down a new event loop on every call.
+
+The loop is stored under _thread_local.event_loop and is never shared between threads.
+"""
 
 
 class Configuration:
@@ -133,6 +146,61 @@ class Configuration:
         The deleter for the configuration_dict.
         """
         self.stop()
+
+    @staticmethod
+    def _invoke(method, *args, **kwargs):
+        """
+        Calls a method while transparently supporting both synchronous and asynchronous implementations.
+
+        Synchronous methods are called directly with no overhead. For asynchronous
+        methods, one of two execution strategies is chosen based on whether an event
+        loop is already running on the current thread:
+
+          - No running loop: a persistent event loop is reused for the lifetime of
+            the calling thread via a thread-local variable. This avoids the cost of
+            creating and tearing down a new event loop on every call.
+          - Running loop detected: to avoid a 'This event loop is already running'
+            deadlock, the coroutine is dispatched to a dedicated daemon thread that
+            owns its own event loop via asyncio.run(). The calling thread blocks on
+            join() until the call completes.
+
+        Used to invoke start() and stop() on module instances, both of which may be
+        implemented as either regular or async methods.
+
+        :param method: The bound method to invoke.
+        :param args: Positional arguments forwarded to the method.
+        :param kwargs: Keyword arguments forwarded to the method.
+        :returns: The return value of the method, if any.
+        :raises Exception: Re-raises any exception thrown inside an async method dispatched to a worker thread.
+        """
+        if not inspect.iscoroutinefunction(method):
+            return method(*args, **kwargs)
+
+        try:
+            asyncio.get_running_loop()
+            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
+            result, exc = [None], [None]
+
+            def _run_in_thread():
+                try:
+                    result[0] = asyncio.run(method(*args, **kwargs))
+                except Exception as e:
+                    exc[0] = e
+
+            t = threading.Thread(target=_run_in_thread, daemon=True)
+            t.start()
+            t.join()
+            if exc[0]:
+                raise exc[0]
+            return result[0]
+
+        except RuntimeError:
+            # No running loop — reuse a persistent thread-local event loop.
+            loop = getattr(_thread_local, "event_loop", None)
+            if loop is None or loop.is_closed():
+                loop = asyncio.new_event_loop()
+                _thread_local.event_loop = loop
+            return loop.run_until_complete(method(*args, **kwargs))
 
     def _database_worker(self):
         """
@@ -465,7 +533,7 @@ class Configuration:
     def _start(self):
         """
         Start the execution of the current configuration.
-        Only modules, which are not currently running are started.
+        Only modules which are not currently running are started.
         """
         logger.info("Starting configuration start routine...")
         self._create_buffer_module()
@@ -620,16 +688,20 @@ class Configuration:
     @staticmethod
     def _stop_module(module_data):
         """
-        Call the stop method of a given module.
-        This method should be called in a separate thread.
+        Calls the stop method of a given module instance, supporting both synchronous
+        and asynchronous stop implementations.
 
-        :param module_data: The module data.
+        Sets active to False before calling stop so the module's internal loops exit
+        cleanly regardless of how stop is implemented. Should be called in a separate
+        thread, as it blocks until stop completes.
+
+        :param module_data: The module data containing the instance to stop.
         """
         try:
             logger.debug("Trying to stop module '{0}' with the id '{1}'."
                          .format(module_data.module_name, module_data.configuration.id))
             module_data.instance.active = False
-            module_data.instance.stop()
+            Configuration._invoke(module_data.instance.stop)
         except Exception as e:
             logger.error("Could not stop module '{0}' with the id '{1}': {2}"
                          .format(module_data.module_name, module_data.configuration.id,
@@ -818,15 +890,21 @@ class Configuration:
     @staticmethod
     def _start_module(module_data: models.ModuleData):
         """
-        Calls the start method of the given module instance.
-        Should be called in a separate thread.
+        Calls the start method of a given module instance, supporting both synchronous
+        and asynchronous start implementations.
 
-        :param module_data: The module data.
+        Retries on failure using config.RETRY_INTERVAL until the module is no longer
+        active. If start completes without raising an exception, the loop exits — the
+        module is expected to handle its own internal error recovery after that point.
+        Should be called in a separate thread, as it blocks for the lifetime of the
+        module's start method.
+
+        :param module_data: The module data containing the instance to start.
         """
         retries: int = 0
         while getattr(module_data.instance, "active", False):
             try:
-                module_data.instance.start()
+                Configuration._invoke(module_data.instance.start)
             except Exception as e:
                 logger.error("Could not start module '{0}' with the id '{1}': {2}"
                              .format(module_data.module_name, module_data.configuration.id, str(e)),
