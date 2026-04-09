@@ -436,7 +436,6 @@ class AbstractModule(ABC):
 
         :param input_data: The input data possibly containing dynamic variables.
         :param data_type: The data type we try the dynamic variable. Can be list, dict, str, int, float, or bool.
-
         :returns: The input with the dynamic variables replaced by the actual value.
         """
         try:

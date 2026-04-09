@@ -3,6 +3,8 @@ This is the base class of all output modules. All implemented output modules hav
 The derived child class has to be named 'OutputModule'.
 """
 import time
+import asyncio
+import inspect
 from abc import abstractmethod
 from dataclasses import dataclass
 import queue
@@ -15,6 +17,19 @@ import data_layer
 import models
 import utils.data_validation
 from modules.base.base import AbstractModule
+
+
+_thread_local = threading.local()
+"""
+Thread-local storage for persistent async event loops.
+
+Each thread that calls _invoke_run with an async _run implementation gets its own
+event loop created on first use and reused for all subsequent calls on that thread.
+This avoids the overhead of creating and tearing down a new event loop per data item,
+which matters for high-frequency pipelines.
+
+The loop is stored under _thread_local.event_loop and is never shared between threads.
+"""
 
 
 class AbstractOutputModule(AbstractModule):
@@ -53,12 +68,74 @@ class AbstractOutputModule(AbstractModule):
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
 
+    def _invoke_run(self, data: models.Data):
+        """
+        Invokes _run while transparently supporting both synchronous and asynchronous
+        implementations.
+
+        Synchronous _run implementations are called directly with no overhead.
+        For asynchronous implementations, one of two execution strategies is chosen
+        based on whether an event loop is already running on the current thread:
+
+          - No running loop: a persistent event loop is reused for the lifetime of
+            the calling thread via a thread-local variable. This avoids the cost of
+            creating and tearing down a new event loop on every call, which matters
+            for high-frequency pipelines where _run is invoked repeatedly from the
+            same worker thread.
+          - Running loop detected: to avoid a 'This event loop is already running'
+            deadlock, the coroutine is dispatched to a dedicated daemon thread that
+            owns its own event loop via asyncio.run(). The calling thread blocks on
+            join() until the result is available.
+
+        :param data: The data object to pass to _run.
+        :raises Exception: Re-raises any exception thrown inside an async _run dispatched to a worker thread.
+        """
+        if not inspect.iscoroutinefunction(self._run):
+            return self._run(data)
+
+        try:
+            asyncio.get_running_loop()
+            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
+            result, exc = [None], [None]
+
+            def _run_in_thread():
+                try:
+                    result[0] = asyncio.run(self._run(data))
+                except Exception as e:
+                    exc[0] = e
+
+            t = threading.Thread(target=_run_in_thread, daemon=True)
+            t.start()
+            t.join()
+            if exc[0]:
+                raise exc[0]
+            return result[0]
+
+        except RuntimeError:
+            # No running loop — reuse a persistent thread-local event loop.
+            loop = getattr(_thread_local, "event_loop", None)
+            if loop is None or loop.is_closed():
+                loop = asyncio.new_event_loop()
+                _thread_local.event_loop = loop
+            return loop.run_until_complete(self._run(data))
+
     def run(self, data: models.Data):
         """
-        Method for storing data in a queue.
-        Should always be called in a separate thread since some things are done here.
+        External entry point for passing data into the module.
 
-        :param data: The data object.
+        Validates the incoming data against the module's field and tag requirements,
+        updates the latest data entry in the data layer, and enqueues the data for
+        processing by the queue worker thread. The queue worker is started lazily on the first call.
+
+        If the queue has reached config.STOP_LIMIT, the data is forwarded to the configured buffer module instead
+        of being dropped. If no buffer is configured, the data is lost and an error is logged.
+
+        A warning is logged at every config.WARNING_LIMIT interval while the queue is oversized.
+        Data objects with no measurement set are not enqueued or forwarded.
+
+        :param data: The data object to process.
+        :raises utils.data_validation.ValidationError: If field or tag requirements
+                are not satisfied. The error is caught internally and logged rather than propagated to the caller.
         """
         try:
             if self.active:
@@ -75,8 +152,7 @@ class AbstractOutputModule(AbstractModule):
 
                 # Store the data in the latest data entry if a measurement is given.
                 if data.measurement:
-                    # During the stopping procedure, it could happen, that the entry does no longer exist.
-                    # We catch it here.
+                    # During the stopping procedure, it could happen that the entry no longer exists.
                     if self.configuration.id not in data_layer.module_data:
                         self.logger.error("Could not find module with id '{0}' in data layer."
                                           .format(str(self.configuration.id)))
@@ -102,7 +178,8 @@ class AbstractOutputModule(AbstractModule):
                         # Queue the data to be stored.
                         self.queue.put(data)
                     else:
-                        # Trying to store the data in the buffer. But if there is no buffer, the data is lost.
+                        # Attempt to forward the data to a buffer module.
+                        # If no buffer is configured, the data is lost.
                         buffered = self._buffer(data=data, invalid=False)
                         if not buffered:
                             self.logger.error("Could not store data because the queue size exceeded the stop limit "
@@ -113,26 +190,32 @@ class AbstractOutputModule(AbstractModule):
 
     def _process_queue(self):
         """
-        Call this method during start-up in a separate thread.
+        Continuously drains the data queue and processes each item by invoking _run.
+
+        Intended to be started once in a dedicated daemon thread on the first call to run().
+        Before consuming from the queue, any data previously offloaded to the buffer module
+        is retrieved and processed first to preserve ordering.
+        Blocks on the queue with a timeout so the loop can exit cleanly when self.active is set to False.
+
+        Errors raised during processing are caught and logged per item so that a single
+        failing item does not halt the queue worker.
         """
         while self.active:
-            # First we try to get buffer data.
+            # Prioritize buffered data before consuming from the live queue.
             data = self._get_buffer()
             if data is None:
                 try:
                     data = self.queue.get(block=True, timeout=1)  # This blocks until timeout.
                     self.queue.task_done()
                 except queue.Empty:
-                    # When we receive no data, we try to get buffer data again.
                     time.sleep(0)
                     continue
             else:
                 time.sleep(0)
             # Set the last received data for dynamic variables.
             self.current_input_data = data
-            # We do not thread, since the output modules may not be thread safe.
             try:
-                self._run(data=data)
+                self._invoke_run(data=data)
             except Exception as e:
                 self.logger.error("Something went wrong while executing output module {0} ({1}): {2}"
                                   .format(self.configuration.module_name, self.configuration.id, str(e)),
@@ -141,7 +224,22 @@ class AbstractOutputModule(AbstractModule):
     @abstractmethod
     def _run(self, data: models.Data):
         """
-        Method called when new data has to be processed.
+        Internal method for executing the module logic. Must be implemented by every derived OutputModule class.
+
+        May be declared as either a regular or an async method — both are supported:
+
+            # Synchronous:
+            def _run(self, data: models.Data):
+                write_to_destination(data)
+
+            # Asynchronous:
+            async def _run(self, data: models.Data):
+                await async_write_to_destination(data)
+
+        When a connection error prevents the data from being stored, call self._buffer
+        with invalid=False so the data is retried once the destination is reachable again.
+        If the failure is caused by the data itself (e.g. invalid format), call self._buffer with invalid=True —
+        the data is then written to the _bin table and not retried.
 
         :param data: The data object to be processed.
         """
@@ -151,24 +249,23 @@ class AbstractOutputModule(AbstractModule):
         except Exception as e:
             self.logger.error("Something went wrong while trying to process data: {0}"
                               .format(str(e)), exc_info=config.EXC_INFO)
-            # CAUTION: The data object should only be buffered,
-            # if a connection error was the original problem for the exception.
-            # If the exception was caused by the data itself (e.g. invalid data format etc.),
-            # set the invalid flag. The data is then stored in the buffer (_bin table) and not retried.
+            # Buffer the data if the failure was caused by a connection error.
+            # Use invalid=True if the data itself is malformed, so it is not retried.
             self._buffer(data=data, invalid=False)
 
     def _buffer(self, data: models.Data, invalid: bool = False) -> bool:
         """
-        This method receives data, which could not be stored in the output module, because it wasn't accessible.
-        The data is sent to a buffer module and stored until the output module is accessible again.
+        Forwards data that could not be stored to a configured buffer module.
 
-        :param data: The data object, which shall be buffered.
-        :param invalid: The data is probably corrupted.
-        This is mostly the case, when the storing process failed but the connection is correct.
-        The data will be stored in a '_bin' database of the buffer module.
-        So, it is not retried to store the data in the actual output module, since it probably causes an exception.
+        If invalid is False, the data is stored under the module's buffer key and will
+        be retried by _process_queue once the destination becomes reachable again.
+        If invalid is True, the data is stored under the module's bin key and will not
+        be retried, since the failure is assumed to be caused by the data itself rather
+        than a connectivity problem.
 
-        :returns: True if successfully stored, false if not.
+        :param data: The data object to be buffered.
+        :param invalid: If True, the data is written to the _bin table and not retried.
+        :returns: True if the data was successfully forwarded to the buffer, False otherwise.
         """
         success = False
         try:
@@ -184,9 +281,13 @@ class AbstractOutputModule(AbstractModule):
 
     def _get_buffer(self) -> Optional[models.Data]:
         """
-        Get buffered data from a buffer module.
+        Retrieves the oldest buffered data entry for this module from the buffer module.
 
-        :returns: Returns one entry of the buffered data if there is one. Otherwise, it returns None.
+        Called by _process_queue before consuming from the live queue so that previously
+        buffered data is replayed in order before new data is processed.
+
+        :returns: The oldest buffered data object, or None if no buffer is configured or
+                  the buffer is empty.
         """
         data = None
         try:
@@ -199,16 +300,16 @@ class AbstractOutputModule(AbstractModule):
 
     def store_buffer_data(self, module_id: str, data: models.Data) -> bool:
         """
-        Store data to be buffered.
+        Stores data on behalf of another output module that has nominated this module as its buffer.
 
-        !This method has to be implemented by buffer output modules!
-        Make sure this is thread-safe!!!
+        Must be implemented by output modules that set can_be_buffer = True.
+        The implementation must be thread-safe, as this method may be called concurrently
+        from multiple output module queue workers.
 
-        :param module_id: The id of the output module for which the data is buffered.
-        This shall be used as the identification for the buffered elements.
-        :param data: The data to be buffered.
-
-        :returns: True if successfully buffered, otherwise false.
+        :param module_id: The id of the output module for which the data is being buffered.
+                          Used as the storage key to keep data from different modules separate.
+        :param data: The data object to buffer.
+        :returns: True if the data was successfully stored, False otherwise.
         """
         success = False
         try:
@@ -220,14 +321,14 @@ class AbstractOutputModule(AbstractModule):
 
     def get_buffer_data(self, module_id: str) -> Optional[models.Data]:
         """
-        Get the oldest element.
+        Retrieves and removes the oldest buffered data entry for the given module id.
 
-        !This method has to be implemented by buffer output modules!
-        Make sure this is thread-safe!!!
+        Must be implemented by output modules that set can_be_buffer = True.
+        The implementation must be thread-safe, as this method may be called concurrently
+        from multiple output module queue workers.
 
-        :param module_id: The id of the output module for which the buffered data is requested.
-
-        :returns: The buffered data (only one element is given back per request).
+        :param module_id: The id of the output module whose buffered data is requested.
+        :returns: The oldest buffered data object for the given module id, or None if the buffer is empty.
         """
         data = None
         try:

@@ -6,6 +6,8 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 import threading
+import asyncio
+import inspect
 import queue
 import time
 
@@ -15,6 +17,19 @@ import data_layer
 import models
 from modules.base.base import AbstractModule
 import utils.data_validation
+
+
+_thread_local = threading.local()
+"""
+Thread-local storage for persistent async event loops.
+
+Each thread that calls _invoke_run with an async _run implementation gets its own
+event loop created on first use and reused for all subsequent calls on that thread.
+This avoids the overhead of creating and tearing down a new event loop per data item,
+which matters for high-frequency pipelines.
+
+The loop is stored under _thread_local.event_loop and is never shared between threads.
+"""
 
 
 class AbstractProcessorModule(AbstractModule):
@@ -54,9 +69,67 @@ class AbstractProcessorModule(AbstractModule):
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
 
+    def _invoke_run(self, data: models.Data) -> models.Data:
+        """
+        Invokes _run while transparently supporting both synchronous and asynchronous implementations.
+
+        Synchronous _run implementations are called directly with no overhead.
+        For asynchronous implementations, one of two execution strategies is chosen
+        based on whether an event loop is already running on the current thread:
+
+          - No running loop: a persistent event loop is reused for the lifetime of
+            the calling thread via a thread-local variable. This avoids the cost of
+            creating and tearing down a new event loop on every call, which matters
+            for high-frequency pipelines where _run is invoked repeatedly from the
+            same worker thread.
+          - Running loop detected: to avoid a 'This event loop is already running'
+            deadlock, the coroutine is dispatched to a dedicated daemon thread that
+            owns its own event loop via asyncio.run(). The calling thread blocks on
+            join() until the result is available.
+
+        :param data: The data object to pass to _run.
+        :returns: The processed data object returned by _run.
+        :raises Exception: Re-raises any exception thrown inside an async _run
+                           dispatched to a worker thread.
+        """
+        if not inspect.iscoroutinefunction(self._run):
+            return self._run(data)
+
+        try:
+            asyncio.get_running_loop()
+            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
+            result, exc = [None], [None]
+
+            def _run_in_thread():
+                try:
+                    result[0] = asyncio.run(self._run(data))
+                except Exception as e:
+                    exc[0] = e
+
+            t = threading.Thread(target=_run_in_thread, daemon=True)
+            t.start()
+            t.join()
+            if exc[0]:
+                raise exc[0]
+            return result[0]
+
+        except RuntimeError:
+            # No running loop — reuse a persistent thread-local event loop.
+            loop = getattr(_thread_local, "event_loop", None)
+            if loop is None or loop.is_closed():
+                loop = asyncio.new_event_loop()
+                _thread_local.event_loop = loop
+            return loop.run_until_complete(self._run(data))
+
     def _process_queue(self):
         """
-        Call this method during start-up in a separate thread.
+        Continuously drains the data queue and processes each item by invoking _run.
+
+        Intended to be started once in a dedicated daemon thread when thread_safe mode is enabled.
+        Blocks on the queue with a timeout so the loop can exit cleanly when self.active is set to False.
+
+        Errors raised during processing are caught and logged per item so that a single
+        failing item does not halt the queue worker.
         """
         while self.active:
             try:
@@ -69,7 +142,7 @@ class AbstractProcessorModule(AbstractModule):
             self.current_input_data = data
             # We do not thread, since the output modules may not be thread safe.
             try:
-                data = self._run(data=data)
+                data = self._invoke_run(data=data)
                 # Call the subsequent links.
                 self._call_links(data)
             except Exception as e:
@@ -79,9 +152,24 @@ class AbstractProcessorModule(AbstractModule):
 
     def run(self, data: models.Data):
         """
-        External method for executing the module.
+        External entry point for passing data into the module.
 
-        :param data: The data object.
+        Validates the incoming data against the module's field and tag requirements before processing.
+        What happens next depends on thread_safe mode:
+
+          - thread_safe disabled: _run is called directly on the calling thread and
+            the result is forwarded to downstream links before returning.
+          - thread_safe enabled: data is placed on the internal queue and processed
+            by a dedicated queue worker thread. The queue worker is started lazily on
+            the first call. Incoming data is silently dropped if the queue has reached
+            config.STOP_LIMIT to prevent unbounded memory growth; a warning is logged
+            at every config.WARNING_LIMIT interval while the queue is oversized.
+
+        Data objects with no measurement set are ignored and not forwarded.
+
+        :param data: The data object to process.
+        :raises utils.data_validation.ValidationError: If field or tag requirements are not satisfied.
+                The error is caught internally and logged rather than propagated to the caller.
         """
         try:
             if self.active:
@@ -119,7 +207,7 @@ class AbstractProcessorModule(AbstractModule):
                             self.queue.put(data)
                     else:
                         # Execute the actual module.
-                        data = self._run(data)
+                        data = self._invoke_run(data)
                         # Call the subsequent links.
                         self._call_links(data)
         except Exception as e:
@@ -130,10 +218,26 @@ class AbstractProcessorModule(AbstractModule):
     @abstractmethod
     def _run(self, data: models.Data) -> models.Data:
         """
-        Internal method for executing the module.
+        Internal method for executing the module. May be implemented as either a regular
+        or an async method — both are supported:
+
+            # Synchronous:
+            def _run(self, data: models.Data) -> models.Data:
+                ...
+                return data
+
+            # Asynchronous:
+            async def _run(self, data: models.Data) -> models.Data:
+                await some_io_operation()
+                ...
+                return data
+
+        The method receives the current data object, applies whatever transformation or
+        enrichment the module is responsible for, and returns the (possibly modified)
+        data object. The returned object is then forwarded to all downstream links by
+        the calling infrastructure — _run itself should not call _call_links.
 
         :param data: The data object.
-
         :returns: The data object after processing.
         """
         # Implement the custom processor module logic here.
@@ -143,15 +247,17 @@ class AbstractProcessorModule(AbstractModule):
     @classmethod
     def get_test_data(cls) -> list[dict]:
         """
-        Provides the test data for processor modules.
-        A processor module does not have to provide test data.
-        If test data is provided, the _run method is executed without calling other methods like start or stop.
-        The validation functionality (field and tag requirements) is skipped during the test phase.
+        Provides test data for validating the module's _run logic in isolation.
 
-        :returns: A list containing test data with the keys:
-                  module_config: The configuration of the module as yaml string.
-                  input_data: The input data object with measurement, fields and tags.
-                  output_data: The expected output data object with measurement, fields and tags.
+        Implementing this method is optional. When test data is provided, the test runner calls _run directly
+        for each entry without invoking start, stop, or any surrounding infrastructure.
+        Field and tag requirement validation is also skipped during the test phase.
+
+        :returns: A list of dicts, each containing:
+                  module_config: The module configuration as a YAML string.
+                  input_data:    A data object (measurement, fields, tags) fed into _run.
+                  output_data:   The expected data object returned by _run.
+                  An empty list signals that no tests are defined for this module.
         """
         test_data = []
         return test_data
