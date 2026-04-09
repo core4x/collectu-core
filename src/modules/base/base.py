@@ -8,7 +8,7 @@ import logging
 import os
 import threading
 from queue import Queue
-from typing import Any, Optional, Union
+from typing import Any, Optional
 import copy
 import ast
 
@@ -398,20 +398,19 @@ class AbstractModule(ABC):
 
             if worker_count == 0:
                 # Spawn mode: each call gets its own thread.
-                def _target(d=data_copy, mid=module_id):
-                    try:
-                        linked = data_layer.module_data.get(mid)
-                        if linked and linked.instance.active:
-                            linked.instance.run(d)
-                    except Exception as e:
-                        self.logger.error(f"Could not execute linked module '{mid}': {e}",
-                                          exc_info=config.EXC_INFO)
-
-                t = threading.Thread(
-                    target=_target,
-                    name=f"Link_{config_id}_to_{module_id}",
-                    daemon=True)
-                t.start()
+                try:
+                    linked = data_layer.module_data[module_id]
+                    if linked.instance.active:
+                        threading.Thread(
+                            target=linked.instance.run,
+                            args=(data_copy,),
+                            name=f"Link_{config_id}_to_{module_id}",
+                            daemon=True).start()
+                except KeyError as e:
+                    self.logger.error("Could not find linked module '{0}' in the module data.".format(module_id))
+                except Exception as e:
+                    self.logger.error("Could not execute linked module '{0}': {1}".format(module_id, str(e)),
+                                      exc_info=config.EXC_INFO)
             else:
                 # Persistent-worker mode: round-robin dispatch.
                 if not worker_list:
