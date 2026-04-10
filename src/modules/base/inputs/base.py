@@ -107,31 +107,33 @@ class AbstractTagModule(AbstractModule):
         :param data: The data object to enrich with the tag module's output.
         """
         try:
-            if self.active:
-                # Set the current data object.
-                self.current_input_data = data
-                # Execute the module specific logic.
-                if not inspect.iscoroutinefunction(self._run):
-                    key_values = self._run() or {}
-                else:
-                    key_values = AbstractModule._invoke_async(method=self._run) or {}
+            if not self.active:
+                return
 
+            # Set the current data object.
+            self.current_input_data = data
+            # Execute the module specific logic.
+            if not inspect.iscoroutinefunction(self._run):
+                key_values = self._run() or {}
+            else:
+                key_values = AbstractModule._invoke_async(method=self._run) or {}
+
+            if self.configuration.is_field:
+                if self.configuration.replace_existing:
+                    data.fields = {}
+            if self.configuration.is_tag:
+                if self.configuration.replace_existing:
+                    data.tags = {}
+            for key, value in key_values.items():
                 if self.configuration.is_field:
-                    if self.configuration.replace_existing:
-                        data.fields = {}
+                    data.fields[key] = value
                 if self.configuration.is_tag:
-                    if self.configuration.replace_existing:
-                        data.tags = {}
-                for key, value in key_values.items():
-                    if self.configuration.is_field:
-                        data.fields[key] = value
-                    if self.configuration.is_tag:
-                        data.tags[key] = value
+                    data.tags[key] = value
 
-                # Call the subsequent links.
-                self._call_links(data)
-                # Reset the current data object.
-                self.current_input_data = None
+            # Call the subsequent links.
+            self._call_links(data)
+            # Reset the current data object.
+            self.current_input_data = None
         except Exception as e:
             self.logger.error("Something went wrong while executing tag module {0} ({1}): {2}"
                               .format(self.configuration.module_name, self.configuration.id, str(e)),

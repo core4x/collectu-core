@@ -54,6 +54,27 @@ class AbstractOutputModule(AbstractModule):
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
 
+    def _validate_data(self, data: models.Data):
+        """
+        Validates the incoming data against field and tag requirements.
+        Raises ValidationError if either check fails.
+
+        :param data: The data object to validate.
+        :raises utils.data_validation.ValidationError: If requirements are not satisfied.
+        """
+        valid_field_data, _, field_validation_messages = utils.data_validation.validate(
+            data=data.fields, requirements=self.field_requirements)
+        if not valid_field_data:
+            messages = utils.data_validation.format_message(field_validation_messages)
+            raise utils.data_validation.ValidationError(
+                "Invalid field input data: {0}".format(" ".join(messages)))
+        valid_tag_data, _, tag_validation_messages = utils.data_validation.validate(
+            data=data.tags, requirements=self.tag_requirements)
+        if not valid_tag_data:
+            messages = utils.data_validation.format_message(tag_validation_messages)
+            raise utils.data_validation.ValidationError(
+                "Invalid tag input data: {0}".format(" ".join(messages)))
+
     def run(self, data: models.Data):
         """
         External entry point for passing data into the module.
@@ -73,52 +94,44 @@ class AbstractOutputModule(AbstractModule):
                 are not satisfied. The error is caught internally and logged rather than propagated to the caller.
         """
         try:
-            if self.active:
-                if self._first_execution:
-                    self._first_execution = False
-                    # Start the queue processing for storing incoming data.
-                    threading.Thread(target=self._process_queue,
-                                     daemon=False,
-                                     name="Queue_Worker_{0}".format(self.configuration.id)).start()
-                if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
-                    self.logger.error("You are probably trying to store more data then we can process. "
-                                      "We have currently '{0}' elements in our queue to store."
-                                      .format(str(self.queue.qsize())))
+            if not self.active:
+                return
 
-                # Store the data in the latest data entry if a measurement is given.
-                if data.measurement:
-                    # During the stopping procedure, it could happen that the entry no longer exists.
-                    if self.configuration.id not in data_layer.module_data:
-                        self.logger.error("Could not find module with id '{0}' in data layer."
-                                          .format(str(self.configuration.id)))
-                    else:
-                        data_layer.module_data[self.configuration.id].latest_data = data
+            if self._first_execution:
+                self._first_execution = False
+                # Start the queue processing for storing incoming data.
+                threading.Thread(target=self._process_queue,
+                                 daemon=False,
+                                 name="Queue_Worker_{0}".format(self.configuration.id)).start()
+            if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
+                self.logger.error("You are probably trying to store more data then we can process. "
+                                  "We have currently '{0}' elements in our queue to store."
+                                  .format(str(self.queue.qsize())))
 
-                    # Validate the field input data.
-                    valid_field_data, field_requirement_index, field_validation_messages = utils.data_validation.validate(
-                        data=data.fields, requirements=self.field_requirements)
-                    if not valid_field_data:
-                        messages = utils.data_validation.format_message(field_validation_messages)
-                        raise utils.data_validation.ValidationError(
-                            "Invalid field input data: {0}".format(" ".join(messages)))
-                    # Validate the tag input data.
-                    valid_tag_data, tag_requirement_index, tag_validation_messages = utils.data_validation.validate(
-                        data=data.tags, requirements=self.tag_requirements)
-                    if not valid_tag_data:
-                        messages = utils.data_validation.format_message(tag_validation_messages)
-                        raise utils.data_validation.ValidationError(
-                            "Invalid tag input data: {0}".format(" ".join(messages)))
+            # Store the data in the latest data entry if a measurement is given.
+            if not data.measurement:
+                return
 
-                    if self.queue.qsize() < config.STOP_LIMIT:
-                        # Queue the data to be stored.
-                        self.queue.put(data)
-                    else:
-                        # Attempt to forward the data to a buffer module.
-                        # If no buffer is configured, the data is lost.
-                        buffered = self._buffer(data=data, invalid=False)
-                        if not buffered:
-                            self.logger.error("Could not store data because the queue size exceeded the stop limit "
-                                              "and no buffer is configured.")
+            # During the stopping procedure, it could happen that the entry no longer exists.
+            if self.configuration.id not in data_layer.module_data:
+                self.logger.error("Could not find module with id '{0}' in data layer."
+                                  .format(str(self.configuration.id)))
+            else:
+                data_layer.module_data[self.configuration.id].latest_data = data
+
+            # Validate the field input data.
+            self._validate_data(data=data)
+
+            if self.queue.qsize() < config.STOP_LIMIT:
+                # Queue the data to be stored.
+                self.queue.put(data)
+            else:
+                # Attempt to forward the data to a buffer module.
+                # If no buffer is configured, the data is lost.
+                buffered = self._buffer(data=data, invalid=False)
+                if not buffered:
+                    self.logger.error("Could not store data because the queue size exceeded the stop limit "
+                                      "and no buffer is configured.")
         except Exception as e:
             self.logger.error("Could not store data in queue: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
