@@ -3,7 +3,6 @@ This is the base class of all output modules. All implemented output modules hav
 The derived child class has to be named 'OutputModule'.
 """
 import time
-import asyncio
 import inspect
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -17,19 +16,6 @@ import data_layer
 import models
 import utils.data_validation
 from modules.base.base import AbstractModule
-
-
-_thread_local = threading.local()
-"""
-Thread-local storage for persistent async event loops.
-
-Each thread that calls _invoke_run with an async _run implementation gets its own
-event loop created on first use and reused for all subsequent calls on that thread.
-This avoids the overhead of creating and tearing down a new event loop per data item,
-which matters for high-frequency pipelines.
-
-The loop is stored under _thread_local.event_loop and is never shared between threads.
-"""
 
 
 class AbstractOutputModule(AbstractModule):
@@ -67,57 +53,6 @@ class AbstractOutputModule(AbstractModule):
         """The currently received data object. Used for replacing dynamic variables with local data."""
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
-
-    def _invoke_run(self, data: models.Data):
-        """
-        Invokes _run while transparently supporting both synchronous and asynchronous
-        implementations.
-
-        Synchronous _run implementations are called directly with no overhead.
-        For asynchronous implementations, one of two execution strategies is chosen
-        based on whether an event loop is already running on the current thread:
-
-          - No running loop: a persistent event loop is reused for the lifetime of
-            the calling thread via a thread-local variable. This avoids the cost of
-            creating and tearing down a new event loop on every call, which matters
-            for high-frequency pipelines where _run is invoked repeatedly from the
-            same worker thread.
-          - Running loop detected: to avoid a 'This event loop is already running'
-            deadlock, the coroutine is dispatched to a dedicated daemon thread that
-            owns its own event loop via asyncio.run(). The calling thread blocks on
-            join() until the result is available.
-
-        :param data: The data object to pass to _run.
-        :raises Exception: Re-raises any exception thrown inside an async _run dispatched to a worker thread.
-        """
-        if not inspect.iscoroutinefunction(self._run):
-            return self._run(data)
-
-        try:
-            asyncio.get_running_loop()
-            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
-            result, exc = [None], [None]
-
-            def _run_in_thread():
-                try:
-                    result[0] = asyncio.run(self._run(data))
-                except Exception as e:
-                    exc[0] = e
-
-            t = threading.Thread(target=_run_in_thread, daemon=True)
-            t.start()
-            t.join()
-            if exc[0]:
-                raise exc[0]
-            return result[0]
-
-        except RuntimeError:
-            # No running loop — reuse a persistent thread-local event loop.
-            loop = getattr(_thread_local, "event_loop", None)
-            if loop is None or loop.is_closed():
-                loop = asyncio.new_event_loop()
-                _thread_local.event_loop = loop
-            return loop.run_until_complete(self._run(data))
 
     def run(self, data: models.Data):
         """
@@ -215,7 +150,10 @@ class AbstractOutputModule(AbstractModule):
             # Set the last received data for dynamic variables.
             self.current_input_data = data
             try:
-                self._invoke_run(data=data)
+                if not inspect.iscoroutinefunction(self._run):
+                    data = self._run(data)
+                else:
+                    data = AbstractModule._invoke_async(self._run, data)
             except Exception as e:
                 self.logger.error("Something went wrong while executing output module {0} ({1}): {2}"
                                   .format(self.configuration.module_name, self.configuration.id, str(e)),

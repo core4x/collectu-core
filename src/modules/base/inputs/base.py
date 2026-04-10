@@ -2,31 +2,15 @@
 This is the base class of all input modules. All implemented input modules have to be derived from this class.
 The derived child class has to be named 'InputModule', 'TagModule', or 'VariableModule'.
 """
-import asyncio
 import inspect
-import threading
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
 # Internal imports.
 import config
-import data_layer
 import models
 from modules.base.base import AbstractModule
-
-
-_thread_local = threading.local()
-"""
-Thread-local storage for persistent async event loops.
-
-Each thread that calls _invoke_run with an async _run implementation gets its own
-event loop created on first use and reused for all subsequent calls on that thread.
-This avoids the overhead of creating and tearing down a new event loop per data item,
-which matters for high-frequency pipelines.
-
-The loop is stored under _thread_local.event_loop and is never shared between threads.
-"""
 
 
 class AbstractInputModule(AbstractModule):
@@ -111,56 +95,6 @@ class AbstractTagModule(AbstractModule):
         self.current_input_data: Optional[models.Data] = None
         """The currently received data object. Used for replacing dynamic variables with local data."""
 
-    def _invoke_run(self) -> dict[str, Any]:
-        """
-        Invokes _run while transparently supporting both synchronous and asynchronous implementations.
-
-        Synchronous _run implementations are called directly with no overhead.
-        For asynchronous implementations, one of two execution strategies is chosen
-        based on whether an event loop is already running on the current thread:
-
-          - No running loop: a persistent event loop is reused for the lifetime of
-            the calling thread via a thread-local variable. This avoids the cost of
-            creating and tearing down a new event loop on every call, which matters
-            for high-frequency pipelines where _run is invoked repeatedly from the
-            same worker thread.
-          - Running loop detected: to avoid a 'This event loop is already running'
-            deadlock, the coroutine is dispatched to a dedicated daemon thread that
-            owns its own event loop via asyncio.run(). The calling thread blocks on
-            join() until the result is available.
-
-        :returns: The dict of key-value pairs returned by _run.
-        :raises Exception: Re-raises any exception thrown inside an async _run dispatched to a worker thread.
-        """
-        if not inspect.iscoroutinefunction(self._run):
-            return self._run()
-
-        try:
-            asyncio.get_running_loop()
-            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
-            result, exc = [None], [None]
-
-            def _run_in_thread():
-                try:
-                    result[0] = asyncio.run(self._run())
-                except Exception as e:
-                    exc[0] = e
-
-            t = threading.Thread(target=_run_in_thread, daemon=True)
-            t.start()
-            t.join()
-            if exc[0]:
-                raise exc[0]
-            return result[0]
-
-        except RuntimeError:
-            # No running loop — reuse a persistent thread-local event loop.
-            loop = getattr(_thread_local, "event_loop", None)
-            if loop is None or loop.is_closed():
-                loop = asyncio.new_event_loop()
-                _thread_local.event_loop = loop
-            return loop.run_until_complete(self._run())
-
     def run(self, data: models.Data):
         """
         External entry point for passing data into the module.
@@ -177,7 +111,11 @@ class AbstractTagModule(AbstractModule):
                 # Set the current data object.
                 self.current_input_data = data
                 # Execute the module specific logic.
-                key_values = self._invoke_run() or {}
+                if not inspect.iscoroutinefunction(self._run):
+                    key_values = self._run() or {}
+                else:
+                    key_values = AbstractModule._invoke_async(method=self._run) or {}
+
                 if self.configuration.is_field:
                     if self.configuration.replace_existing:
                         data.fields = {}

@@ -209,47 +209,6 @@ _thread_local.event_loop and is never shared between threads.
 """
 
 
-def _invoke_async(method, *args, **kwargs):
-    """
-    Executes an async method from a synchronous context.
-
-    Used internally by __init_subclass__ to safely call async stop()
-    implementations. Follows the same two-branch strategy used across all
-    module base classes:
-
-      - No running loop: a persistent thread-local event loop is reused.
-      - Running loop detected: the coroutine is dispatched to a dedicated
-        daemon thread to avoid a deadlock.
-
-    :param method: The async method to invoke.
-    :param args: Positional arguments forwarded to the method.
-    :param kwargs: Keyword arguments forwarded to the method.
-    """
-    try:
-        asyncio.get_running_loop()
-        result, exc = [None], [None]
-
-        def _run_in_thread():
-            try:
-                result[0] = asyncio.run(method(*args, **kwargs))
-            except Exception as e:
-                exc[0] = e
-
-        t = threading.Thread(target=_run_in_thread, daemon=True)
-        t.start()
-        t.join()
-        if exc[0]:
-            raise exc[0]
-        return result[0]
-
-    except RuntimeError:
-        loop = getattr(_thread_local, "event_loop", None)
-        if loop is None or loop.is_closed():
-            loop = asyncio.new_event_loop()
-            _thread_local.event_loop = loop
-        return loop.run_until_complete(method(*args, **kwargs))
-
-
 class AbstractModule(ABC):
     """
     All modules have to be derived from this one.
@@ -355,6 +314,47 @@ class AbstractModule(ABC):
         """
         ...
 
+    @staticmethod
+    def _invoke_async(method, *args, **kwargs):
+        """
+        Executes an async method from a synchronous context.
+
+        Used internally by __init_subclass__ to safely call async stop()
+        implementations. Follows the same two-branch strategy used across all
+        module base classes:
+
+          - No running loop: a persistent thread-local event loop is reused.
+          - Running loop detected: the coroutine is dispatched to a dedicated
+            daemon thread to avoid a deadlock.
+
+        :param method: The async method to invoke.
+        :param args: Positional arguments forwarded to the method.
+        :param kwargs: Keyword arguments forwarded to the method.
+        """
+        try:
+            asyncio.get_running_loop()
+            result, exc = [None], [None]
+
+            def _run_in_thread():
+                try:
+                    result[0] = asyncio.run(method(*args, **kwargs))
+                except Exception as e:
+                    exc[0] = e
+
+            t = threading.Thread(target=_run_in_thread, daemon=True)
+            t.start()
+            t.join()
+            if exc[0]:
+                raise exc[0]
+            return result[0]
+
+        except RuntimeError:
+            loop = getattr(_thread_local, "event_loop", None)
+            if loop is None or loop.is_closed():
+                loop = asyncio.new_event_loop()
+                _thread_local.event_loop = loop
+            return loop.run_until_complete(method(*args, **kwargs))
+
     def __init_subclass__(cls, **kwargs):
         """
         Automatically wraps any stop() defined in a subclass so worker cleanup always
@@ -371,7 +371,7 @@ class AbstractModule(ABC):
             def _wrapped_stop(self, *args, **kwargs):
                 try:
                     if inspect.iscoroutinefunction(original_stop):
-                        _invoke_async(original_stop, self, *args, **kwargs)
+                        AbstractModule._invoke_async(original_stop, self, *args, **kwargs)
                     else:
                         original_stop(self, *args, **kwargs)
                 finally:
