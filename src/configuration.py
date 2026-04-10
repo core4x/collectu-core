@@ -906,17 +906,17 @@ class Configuration:
             try:
                 Configuration._invoke(module_data.instance.start)
             except Exception as e:
-                logger.error("Could not start module '{0}' with the id '{1}': {2}"
-                             .format(module_data.module_name, module_data.configuration.id, str(e)),
-                             exc_info=config.EXC_INFO)
+                logger.error("Could not start module '{0}' with the id '{1}'. Retrying in {2} seconds: {3}"
+                             .format(module_data.module_name, module_data.configuration.id,
+                                     config.RETRY_INTERVAL, str(e)), exc_info=config.EXC_INFO)
                 time.sleep(config.RETRY_INTERVAL)
                 retries += 1
                 logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
                              .format(module_data.module_name, module_data.configuration.id, str(retries)))
             else:
                 if retries > 0:
-                    logger.info("Successfully started module '{0}' with the id '{1}'."
-                                .format(module_data.module_name, module_data.configuration.id))
+                    logger.info("Successfully started module '{0}' with the id '{1}' after {2} retries."
+                                .format(module_data.module_name, module_data.configuration.id, retries))
                 else:
                     logger.debug("Successfully started module '{0}' with the id '{1}'."
                                  .format(module_data.module_name, module_data.configuration.id))
