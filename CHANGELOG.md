@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v1.59.0 (2026-04-10)
+
+### Bug Fixes
+
+- Fixed wrong operation_id.
+  ([`a69b2eb`](https://github.com/core4x/collectu-core/commit/a69b2ebd424f3dc4cfd156358195ba5cf8adcd45))
+
+- Refactored run method.
+  ([`a8a1d16`](https://github.com/core4x/collectu-core/commit/a8a1d1627bf11b5f7b983d29a83c8616ff3e7abd))
+
+- Refactored spawn-mode thread creation. Some simplifications.
+  ([`e4699c3`](https://github.com/core4x/collectu-core/commit/e4699c37e222f76bd3714c17f3fbc8f4352525f1))
+
+- Refactored sync/async wrappers.
+  ([`6c39094`](https://github.com/core4x/collectu-core/commit/6c39094e1e38533c54b85b73e880dc1509398243))
+
+### Documentation
+
+- Improved docs of _start_module to include retry behavior.
+  ([`cba9de7`](https://github.com/core4x/collectu-core/commit/cba9de795052bae9a05d597ead3a5c4768ca843f))
+
+### Features
+
+- _run method can now be async as well.
+  ([`ea83e32`](https://github.com/core4x/collectu-core/commit/ea83e3298048c8dddd1a905b6e2a3d73fafd47c6))
+
+- Start and stop methods can now be async as well.
+  ([`10b6944`](https://github.com/core4x/collectu-core/commit/10b694489fc2badb00bc0c5ff47b39185b3a82bb))
+
+
 ## v1.58.0 (2026-04-08)
 
 ### Features
