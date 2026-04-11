@@ -13,6 +13,7 @@ from queue import Queue
 from typing import Any, Optional
 import copy
 import ast
+import time
 
 # Internal imports.
 import config
@@ -63,30 +64,34 @@ class ModuleWorker:
         :param forward_latest_data_only: Whether only the latest data object should be processed.
         """
         self.module_id = module_id
-        self._logger = logger
-        self._forward_latest_data_only = forward_latest_data_only
+        self.logger = logger
+        self.forward_latest_data_only = forward_latest_data_only
+
+        # Slow-worker tracking (shared by both modes, written only by the worker thread).
+        self.processing_since: Optional[float] = None
+        self.slow_worker_warned: bool = False
 
         if forward_latest_data_only:
             # Latest-only mode.
-            self._slot_lock: threading.Lock = threading.Lock()
-            self._slot: Optional[models.Data] = None
-            self._has_data: threading.Event = threading.Event()
-            self._stop_flag: bool = False
+            self.slot_lock: threading.Lock = threading.Lock()
+            self.slot: Optional[models.Data] = None
+            self.has_data: threading.Event = threading.Event()
+            self.stop_flag: bool = False
             target = self._loop_latest
         else:
             # Queue mode.
-            self._queue: Queue = Queue(maxsize=config.STOP_LIMIT)
-            self._warning_issued: bool = False
-            """Flag showing if a warning log message, that the queue is growing, was issued."""
-            self._error_issued: bool = False
+            self.queue: Queue = Queue(maxsize=config.STOP_LIMIT)
+            self.last_warned_multiple: int = 0
+            """Number showing multiple for the last warning log message. Shows that the queue is growing."""
+            self.error_issued: bool = False
             """Flag showing if a error log message, that the queue is full, was issued."""
             target = self._loop
 
-        self._thread = threading.Thread(
+        self.thread = threading.Thread(
             target=target,
             name="Link_{0}_to_{1}".format(configuration_id, module_id),
             daemon=True)
-        self._thread.start()
+        self.thread.start()
 
     def submit(self, data: models.Data):
         """
@@ -99,34 +104,50 @@ class ModuleWorker:
 
         :param data: The data object to forward to the linked module.
         """
+        # Slow-worker check (both modes).
+        since = self.processing_since  # Single read; no lock needed for a float in CPython.
+        if since is not None:
+            elapsed = time.monotonic() - since
+            if elapsed > config.SLOW_WORKER_TIMEOUT and not self.slow_worker_warned:
+                self.logger.warning(
+                    f"Worker for linked module '{self.module_id}' has been processing "
+                    f"for {elapsed:.1f}s (threshold: {config.SLOW_WORKER_TIMEOUT}s). "
+                    f"Downstream module may be blocked or overloaded.")
+                self.slow_worker_warned = True
+        elif self.slow_worker_warned:
+            # Worker finished; reset for the next occurrence.
+            self.slow_worker_warned = False
+
         # Latest-only mode.
-        if self._forward_latest_data_only:
-            with self._slot_lock:
-                self._slot = data
-            self._has_data.set()  # Wake the worker (idempotent if already set).
+        if self.forward_latest_data_only:
+            with self.slot_lock:
+                self.slot = data
+            self.has_data.set()  # Wake the worker (idempotent if already set).
             return
 
         # Queue mode.
-        qsize = self._queue.qsize()
-        if self._queue.full():
-            if not self._error_issued:
-                self._logger.error(f"Queue for linked module '{self.module_id}' is full "
-                                   f"({config.STOP_LIMIT} data objects). Dropping data.")
-                self._error_issued = True
+        qsize = self.queue.qsize()
+        if self.queue.full():
+            if not self.error_issued:
+                self.logger.error(f"Queue for linked module '{self.module_id}' is full "
+                                  f"({config.STOP_LIMIT} data objects). Dropping data...")
+                self.error_issued = True
             return
-        elif qsize < config.STOP_LIMIT and self._error_issued:
-            self._logger.info(f"Queue for linked module '{self.module_id}' is back below stop limit.")
-            self._error_issued = False
+        elif qsize < config.STOP_LIMIT - 100 and self.error_issued:  # 100 as hysteresis band.
+            self.logger.info(f"Queue for linked module '{self.module_id}' is back below stop limit.")
+            self.error_issued = False
 
-        if qsize >= config.WARNING_LIMIT and not self._warning_issued:
-            self._logger.warning(f"Queue for linked module '{self.module_id}' is filling up "
-                                 f"({qsize}/{config.STOP_LIMIT} data objects).")
-            self._warning_issued = True
-        elif qsize < config.WARNING_LIMIT and self._warning_issued:
-            self._logger.info(f"Queue for linked module '{self.module_id}' is back below warning limit.")
-            self._warning_issued = False
+        current_multiple = qsize // config.WARNING_LIMIT
+        if current_multiple > self.last_warned_multiple:
+            self.logger.warning(f"Queue for linked module '{self.module_id}' is filling up "
+                                f"({qsize}/{config.STOP_LIMIT} data objects).")
+            self.last_warned_multiple = current_multiple
+        elif current_multiple < self.last_warned_multiple:
+            if qsize < config.WARNING_LIMIT:
+                self.logger.info(f"Queue for linked module '{self.module_id}' is back below warning limit.")
+            self.last_warned_multiple = current_multiple
 
-        self._queue.put_nowait(data)
+        self.queue.put_nowait(data)
 
     def _loop_latest(self):
         """
@@ -138,13 +159,13 @@ class ModuleWorker:
         If multiple submissions happen while the worker is busy, only the most recent object is processed.
         """
         while True:
-            self._has_data.wait()  # Sleep until something arrives.
-            with self._slot_lock:
-                if self._stop_flag:
+            self.has_data.wait()  # Sleep until something arrives.
+            with self.slot_lock:
+                if self.stop_flag:
                     break
-                data = self._slot  # Grab current latest.
-                self._slot = None
-                self._has_data.clear()  # Reset: new submits re-set it.
+                data = self.slot  # Grab current latest.
+                self.slot = None
+                self.has_data.clear()  # Reset: new submits re-set it.
 
             if data is None:
                 continue  # Spurious wake (shouldn't happen).
@@ -152,10 +173,13 @@ class ModuleWorker:
             try:
                 linked = data_layer.module_data.get(self.module_id)
                 if linked and linked.instance.active:
+                    self.processing_since = time.monotonic()  # Mark start.
                     linked.instance.run(data)
             except Exception as e:
-                self._logger.error(f"Could not execute linked module '{self.module_id}': {e}",
-                                   exc_info=config.EXC_INFO)
+                self.logger.error(f"Could not execute linked module '{self.module_id}': {e}",
+                                  exc_info=config.EXC_INFO)
+            finally:
+                self.processing_since = None  # Always clear, even on exception.
 
     def _loop(self):
         """
@@ -166,18 +190,20 @@ class ModuleWorker:
         Stops when a ``None`` sentinel value is received.
         """
         while True:
-            data = self._queue.get()
+            data = self.queue.get()
             if data is None:
                 break
             try:
                 linked = data_layer.module_data.get(self.module_id)
                 if linked and linked.instance.active:
+                    self.processing_since = time.monotonic()  # Mark start.
                     linked.instance.run(data)
             except Exception as e:
-                self._logger.error(f"Could not execute linked module '{self.module_id}': {e}",
-                                   exc_info=config.EXC_INFO)
+                self.logger.error(f"Could not execute linked module '{self.module_id}': {e}",
+                                  exc_info=config.EXC_INFO)
             finally:
-                self._queue.task_done()
+                self.processing_since = None  # Always clear, even on exception.
+                self.queue.task_done()
 
     def stop(self):
         """
@@ -189,14 +215,14 @@ class ModuleWorker:
 
         This method blocks until the worker thread has fully exited.
         """
-        if self._forward_latest_data_only:
-            with self._slot_lock:
-                self._stop_flag = True
-                self._slot = None
-            self._has_data.set()  # Wake the thread so it can see stop_flag.
+        if self.forward_latest_data_only:
+            with self.slot_lock:
+                self.stop_flag = True
+                self.slot = None
+            self.has_data.set()  # Wake the thread so it can see stop_flag.
         else:
-            self._queue.put(None)
-        self._thread.join()
+            self.queue.put(None)
+        self.thread.join()
 
 
 _thread_local = threading.local()

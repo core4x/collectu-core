@@ -27,11 +27,18 @@ AUTOSAVE_NUMBER: int = int(os.getenv("AUTOSAVE_NUMBER", 10))
 RETRY_INTERVAL: int = int(os.getenv("RETRY_INTERVAL", 10))
 """The sleep time in seconds between retry attempts to start a module."""
 
-WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 1000))
+WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 10))
 """Print a warning log message, as soon as we have more than warning_limit elements in the queue of a module."""
 
 STOP_LIMIT: int = int(os.getenv("STOP_LIMIT", 10000))
 """Do not store elements in the queue of a module as long as there are more elements than STOP_LIMIT."""
+
+SLOW_WORKER_TIMEOUT: int = int(os.getenv("SLOW_WORKER_TIMEOUT", 1))
+"""
+Seconds before a busy worker thread emits a warning.
+If a worker has been executing a linked module's ``run()`` method for longer than this threshold,
+a warning is logged on the next ``submit()`` call. Useful for detecting slow or blocked downstream modules.
+"""
 
 REPORT_INTERVAL: int = int(os.getenv("REPORT_INTERVAL", 5))
 """The interval in seconds for sending the app info to the mothership and the statistics endpoint."""
