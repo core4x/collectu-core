@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.59.1 (2026-04-11)
+
+### Bug Fixes
+
+- Improved and refactored module worker.
+  ([`e47b37b`](https://github.com/core4x/collectu-core/commit/e47b37bdbbf3198759666cd4e386d2a9694d1424))
+
+- Updated third-party package versions.
+  ([`628974b`](https://github.com/core4x/collectu-core/commit/628974b9715b9875a0ca050a4da755d0bb4944ba))
+
+
 ## v1.59.0 (2026-04-10)
 
 ### Bug Fixes
