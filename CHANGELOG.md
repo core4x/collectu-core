@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.3 (2026-04-15)
+
+### Bug Fixes
+
+- Warn and ignore unknown configuration parameters instead of raising error.
+  ([`9f3e87f`](https://github.com/core4x/collectu-core/commit/9f3e87ff2611d83b2e1a78d152aaa637ef1e4bec))
+
+
 ## v1.59.2 (2026-04-11)
 
 
