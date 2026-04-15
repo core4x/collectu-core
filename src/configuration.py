@@ -15,6 +15,7 @@ from collections import defaultdict
 from typing import Any, Union, Optional
 from pprint import pformat
 import queue
+import dataclasses
 
 # Internal imports.
 import config
@@ -413,7 +414,6 @@ class Configuration:
 
         :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
         """
-        errors = {}
         try:
             configuration, configuration_dict, errors = self.validate_configuration_from_stream(content)
             if not errors:
@@ -437,6 +437,21 @@ class Configuration:
         return errors
 
     @staticmethod
+    def deserialize_config(cls, data: dict):
+        """
+        Deserializes the given data using the dataclass model.
+
+        :param cls: The dataclass to use for deserialization.
+        :param data: The data to deserialize.
+        :return: The deserialized data.
+        """
+        valid_keys = {f.name for f in dataclasses.fields(cls)}
+        unknown = set(data) - valid_keys
+        for key in unknown:
+            logger.warning(f"Unknown key '{key}' in configuration for module '{data.get("id", "-")}' - ignoring.")
+        return cls(**{k: v for k, v in data.items() if k in valid_keys})
+
+    @staticmethod
     def validate_configuration_from_stream(content: str) -> tuple[list, list, dict[str, list[str]]]:
         """
         Deserializes the given stream using the configuration model.
@@ -450,7 +465,6 @@ class Configuration:
                   and a dict of error messages with the module id (if it exists, otherwise '-') as key.
         """
         configuration = []
-        configuration_dict = []
         errors = defaultdict(list)
         try:
             if yaml:
@@ -501,7 +515,7 @@ class Configuration:
                     # and add it to the configuration list.
                     module_schema = getattr(module, "Configuration", None)
                     if module_schema is not None:
-                        configuration.append(module_schema(**module_configuration))
+                        configuration.append(Configuration.deserialize_config(module_schema, module_configuration))
                     else:
                         errors[module_configuration.get("id", "-")].append(
                             "Invalid module. Could not find the configuration class. Please make sure the used "
