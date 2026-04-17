@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
         # Check the python version.
         if sys.version_info < (3, 10):
-            raise Exception("Python 3.10 or a more recent version is required. We recommend Python 3.11.")
+            raise Exception("Python 3.10 or a more recent version is required.")
 
         # Set up the logging.
         import utils.logging
