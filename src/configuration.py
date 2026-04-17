@@ -448,7 +448,7 @@ class Configuration:
         valid_keys = {f.name for f in dataclasses.fields(cls)}
         unknown = set(data) - valid_keys
         for key in unknown:
-            logger.warning(f"Unknown key '{key}' in configuration for module '{data.get("id", "-")}' - ignoring.")
+            logger.warning(f"Unknown key '{key}' in configuration for module '{data.get('id', '-')}' - ignoring.")
         return cls(**{k: v for k, v in data.items() if k in valid_keys})
 
     @staticmethod
