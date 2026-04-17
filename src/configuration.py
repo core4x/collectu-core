@@ -42,7 +42,6 @@ except ImportError as e:
     tinydb = None
     logger.error("Optional tinydb package not installed! Some features may not be supported.")
 
-
 _thread_local = threading.local()
 """
 Thread-local storage for persistent async event loops.
@@ -976,19 +975,17 @@ class Configuration:
 
                 t = threading.Thread(target=cls._start_module,
                                      args=(data_layer.module_data[module_config.id],),
-                                     daemon=True)
+                                     daemon=True,
+                                     name="Start_{0}".format(module_config.id))
                 t.start()
 
-                start_time = time.time()
-                # Each module has maximal 1 second to start, otherwise we proceed.
-                while time.time() - start_time < 1:
-                    if not t.is_alive():
-                        break
-                    time.sleep(0.1)
-                if t.is_alive():
-                    pass
-                else:
-                    t.join()
+                # Wait up to 1 second for the module to fail fast.
+                # If the thread is still alive after the timeout, the module is
+                # running its long-lived loop normally — we do not join it.
+                # Since _create_module itself is now called from a parallel thread
+                # per group, this wait runs concurrently across all modules in the
+                # group and does not add serial latency.
+                t.join(timeout=1)
             except ImportError:
                 logger.critical("Could not start module '{0}' with the id '{1}'. Import of third party packages failed."
                                 .format(module_config.module_name, module_config.id))
@@ -1013,64 +1010,119 @@ class Configuration:
     def _create_output_modules(self):
         """
         Instantiate and connect all output modules.
+        All outputs are created in parallel; the method blocks until every
+        instantiation thread has completed before returning.
         """
         output_configs = [output_config for output_config in self._configuration if
                           not getattr(output_config, "is_buffer", False)
                           and output_config.module_name.startswith("outputs.")]
-        for output_config in sorted(output_configs,
-                                    key=lambda output_config: output_config.start_priority,
-                                    reverse=True):
-            self._create_module(module_config=output_config)
+        threads = [
+            threading.Thread(target=self._create_module,
+                             args=(output_config,),
+                             daemon=True,
+                             name="Create_{0}".format(output_config.id))
+            for output_config in sorted(output_configs,
+                                        key=lambda output_config: output_config.start_priority,
+                                        reverse=True)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def _create_processor_modules(self):
         """
         Create all processor modules.
+        All processors are created in parallel; the method blocks until every
+        instantiation thread has completed before returning.
         """
         processor_configs = [processor_config for processor_config in self._configuration if
                              processor_config.module_name.startswith("processors.")]
-        for processor_config in sorted(processor_configs,
-                                       key=lambda processor_config: processor_config.start_priority,
-                                       reverse=True):
-            self._create_module(module_config=processor_config)
+        threads = [
+            threading.Thread(target=self._create_module,
+                             args=(processor_config,),
+                             daemon=True,
+                             name="Create_{0}".format(processor_config.id))
+            for processor_config in sorted(processor_configs,
+                                           key=lambda processor_config: processor_config.start_priority,
+                                           reverse=True)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def _create_input_modules(self):
         """
         Instantiate and connect all input modules.
+        All inputs are created in parallel; the method blocks until every
+        instantiation thread has completed before returning.
         """
         input_configs = [input_config for input_config in self._configuration if
                          input_config.module_name.startswith("inputs.") and
                          not input_config.module_name.endswith(".variable") and
                          not input_config.module_name.endswith(".tag")]
-        for input_config in sorted(input_configs,
-                                   key=lambda input_config: input_config.start_priority,
-                                   reverse=True):
-            self._create_module(module_config=input_config)
+        threads = [
+            threading.Thread(target=self._create_module,
+                             args=(input_config,),
+                             daemon=True,
+                             name="Create_{0}".format(input_config.id))
+            for input_config in sorted(input_configs,
+                                       key=lambda input_config: input_config.start_priority,
+                                       reverse=True)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def _create_tag_modules(self):
         """
         Instantiate and connect all tag modules.
+        All tags are created in parallel; the method blocks until every
+        instantiation thread has completed before returning.
         """
         tag_configs = [tag_config for tag_config in self._configuration if
                        tag_config.module_name.endswith(".tag") and
                        tag_config.module_name.startswith("inputs.") and
                        not tag_config.module_name.endswith(".variable")]
-        for tag_config in sorted(tag_configs,
-                                 key=lambda tag_config: tag_config.start_priority,
-                                 reverse=True):
-            self._create_module(module_config=tag_config)
+        threads = [
+            threading.Thread(target=self._create_module,
+                             args=(tag_config,),
+                             daemon=True,
+                             name="Create_{0}".format(tag_config.id))
+            for tag_config in sorted(tag_configs,
+                                     key=lambda tag_config: tag_config.start_priority,
+                                     reverse=True)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def _create_variable_modules(self):
         """
         Instantiate and connect all variable modules.
+        All variables are created in parallel; the method blocks until every
+        instantiation thread has completed before returning.
         """
         variable_configs = [variable_config for variable_config in self._configuration if
                             variable_config.module_name.endswith(".variable") and
                             variable_config.module_name.startswith("inputs.") and
                             not variable_config.module_name.endswith(".tag")]
-        for variable_config in sorted(variable_configs,
-                                      key=lambda variable_config: variable_config.start_priority,
-                                      reverse=True):
-            self._create_module(module_config=variable_config)
+        threads = [
+            threading.Thread(target=self._create_module,
+                             args=(variable_config,),
+                             daemon=True,
+                             name="Create_{0}".format(variable_config.id))
+            for variable_config in sorted(variable_configs,
+                                          key=lambda variable_config: variable_config.start_priority,
+                                          reverse=True)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     def save_configuration_as_file(self, filename: str = None, content: str = None) -> tuple[bool, str]:
         """
