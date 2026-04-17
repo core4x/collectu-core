@@ -206,7 +206,7 @@ def load_modules():
                     # Dynamically import the module.
                     logger.debug("Importing custom module: {0}".format(module_path))
                     module = importlib.import_module(module_path)
-                    # module = importlib.reload(module)
+                    module = importlib.reload(module)
                     modname = module_path.split(".", 2)[-1].lower()
 
                     if modname in data_layer.registered_modules:
