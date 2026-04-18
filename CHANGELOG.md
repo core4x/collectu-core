@@ -2,6 +2,38 @@
 
 <!-- version list -->
 
+## v1.59.4 (2026-04-17)
+
+### Bug Fixes
+
+- Do not reload already freshly imported modules.
+  ([`3eb63dc`](https://github.com/core4x/collectu-core/commit/3eb63dc72cc04d7a94f36e8d315a1f1739841cbd))
+
+- Do reload freshly imported modules since it could just be an update.
+  ([`dcf9722`](https://github.com/core4x/collectu-core/commit/dcf972232603a9461cb65fb169e25b56e2736f56))
+
+- Improved live module view to align with live data view in configuration.
+  ([`620d6a4`](https://github.com/core4x/collectu-core/commit/620d6a4a899c16219b5a262b07b30944dde52947))
+
+- Parallelized start of modules.
+  ([`dd2b9e9`](https://github.com/core4x/collectu-core/commit/dd2b9e9645010bc4cd0f5be61ebe2e26ea41bbe5))
+
+- Python version 3.11 does not allow nesting of string literals with the same quote type inside
+  f-strings
+  ([`2170578`](https://github.com/core4x/collectu-core/commit/21705788a72e2959771345fe87c956ea91a513e2))
+
+- Show timestamp in local browser time.
+  ([`6e80cc6`](https://github.com/core4x/collectu-core/commit/6e80cc607cd5610925155cac835d7809e4b3c984))
+
+### Documentation
+
+- Added comment for reload module.
+  ([`d6df216`](https://github.com/core4x/collectu-core/commit/d6df216928ddc6640f3a1e4f999cd80d6be2512b))
+
+- Removed Python version recommendation.
+  ([`3d4c90d`](https://github.com/core4x/collectu-core/commit/3d4c90d46773f27f7fb744c700fec7b65eb7c3cf))
+
+
 ## v1.59.3 (2026-04-15)
 
 ### Bug Fixes
