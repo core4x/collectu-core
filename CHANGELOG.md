@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.6 (2026-05-29)
+
+### Bug Fixes
+
+- Remove .tag and .variable by removesuffix and not by rstrip since this causes bugs.
+  ([`06e0873`](https://github.com/core4x/collectu-core/commit/06e0873ad4986390e2786e0a39fb081d432dd787))
+
+
 ## v1.59.5 (2026-04-18)
 
 
