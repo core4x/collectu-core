@@ -111,7 +111,7 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
     :param session: The optional session instance with authorization header.
     :return: True if the import was successful, False otherwise.
     """
-    module_name = module_name.rstrip(".variable").rstrip(".tag")
+    module_name = module_name.removesuffix(".variable").removesuffix(".tag")
     logger.info("Trying to download {0} with version {1} from {2}."
                 .format(module_name, version, config.HUB_MODULES_ADDRESS))
 
@@ -133,7 +133,7 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
                             str(response.json().get("id"))))
         module = response.json()
 
-        if module.get('module_name') not in [registered_module.rstrip(".variable").rstrip(".tag") for
+        if module.get('module_name') not in [registered_module.removesuffix(".variable").removesuffix(".tag") for
                                              registered_module in data_layer.registered_modules] or module.get(
             "version").get("version") > next(
             (value for module_name, value in list(data_layer.registered_modules.items()) if
@@ -169,7 +169,7 @@ def update_modules(module_names: Optional[List[str]] = None):
         return None
     if module_names is None:
         for module_name in list(
-                set([module_name.rstrip(".variable").rstrip(".tag") for module_name in data_layer.registered_modules])):
+                set([module_name.removesuffix(".variable").removesuffix(".tag") for module_name in data_layer.registered_modules])):
             download_module(module_name=module_name, session=session)
     else:
         for module_name in module_names:

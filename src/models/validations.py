@@ -287,12 +287,12 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
                         iter([config_module for config_module in configuration if
                               value == getattr(config_module, "id", "-") and
                               getattr(config_module, "module_name", "-") ==
-                              getattr(module, 'module_name', 'undefined').rstrip('.tag').rstrip('.variable')]), None)
+                              getattr(module, 'module_name', 'undefined').removesuffix('.tag').removesuffix('.variable')]), None)
                     if input_module is None:
                         errors[getattr(module, "id", "-")].append(
                             f"The given input_module {value} should be a "
                             f"module with the name "
-                            f"{getattr(module, 'module_name', 'undefined').rstrip('.tag').rstrip('.variable')}, "
+                            f"{getattr(module, 'module_name', 'undefined').removesuffix('.tag').removesuffix('.variable')}, "
                             f"but was {next(iter([getattr(config_module, 'module_name', '-') for config_module in configuration if value == getattr(config_module, 'id', '-')]))}.")
 
             # Check if the link ids exist and is of the correct module type.
@@ -339,7 +339,7 @@ def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:
                                                       f"but no buffer module was defined.")
         # Check if modules of the same type, have the same version. If not, use the latest version.
         if getattr(module, "version", 0):
-            module_name = getattr(module, 'module_name', 'undefined').rstrip('.tag').rstrip('.variable')
+            module_name = getattr(module, 'module_name', 'undefined').removesuffix('.tag').removesuffix('.variable')
             versions[module_name].append(getattr(module, "version"))
 
     for module_name, version_list in versions.items():
