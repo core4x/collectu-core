@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.59.7 (2026-06-07)
+
+### Bug Fixes
+
+- If a list entry of a parameter is a single integer value, it is omitted during conversion. Fixed
+  it by making it an array again.
+  ([`c763a92`](https://github.com/core4x/collectu-core/commit/c763a92917a132dd40278db05b953d2d7dfe757e))
+
+
 ## v1.59.6 (2026-05-29)
 
 ### Bug Fixes
