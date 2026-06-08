@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.9 (2026-06-08)
+
+### Bug Fixes
+
+- Only json parse strings. Removed array conversion things.
+  ([`d8030f7`](https://github.com/core4x/collectu-core/commit/d8030f7e8c95c56063673986cf3d11e2efa86755))
+
+
 ## v1.59.8 (2026-06-08)
 
 ### Bug Fixes
