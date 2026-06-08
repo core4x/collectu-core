@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.8 (2026-06-08)
+
+### Bug Fixes
+
+- If data type is list, we JSON parse each element separately during converting config parameter.
+  ([`089be5d`](https://github.com/core4x/collectu-core/commit/089be5d5eb2539d82a61ddcc52a11b7d0c4485ee))
+
+
 ## v1.59.7 (2026-06-07)
 
 ### Bug Fixes
