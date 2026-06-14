@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.60.0 (2026-06-14)
+
+### Bug Fixes
+
+- Log detected version to console.
+  ([`56e86ea`](https://github.com/core4x/collectu-core/commit/56e86ea44038fde2dd2169f19722ae4076ae5a52))
+
+- Refactored package installation function and added function to check package installation.
+  ([`79e7a48`](https://github.com/core4x/collectu-core/commit/79e7a4867b9b5e146de4cef720e1bf6a20d8e6b6))
+
+### Features
+
+- Always check third party requirements on initialization.
+  ([`14540c9`](https://github.com/core4x/collectu-core/commit/14540c936c0d356947a3c81c0566ddc996acc723))
+
+
 ## v1.59.9 (2026-06-08)
 
 ### Bug Fixes
