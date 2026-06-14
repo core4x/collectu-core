@@ -112,6 +112,7 @@ def check_for_updates(with_submodule: bool = True) -> int:
         result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
                                 stdout=subprocess.PIPE, shell=True, universal_newlines=True)
         data_layer.version = result.stdout.strip()
+        logger.info("The app is running on version: {0}".format(data_layer.version))
 
         # Update local refs.
         repo.remotes.origin.fetch()
