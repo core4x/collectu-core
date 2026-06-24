@@ -72,8 +72,8 @@ def check_installed_app_packages():
                     logger.critical("Missing package installation: {0}. AUTO_INSTALL is disabled, skipping installation."
                                     .format(missing_package_str))
             else:
-                logger.error("Package version differs from the one defined in requirements.txt: {0}."
-                             .format(missing_package_str))
+                logger.error("Package version {0} differs from the one defined in requirements.txt: {1}."
+                             .format(installed_packages[missing_package[0]], missing_package_str))
                 if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
                     utils.plugin_interface.install_plugin_requirement(package=missing_package_str)
                 else:
