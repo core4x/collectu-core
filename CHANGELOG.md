@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.60.3 (2026-06-24)
+
+### Bug Fixes
+
+- Include headers in response and fixed sync/async for performance improvements.
+  ([`6107d4c`](https://github.com/core4x/collectu-core/commit/6107d4cadfeb88fe20e31aae992b77e98ff18cfb))
+
+
 ## v1.60.2 (2026-06-24)
 
 ### Bug Fixes
