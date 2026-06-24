@@ -49,6 +49,8 @@ if __name__ == "__main__":
 
         utils.logging.start(logger)
 
+        logger.info("Current Python version is {0}".format(sys.version))
+
         # Exit handler.
         atexit.register(exit_handler)
 
