@@ -130,9 +130,9 @@ def validate_module(module):
         # -------------------------
         # DICT[K, V]
         # -------------------------
-        if origin is dict:
-            key_t, val_t = get_args(ftype)
+        if origin is dict or ftype is dict:
             try:
+                key_t, val_t = get_args(ftype)
                 newdict = ast.literal_eval(value) if isinstance(value, str) else value
             except Exception:
                 newdict = value
