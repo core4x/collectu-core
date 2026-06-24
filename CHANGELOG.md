@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v1.60.2 (2026-06-24)
+
+### Bug Fixes
+
+- Added logging of current python version.
+  ([`682b79b`](https://github.com/core4x/collectu-core/commit/682b79b410628fd02747c4c9ddd762364f196f26))
+
+- Catch exception if submodule update failed. Otherwise, we do not reapply the stashed changes from
+  the main app.
+  ([`cf8891a`](https://github.com/core4x/collectu-core/commit/cf8891a11503445530e70f358c204c291c08a10b))
+
+- Catch exceptions during link creation.
+  ([`acdd318`](https://github.com/core4x/collectu-core/commit/acdd318730ca7a917562992c3dd0e3343ec98b61))
+
+- Include current version in error message.
+  ([`77cb69a`](https://github.com/core4x/collectu-core/commit/77cb69a75a0702d40c3bafa455ee3b7be1c7f0b0))
+
+- Show toast if module information are missing.
+  ([`c786a6c`](https://github.com/core4x/collectu-core/commit/c786a6c287d11c133841bbbdbf786074d6c75440))
+
+- Updated requirements.txt.
+  ([`60e75a6`](https://github.com/core4x/collectu-core/commit/60e75a6138c4bbfadd9173d6dfe6129e6b25b23f))
+
+### Documentation
+
+- Improved error messages.
+  ([`a95d04d`](https://github.com/core4x/collectu-core/commit/a95d04dfe3883ebb35dcff2b069bb84f3dda5337))
+
+
 ## v1.60.1 (2026-06-24)
 
 ### Bug Fixes
