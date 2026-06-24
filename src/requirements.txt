@@ -1,7 +1,7 @@
-cryptography==46.0.5
-GitPython==3.1.46
+cryptography==49.0.0
+GitPython==3.1.50
 Markdown==3.10.2
-packaging==26.0
+packaging==26.2
 PyYAML==6.0.3
-requests==2.32.5
+requests==2.34.2
 tinydb==4.8.2

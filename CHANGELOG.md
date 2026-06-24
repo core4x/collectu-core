@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.60.1 (2026-06-24)
+
+### Bug Fixes
+
+- Fixed dict validation if config param is dict but without additional arg definition.
+  ([`d6f6e25`](https://github.com/core4x/collectu-core/commit/d6f6e25aa9b081209fd1d7227f9f163d394998db))
+
+
 ## v1.60.0 (2026-06-14)
 
 ### Bug Fixes
