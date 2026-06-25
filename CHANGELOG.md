@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.60.4 (2026-06-25)
+
+### Bug Fixes
+
+- Added 'minimal' and 'standard' as additional keywords for predefined module sets.
+  ([`1ded9eb`](https://github.com/core4x/collectu-core/commit/1ded9eb52ae6d8404f7554875c0e7591f534022a))
+
+- Initially only download minimal module set.
+  ([`5406507`](https://github.com/core4x/collectu-core/commit/540650749924c1be4d4f5baa0a846438ccc7c892))
+
+
 ## v1.60.3 (2026-06-24)
 
 ### Bug Fixes
