@@ -82,7 +82,7 @@ if __name__ == "__main__":
         if bool(int(os.environ.get('INITIAL_DOWNLOAD', '1'))) and (
                 settings_updated and len(data_layer.registered_modules) == 0):
             if bool(os.environ.get('HUB_API_ACCESS_TOKEN', False)):
-                utils.hub_connection.download_modules(requested_module_types="all")
+                utils.hub_connection.download_modules(requested_module_types="minimal")
             else:
                 logger.warning(
                     "Could not initially download modules from hub since no HUB_API_ACCESS_TOKEN was provided.")
