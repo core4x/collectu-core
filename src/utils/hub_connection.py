@@ -45,11 +45,11 @@ def create_authenticated_session() -> requests.Session | None:
         return None
 
 
-def download_modules(requested_module_types: str = "all"):
+def download_modules(requested_module_types: str = "minimal"):
     """
     Download modules from the hub.
 
-    :param requested_module_types: Can be 'all', 'official', or 'my'.
+    :param requested_module_types: Can be 'minimal', 'standard', 'all', 'official', or 'my'.
     """
     logger.info("Trying to download {0} modules from {1}."
                 .format(requested_module_types, config.HUB_MODULES_ADDRESS))
@@ -70,6 +70,18 @@ def download_modules(requested_module_types: str = "all"):
                                  timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
                 modules = modules + response.json()
+            elif "minimal" == requested_module_types:
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/minimal",
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
+                response.raise_for_status()
+                modules = response.json()
+            elif "standard" == requested_module_types:
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/standard",
+                                 allow_redirects=True,
+                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
+                response.raise_for_status()
+                modules = response.json()
             elif "my" == requested_module_types:
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
                                  allow_redirects=True,
