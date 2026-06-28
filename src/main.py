@@ -68,7 +68,6 @@ if __name__ == "__main__":
         import configuration
         import utils.arg_parser
         import utils.mothership_interface
-        import utils.usage_statistics
         import utils.plugin_interface
         import utils.hub_connection
         import utils.updater
