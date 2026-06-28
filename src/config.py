@@ -55,9 +55,6 @@ DEFAULT_REQUEST_TIMEOUT: int = int(os.getenv("DEFAULT_REQUEST_TIMEOUT", 5))
 HUB_ADDRESS: str = os.getenv("HUB_ADDRESS", "https://api.collectu.de/api/v1")
 """The base address of the api."""
 
-USAGE_STATISTICS_RECEIVER: str = os.getenv("USAGE_STATISTICS_RECEIVER", f"{HUB_ADDRESS}/statistic")
-"""The receiver address where the usage statistic is sent to. Used in utils.usage_statistics."""
-
 HUB_MODULES_ADDRESS: str = os.getenv("HUB_MODULES_ADDRESS", f"{HUB_ADDRESS}/module")
 """The endpoint of the api for registering modules."""
 
