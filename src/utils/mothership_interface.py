@@ -181,7 +181,7 @@ def _get_system_stats() -> Dict[str, Any]:
         stats["disk_free_gb"] = round(disk_usage.free / (1024 ** 3), 2)
     except Exception as e:
         logger.error("Could not get disk statistics: {0}".format(str(e)), exc_info=config.EXC_INFO)
-    logger.info(stats)
+
     return stats
 
 
