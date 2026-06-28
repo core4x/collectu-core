@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 import time
 import logging
 import pathlib
+import platform
+import shutil
 
 # Internal imports.
 import config
@@ -154,6 +156,37 @@ def start():
         logger.info(f"Started mothership communication to {mothership}.")
 
 
+def _get_system_stats() -> Dict[str, Any]:
+    """
+    Gather cross-platform system statistics using only standard library modules.
+
+    :return: Dictionary containing hostname, OS, CPU info, and disk usage.
+    """
+    stats: Dict[str, Any] = {}
+    try:
+        stats["hostname"] = platform.node()
+        stats["os"] = platform.platform()
+        stats["cpu_count"] = os.cpu_count()
+        stats["cpu_architecture"] = platform.machine()
+        stats["python_version"] = platform.python_version()
+    except Exception as e:
+        logger.error("Could not get general system statistics: {0}".format(str(e)), exc_info=config.EXC_INFO)
+
+    try:
+        # Get disk usage for the current working directory path
+        path = os.getcwd()
+        disk_usage = shutil.disk_usage(path)
+        stats["disk"] = {
+            "total_gb": round(disk_usage.total / (1024**3), 2),
+            "used_gb": round(disk_usage.used / (1024**3), 2),
+            "free_gb": round(disk_usage.free / (1024**3), 2)
+        }
+    except Exception as e:
+        logger.error("Could not get disk statistics: {0}".format(str(e)), exc_info=config.EXC_INFO)
+    logger.info(stats)
+    return stats
+
+
 def _get_report_data() -> Dict[str, Any]:
     """
     Create the data to be sent to the motherships.
@@ -182,7 +215,7 @@ def _get_report_data() -> Dict[str, Any]:
         simplified_logs.append(simplified_log.__dict__)
 
     mothership_data["latest_logs"] = simplified_logs
-
+    mothership_data["system_stats"] = _get_system_stats()
     return mothership_data
 
 

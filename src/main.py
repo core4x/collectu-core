@@ -120,10 +120,6 @@ if __name__ == "__main__":
         # Start the mothership reporting.
         utils.mothership_interface.start()
 
-        # Initialize the usage statistic sender.
-        if bool(int(os.environ.get("SEND_USAGE_STATISTICS", '1'))):
-            utils.usage_statistics.Statistics()
-
         commits = utils.updater.check_for_updates()
         if commits:
             logger.warning(f"{commits} update(s) can be applied. Updating will overwrite any local changes and restart the application.")
