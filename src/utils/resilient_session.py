@@ -7,7 +7,7 @@ import requests
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 
-def create_resilient_session():
+def create_resilient_session() -> requests.Session:
     """
     Creates a resilient session with automatic retries on network errors
     and common HTTP 5xx / 429 status codes.
@@ -19,8 +19,8 @@ def create_resilient_session():
         connect=1,
         read=1,
         backoff_factor=0.5,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["DEFAULT"],
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=None,
         raise_on_status=False,
         respect_retry_after_header=True,
     )
