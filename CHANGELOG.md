@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.60.7 (2026-06-28)
+
+### Bug Fixes
+
+- Added a resilient request session, which automatically retries once on failure.
+  ([`cb02b47`](https://github.com/core4x/collectu-core/commit/cb02b4782f6e4b8aae2dd0f9efbbdef5449ede2a))
+
+- Refactored reporting apps in order to include new system metadata.
+  ([`ee37c2e`](https://github.com/core4x/collectu-core/commit/ee37c2ef3e30bef86129f05e59b772dcb1b40025))
+
+
 ## v1.60.6 (2026-06-28)
 
 
