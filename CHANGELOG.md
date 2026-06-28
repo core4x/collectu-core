@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.60.5 (2026-06-28)
+
+### Bug Fixes
+
+- Made disk info flat and not nested.
+  ([`3497c99`](https://github.com/core4x/collectu-core/commit/3497c991bee0bb00233820b0f1aa6bf2b8e1ff25))
+
+- Removed usage statistics sending and included more information in hub report instead.
+  ([`adc998e`](https://github.com/core4x/collectu-core/commit/adc998e2a0d687f320cec048394d205cac578269))
+
+
 ## v1.60.4 (2026-06-25)
 
 ### Bug Fixes
