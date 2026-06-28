@@ -20,6 +20,7 @@ import models
 import utils.updater
 import utils.plugin_interface
 import utils.security
+import utils.resilient_session
 
 # Third party imports.
 import requests
@@ -291,7 +292,7 @@ def _report_hub():
     """
     start_time = datetime.now()
     logged_in = False
-    session = requests.Session()
+    session = utils.resilient_session.create_resilient_session()
 
     while data_layer.running:
         if not logged_in:
@@ -369,7 +370,7 @@ def _request_hub_tasks():
     }
     """
     start_time = datetime.now()
-    session = requests.Session()
+    session = utils.resilient_session.create_resilient_session()
     logged_in = False
 
     while data_layer.running:
@@ -453,7 +454,7 @@ def _report(mothership: str):
     :param mothership: The mothership address.
     """
     start_time = datetime.now()
-    session = requests.Session()
+    session = utils.resilient_session.create_resilient_session()
     session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
 
     while data_layer.running and session:
@@ -501,7 +502,7 @@ def _request_tasks(mothership):
     :param mothership: The mothership address.
     """
     start_time = datetime.now()
-    session = requests.Session()
+    session = utils.resilient_session.create_resilient_session()
     session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
 
     while data_layer.running and session:

@@ -165,12 +165,13 @@ def load_and_process_settings_file() -> bool:
             # Third party imports.
             try:
                 import requests
+                import utils.resilient_session
             except ImportError:
                 logger.error("Could not get your current username. "
                                 "Authentication with hub '{0}' failed. Requests package is not installed. Retrying later..."
                                 .format(config.HUB_TEST_TOKEN_ADDRESS))
             else:
-                session = requests.Session()
+                session = utils.resilient_session.create_resilient_session()
                 session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
                 try:
                     response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))

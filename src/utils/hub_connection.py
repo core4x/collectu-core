@@ -5,14 +5,13 @@ import os
 import logging
 import re
 import json
-import importlib
-import importlib.util
 import pathlib
 from typing import List, Optional
 
 # Internal imports.
 import config
 import data_layer
+import utils.resilient_session
 
 # Third party imports.
 import requests
@@ -29,7 +28,7 @@ def create_authenticated_session() -> requests.Session | None:
 
     :returns: The authenticated session.
     """
-    session = requests.Session()
+    session = utils.resilient_session.create_resilient_session()
     # Login.
     session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
     # Test the token.
