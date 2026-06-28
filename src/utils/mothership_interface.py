@@ -213,7 +213,7 @@ def _get_report_data() -> Dict[str, Any]:
         simplified_logs.append(simplified_log.__dict__)
 
     mothership_data["latest_logs"] = simplified_logs
-    mothership_data["system_stats"] = _get_system_stats()
+    mothership_data.update(_get_system_stats())
     return mothership_data
 
 
