@@ -56,7 +56,15 @@ class DatabaseWorker:
                 version=app.get("version"),
                 description=app.get("description"),
                 updated_at=datetime.fromisoformat(app.get("updated_at")),
-                created_at=datetime.fromisoformat(app.get("created_at")))
+                created_at=datetime.fromisoformat(app.get("created_at")),
+                hostname=app.get("hostname"),
+                os=app.get("os"),
+                cpu_count=app.get("cpu_count"),
+                cpu_architecture=app.get("cpu_architecture"),
+                python_version=app.get("python_version"),
+                disk_total_gb=app.get("disk_total_gb"),
+                disk_used_gb=app.get("disk_used_gb"),
+                disk_free_gb=app.get("disk_free_gb"))
 
         Thread(target=self._checker,
                daemon=False,
@@ -84,7 +92,15 @@ class DatabaseWorker:
                                 mothership_data.updated_at > datetime.fromisoformat(entry.get("updated_at")):
                             data = {"description": mothership_data.description,
                                     "version": mothership_data.version,
-                                    "updated_at": mothership_data.updated_at.isoformat()}
+                                    "updated_at": mothership_data.updated_at.isoformat(),
+                                    "hostname": mothership_data.hostname,
+                                    "os": mothership_data.os,
+                                    "cpu_count": mothership_data.cpu_count,
+                                    "cpu_architecture": mothership_data.cpu_architecture,
+                                    "python_version": mothership_data.python_version,
+                                    "disk_total_gb": mothership_data.disk_total_gb,
+                                    "disk_used_gb": mothership_data.disk_used_gb,
+                                    "disk_free_gb": mothership_data.disk_free_gb}
                             if tinydb:
                                 self.db.update(data, tinydb.where('id') == app_id)
                             else:
@@ -94,7 +110,15 @@ class DatabaseWorker:
                                 "description": mothership_data.description,
                                 "version": mothership_data.version,
                                 "created_at": mothership_data.created_at.isoformat(),
-                                "updated_at": mothership_data.updated_at.isoformat()}
+                                "updated_at": mothership_data.updated_at.isoformat(),
+                                "hostname": mothership_data.hostname,
+                                "os": mothership_data.os,
+                                "cpu_count": mothership_data.cpu_count,
+                                "cpu_architecture": mothership_data.cpu_architecture,
+                                "python_version": mothership_data.python_version,
+                                "disk_total_gb": mothership_data.disk_total_gb,
+                                "disk_used_gb": mothership_data.disk_used_gb,
+                                "disk_free_gb": mothership_data.disk_free_gb}
                         if tinydb:
                             self.db.insert(data)
                         else:
@@ -176,7 +200,7 @@ def _get_system_stats() -> Dict[str, Any]:
         # Get disk usage for the current working directory path
         path = os.getcwd()
         disk_usage = shutil.disk_usage(path)
-        stats["disk_total_gb"] = round(disk_usage.total / (1024**3), 2)
+        stats["disk_total_gb"] = round(disk_usage.total / (1024 ** 3), 2)
         stats["disk_used_gb"] = round(disk_usage.used / (1024 ** 3), 2)
         stats["disk_free_gb"] = round(disk_usage.free / (1024 ** 3), 2)
     except Exception as e:
@@ -198,7 +222,8 @@ def _get_report_data() -> Dict[str, Any]:
         "version": data_layer.version,
         "description": os.environ.get("APP_DESCRIPTION", "-"),
         "configuration": getattr(data_layer.configuration, "configuration_dict", []),
-        "allowed_commands": [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if item] if os.environ.get("ALLOWED_COMMANDS", "") else []
+        "allowed_commands": [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if
+                             item] if os.environ.get("ALLOWED_COMMANDS", "") else []
     }
 
     # Get the new logs.
@@ -224,7 +249,8 @@ def process_tasks(task: dict[str, str | list]):
     :param task: The task to process.
     """
     command = task.get("command", None)
-    if command not in [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if item] if os.environ.get("ALLOWED_COMMANDS", "") else []:
+    if command not in [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if
+                       item] if os.environ.get("ALLOWED_COMMANDS", "") else []:
         logger.error("Received not permitted task with command: '{0}'.".format(command))
         return
 

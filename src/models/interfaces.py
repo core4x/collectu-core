@@ -112,3 +112,35 @@ class MothershipData:
         metadata=dict(description="The datetime of the last update.",
                       required=False),
         default_factory=lambda: datetime.now(timezone.utc))
+    hostname: str | None = field(
+        metadata=dict(description="The hostname.",
+                      required=False),
+        default=None)
+    os: str | None = field(
+        metadata=dict(description="The operating system.",
+                      required=False),
+        default=None)
+    cpu_count: int | None = field(
+        metadata=dict(description="The CPU count.",
+                      required=False),
+        default=None)
+    cpu_architecture: str | None = field(
+        metadata=dict(description="The CPU architecture.",
+                      required=False),
+        default=None)
+    python_version: str | None = field(
+        metadata=dict(description="The Python version.",
+                      required=False),
+        default=None)
+    disk_total_gb: float | None = field(
+        metadata=dict(description="The total disk space in GB.",
+                      required=False),
+        default=None)
+    disk_used_gb: float | None = field(
+        metadata=dict(description="The used disk space in GB.",
+                      required=False),
+        default=None)
+    disk_free_gb: float | None = field(
+        metadata=dict(description="The free disk space in GB.",
+                      required=False),
+        default=None)
