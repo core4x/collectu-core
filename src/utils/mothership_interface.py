@@ -176,11 +176,9 @@ def _get_system_stats() -> Dict[str, Any]:
         # Get disk usage for the current working directory path
         path = os.getcwd()
         disk_usage = shutil.disk_usage(path)
-        stats["disk"] = {
-            "total_gb": round(disk_usage.total / (1024**3), 2),
-            "used_gb": round(disk_usage.used / (1024**3), 2),
-            "free_gb": round(disk_usage.free / (1024**3), 2)
-        }
+        stats["disk_total_gb"] = round(disk_usage.total / (1024**3), 2)
+        stats["disk_used_gb"] = round(disk_usage.used / (1024 ** 3), 2)
+        stats["disk_free_gb"] = round(disk_usage.free / (1024 ** 3), 2)
     except Exception as e:
         logger.error("Could not get disk statistics: {0}".format(str(e)), exc_info=config.EXC_INFO)
     logger.info(stats)
