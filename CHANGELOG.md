@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.60.9 (2026-06-28)
+
+### Bug Fixes
+
+- Improved apps view.
+  ([`9d33691`](https://github.com/core4x/collectu-core/commit/9d336914fc1d0b605204be029a3d5cad19d710bc))
+
+- Improved apps view.
+  ([`3bfdcd0`](https://github.com/core4x/collectu-core/commit/3bfdcd046eb4eb1ad683e396714265ba13fe8603))
+
+
 ## v1.60.8 (2026-06-28)
 
 
