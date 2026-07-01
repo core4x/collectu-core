@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.61.0 (2026-07-01)
+
+### Features
+
+- Initial commit.
+  ([`9d6ab57`](https://github.com/core4x/collectu-core/commit/9d6ab57a1dedf26bfc4a6d318cd82bcfc9b24d1d))
+
+- Made metrics integration.
+  ([`5106bf6`](https://github.com/core4x/collectu-core/commit/5106bf6055d9eb341c435ca45083162de28343e3))
+
+- Made metrics integration.
+  ([`b509b85`](https://github.com/core4x/collectu-core/commit/b509b8587c868369d9fe43f42a657c7188b65cf7))
+
+
 ## v1.60.9 (2026-06-28)
 
 ### Bug Fixes
