@@ -458,7 +458,7 @@ class AbstractModule(ABC):
             metrics_registry.record_end_to_end(
                 source_id=source_id,
                 output_id=self.configuration.id,
-                seconds=pipeline_ts,
+                seconds=now - pipeline_ts,
             )
 
         with self._workers_lock:

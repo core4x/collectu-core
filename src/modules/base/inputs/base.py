@@ -43,6 +43,26 @@ class AbstractInputModule(AbstractModule):
             module_name=configuration.module_name,
         )
 
+    def _call_links(self, data: models.Data):
+        """
+        Records throughput, timing, and error metrics around a push cycle, then forwards to links.
+
+        InputModule implementations drive themselves via a custom start() loop instead of being
+        invoked through a metrics-instrumented run() like Tag/Processor/Output modules, so this is
+        the one common hook every InputModule passes through to record its own metrics.
+
+        :param data: The data object.
+        """
+        self._metrics.record_received()
+        t0 = time.monotonic()
+        try:
+            super()._call_links(data)
+            self._metrics.record_processing_time(time.monotonic() - t0)
+            self._metrics.record_processed()
+        except Exception:
+            self._metrics.record_error()
+            raise
+
 
 class AbstractVariableModule(AbstractModule):
     """
@@ -74,6 +94,26 @@ class AbstractVariableModule(AbstractModule):
             module_id=configuration.id,
             module_name=configuration.module_name,
         )
+
+    def _call_links(self, data: models.Data):
+        """
+        Records throughput, timing, and error metrics around a push cycle, then forwards to links.
+
+        VariableModule implementations drive themselves via a custom start() loop instead of being
+        invoked through a metrics-instrumented run() like Tag/Processor/Output modules, so this is
+        the one common hook every VariableModule passes through to record its own metrics.
+
+        :param data: The data object.
+        """
+        self._metrics.record_received()
+        t0 = time.monotonic()
+        try:
+            super()._call_links(data)
+            self._metrics.record_processing_time(time.monotonic() - t0)
+            self._metrics.record_processed()
+        except Exception:
+            self._metrics.record_error()
+            raise
 
 
 class AbstractTagModule(AbstractModule):

@@ -22,6 +22,7 @@ import config
 import data_layer
 import models
 from models.validations import ValidationError
+from metrics import metrics_registry
 import utils.hub_connection
 
 # Third party imports.
@@ -561,9 +562,10 @@ class Configuration:
     def restart(self):
         """
         Restart the current configuration.
-        The module_data is reset.
+        The module_data and metrics are reset.
         """
         self.stop()
+        metrics_registry.reset()
         self._start()
 
     def start_module(self, module_id: str = None, module_config: dict = None) -> dict[str, list[str]]:

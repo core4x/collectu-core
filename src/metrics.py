@@ -596,6 +596,19 @@ class MetricsRegistry:
                 )
             return self._modules[module_id]
 
+    def reset(self) -> None:
+        """
+        Discards all per-module and per-flow metrics collected so far.
+        Intended to be called when a configuration is (re)started, so metrics from a
+        previous run do not linger alongside the newly started modules. Thread-safe.
+
+        :returns: None.
+        """
+        with self._module_lock:
+            self._modules.clear()
+        with self._flow_lock:
+            self._flows.clear()
+
     def record_end_to_end(self, source_id: str, output_id: str, seconds: float) -> None:
         """
         Record one end-to-end latency sample for the flow identified by the
