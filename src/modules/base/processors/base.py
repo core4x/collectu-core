@@ -15,6 +15,7 @@ import config
 import models
 from modules.base.base import AbstractModule
 import utils.data_validation
+from metrics import metrics_registry, data_context_map
 
 
 class AbstractProcessorModule(AbstractModule):
@@ -53,6 +54,11 @@ class AbstractProcessorModule(AbstractModule):
         This has to be set before the execution of the start method."""
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
+        self._metrics = metrics_registry.register(
+            module_id=configuration.id,
+            module_name=configuration.module_name,
+            queue=self.queue if thread_safe else None,
+        )
 
     def _process_queue(self):
         """
@@ -71,17 +77,33 @@ class AbstractProcessorModule(AbstractModule):
             except queue.Empty:
                 time.sleep(0)
                 continue
+
+            ctx = data_context_map.get(data)
+            if ctx is not None and ctx.internal_ts is not None:
+                self._metrics.record_internal_wait(time.monotonic() - ctx.internal_ts)
+
             # Set the last received data for dynamic variables.
             self.current_input_data = data
             # We do not thread, since the output modules may not be thread safe.
             try:
+                t0 = time.monotonic()
+                original_data = data  # Keep old data object - required if _run() returns a new data object.
+
                 if not inspect.iscoroutinefunction(self._run):
                     data = self._run(data)
                 else:
                     data = AbstractModule._invoke_async(self._run, data)
+
+                self._metrics.record_processing_time(time.monotonic() - t0)
+                self._metrics.record_processed()
+
+                # Propagate context if _run() returned a new data object.
+                data_context_map.propagate(original_data, data)
+
                 # Call the subsequent links.
                 self._call_links(data)
             except Exception as e:
+                self._metrics.record_error()
                 self.logger.error("Something went wrong while executing processor module {0} ({1}): {2}"
                                   .format(self.configuration.module_name, self.configuration.id, str(e)),
                                   exc_info=config.EXC_INFO)
@@ -132,6 +154,11 @@ class AbstractProcessorModule(AbstractModule):
             if not self.active:
                 return
 
+            ctx = data_context_map.get(data)
+            if ctx is not None:
+                self._metrics.record_link_wait(time.monotonic() - ctx.link_ts)
+            self._metrics.record_received()
+
             # Set the current data object.
             self.current_input_data = data
             # Validate the field input data.
@@ -152,17 +179,29 @@ class AbstractProcessorModule(AbstractModule):
                                         "We have currently '{0}' elements in our queue to store."
                                         .format(str(self.queue.qsize())))
                 if self.queue.qsize() < config.STOP_LIMIT:
+                    # Stamp internal-queue entry time in the context (not on the data object).
+                    if ctx is not None:
+                        ctx.internal_ts = time.monotonic()
                     # Queue the data to be stored.
                     self.queue.put(data)
             else:
-                # Execute the actual module.
+                # Non-thread-safe: run synchronously on the calling thread.
+                t0 = time.monotonic()
+                original_data = data
                 if not inspect.iscoroutinefunction(self._run):
                     data = self._run(data)
                 else:
                     data = AbstractModule._invoke_async(self._run, data)
+                self._metrics.record_processing_time(time.monotonic() - t0)
+                self._metrics.record_processed()
+
+                # Propagate context if _run() returned a new data object.
+                data_context_map.propagate(original_data, data)
+
                 # Call the subsequent links.
                 self._call_links(data)
         except Exception as e:
+            self._metrics.record_error()
             self.logger.error("Something went wrong while executing processor module {0} ({1}): {2}"
                               .format(self.configuration.module_name, self.configuration.id, str(e)),
                               exc_info=config.EXC_INFO)

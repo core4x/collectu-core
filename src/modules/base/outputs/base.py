@@ -16,6 +16,7 @@ import data_layer
 import models
 import utils.data_validation
 from modules.base.base import AbstractModule
+from metrics import metrics_registry, data_context_map
 
 
 class AbstractOutputModule(AbstractModule):
@@ -53,6 +54,11 @@ class AbstractOutputModule(AbstractModule):
         """The currently received data object. Used for replacing dynamic variables with local data."""
         self._first_execution: bool = True
         """If the module was called by its first link, this is set to false."""
+        self._metrics = metrics_registry.register(
+            module_id=configuration.id,
+            module_name=configuration.module_name,
+            queue=self.queue,
+        )
 
     def _validate_data(self, data: models.Data):
         """
@@ -103,6 +109,12 @@ class AbstractOutputModule(AbstractModule):
                 threading.Thread(target=self._process_queue,
                                  daemon=False,
                                  name="Queue_Worker_{0}".format(self.configuration.id)).start()
+
+            ctx = data_context_map.get(data)
+            if ctx is not None:
+                self._metrics.record_link_wait(time.monotonic() - ctx.link_ts)
+            self._metrics.record_received()
+
             if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
                 self.logger.error("You are probably trying to store more data then we can process. "
                                   "We have currently '{0}' elements in our queue to store."
@@ -123,6 +135,9 @@ class AbstractOutputModule(AbstractModule):
             self._validate_data(data=data)
 
             if self.queue.qsize() < config.STOP_LIMIT:
+                # Stamp internal-queue entry time into the context - not onto data.
+                if ctx is not None:
+                    ctx.internal_ts = time.monotonic()
                 # Queue the data to be stored.
                 self.queue.put(data)
             else:
@@ -130,9 +145,11 @@ class AbstractOutputModule(AbstractModule):
                 # If no buffer is configured, the data is lost.
                 buffered = self._buffer(data=data, invalid=False)
                 if not buffered:
+                    self._metrics.record_drop()
                     self.logger.error("Could not store data because the queue size exceeded the stop limit "
                                       "and no buffer is configured.")
         except Exception as e:
+            self._metrics.record_error()
             self.logger.error("Could not store data in queue: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
 
@@ -160,14 +177,31 @@ class AbstractOutputModule(AbstractModule):
                     continue
             else:
                 time.sleep(0)
+
+            ctx = data_context_map.get(data)
+            if ctx is not None and ctx.internal_ts is not None:
+                self._metrics.record_internal_wait(time.monotonic() - ctx.internal_ts)
+
             # Set the last received data for dynamic variables.
             self.current_input_data = data
             try:
+                t0 = time.monotonic()
                 if not inspect.iscoroutinefunction(self._run):
                     data = self._run(data)
                 else:
                     data = AbstractModule._invoke_async(self._run, data)
+                elapsed = time.monotonic() - t0
+                self._metrics.record_processing_time(elapsed)
+                self._metrics.record_processed()
+
+                if ctx is not None:
+                    metrics_registry.record_end_to_end(
+                        source_id=ctx.source_id,
+                        output_id=self.configuration.id,
+                        seconds=time.monotonic() - ctx.pipeline_ts,
+                    )
             except Exception as e:
+                self._metrics.record_error()
                 self.logger.error("Something went wrong while executing output module {0} ({1}): {2}"
                                   .format(self.configuration.module_name, self.configuration.id, str(e)),
                                   exc_info=config.EXC_INFO)

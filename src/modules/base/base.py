@@ -20,6 +20,7 @@ import config
 import data_layer
 import models
 import utils.plugin_interface
+from metrics import data_context_map, _DataContext, metrics_registry
 
 
 class DynamicVariableException(Exception):
@@ -38,9 +39,9 @@ class ModuleWorker:
     :param module_id: The id of the linked module.
     :param logger: The logger instance of the parent module.
     :param forward_latest_data_only: If True, only the most recent submitted data object is kept.
-    Any pending data is overwritten by newer arrivals.
-    Use for high-frequency sensors where backlog processing is meaningless.
-    If False (default), all data objects are queued and processed in order.
+        Any pending data is overwritten by newer arrivals.
+        Use for high-frequency sensors where backlog processing is meaningless.
+        If False (default), all data objects are queued and processed in order.
     """
 
     def __init__(
@@ -271,9 +272,9 @@ class AbstractModule(ABC):
             # Import the required third party packages.
             self.import_third_party_requirements()
         except ImportError as e:
-                self.logger.critical("Could not import required packages: {0}. Please try to install '{1}'."
-                                     .format(str(e), ', '.join(map(str, self.third_party_requirements))))
-                raise
+            self.logger.critical("Could not import required packages: {0}. Please try to install '{1}'."
+                                 .format(str(e), ', '.join(map(str, self.third_party_requirements))))
+            raise
         self.active: bool = self.configuration.active
         """Is the module currently active.
         Not the same as self.configuration.active, which represents the general state!"""
@@ -434,15 +435,31 @@ class AbstractModule(ABC):
         if not data.measurement.strip():
             return
 
-        config_id = self.configuration.id
-        module_entry = data_layer.module_data.get(config_id)
+        # Retrieve existing context (set by a previous _call_links hop) or establish this as the flow origin.
+        now = time.monotonic()
+        existing_ctx = data_context_map.get(data)
+        pipeline_ts = existing_ctx.pipeline_ts if existing_ctx else now
+        source_id = existing_ctx.source_id if existing_ctx else self.configuration.id
+        visited = existing_ctx.visited if existing_ctx else frozenset()
+
+        module_entry = data_layer.module_data.get(self.configuration.id)
         if module_entry is None:
-            self.logger.error(f"Could not find module '{config_id}' in data layer.")
+            self.logger.error(f"Could not find module '{self.configuration.id}' in data layer.")
         else:
             module_entry.latest_data = data
 
         current_links = set(getattr(self.configuration, "links", []))
         worker_count = getattr(self.configuration, "worker_count_per_link", 1)
+
+        remaining = current_links - visited
+        if not remaining:
+            # No unvisited link remains - true sink, or every link loops back into an already-visited module.
+            # Either way, this is the end of this branch of the flow.
+            metrics_registry.record_end_to_end(
+                source_id=source_id,
+                output_id=self.configuration.id,
+                seconds=pipeline_ts,
+            )
 
         with self._workers_lock:
             existing = set(self._workers.keys())
@@ -482,6 +499,16 @@ class AbstractModule(ABC):
         for module_id, worker_list in workers_snapshot:
             data_copy = copy.deepcopy(data)
 
+            # Store context for the copy with a fresh link_ts for this specific link.
+            # pipeline_ts and source_id are inherited from the flow origin;
+            # visited now includes this module, so the next hop's _call_links can detect if it's closing a loop.
+            data_context_map.set(data_copy, _DataContext(
+                pipeline_ts=pipeline_ts,
+                source_id=source_id,
+                link_ts=time.monotonic(),  # stamped after copy, per link.
+                visited=visited | {self.configuration.id},
+            ))
+
             if worker_count == 0:
                 # Spawn mode: each call gets its own thread.
                 try:
@@ -490,7 +517,7 @@ class AbstractModule(ABC):
                         threading.Thread(
                             target=linked.instance.run,
                             args=(data_copy,),
-                            name=f"Link_{config_id}_to_{module_id}",
+                            name=f"Link_{self.configuration.id}_to_{module_id}",
                             daemon=True).start()
                 except KeyError as e:
                     self.logger.error("Could not find linked module '{0}' in the module data.".format(module_id))
