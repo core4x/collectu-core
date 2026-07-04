@@ -3,7 +3,7 @@ The mothership functionality provides an interface to other apps,
 which allow to check the current status or remote control of this app.
 """
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 import json
 from threading import Thread
 from datetime import datetime, timezone
@@ -210,26 +210,40 @@ def _get_system_stats() -> Dict[str, Any]:
     return stats
 
 
-def _get_report_data() -> Dict[str, Any]:
+def _get_report_data(last_log_time: Optional[datetime] = None,
+                     last_configuration: Optional[str] = None) -> Tuple[Dict[str, Any], Optional[datetime], str]:
     """
     Create the data to be sent to the motherships.
 
-    :return: A dictionary containing the
+    Only logs newer than last_log_time are included, and the configuration is only included
+    if it differs from last_configuration. The caller has to store the returned tracking values
+    after a successful sending, so failed reports are retried with the complete data.
+
+    :param last_log_time: The timestamp of the newest log already sent to this mothership.
+    :param last_configuration: The serialized configuration last sent to this mothership.
+    :return: A tuple containing the report data, the timestamp of the newest included log
+             (or last_log_time if no new logs exist), and the serialized current configuration.
     """
-    # We always have to send the complete information, since we do not know if the mothership has restarted.
     mothership_data = {
         # Determine the status of the app (check if modules are configured).
         "status": "running" if len(data_layer.module_data) > 0 else "inactive",
         "version": data_layer.version,
         "description": os.environ.get("APP_DESCRIPTION", "-"),
-        "configuration": getattr(data_layer.configuration, "configuration_dict", []),
         "allowed_commands": [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if
                              item] if os.environ.get("ALLOWED_COMMANDS", "") else []
     }
 
-    # Get the new logs.
+    # Only send the configuration if it changed since the last successful report.
+    configuration = json.dumps(getattr(data_layer.configuration, "configuration_dict", []), default=str)
+    if configuration != last_configuration:
+        mothership_data["configuration"] = json.loads(configuration)
+
+    # Get the new logs (the ones not already sent to this mothership).
     simplified_logs = []
+    newest_log_time = last_log_time
     for log in data_layer.latest_logs.copy():
+        if last_log_time is not None and log.time <= last_log_time:
+            continue
         # Create the simplified log data object.
         simplified_log = models.Log(level=log.fields.get("level"),
                                     message=log.fields.get("message"),
@@ -237,10 +251,12 @@ def _get_report_data() -> Dict[str, Any]:
                                     name=log.fields.get("name"),
                                     time=log.time.isoformat())
         simplified_logs.append(simplified_log.__dict__)
+        if newest_log_time is None or log.time > newest_log_time:
+            newest_log_time = log.time
 
     mothership_data["latest_logs"] = simplified_logs
     mothership_data.update(_get_system_stats())
-    return mothership_data
+    return mothership_data, newest_log_time, configuration
 
 
 def process_tasks(task: dict[str, str | list]):
@@ -293,6 +309,8 @@ def _report_hub():
     start_time = datetime.now()
     logged_in = False
     session = utils.resilient_session.create_resilient_session()
+    last_log_time: Optional[datetime] = None
+    last_configuration: Optional[str] = None
 
     while data_layer.running:
         if not logged_in:
@@ -327,12 +345,15 @@ def _report_hub():
                 logged_in = False
         if logged_in:
             try:
-                json_data = _get_report_data()
+                json_data, newest_log_time, sent_configuration = _get_report_data(last_log_time, last_configuration)
                 json_data["app_id"] = os.environ.get("APP_ID")
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
                                         timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                         json=json.loads(json.dumps(json_data, default=str)))
                 response.raise_for_status()
+                # Only remember what was sent after a successful report, so failures are retried.
+                last_log_time = newest_log_time
+                last_configuration = sent_configuration
             except Exception as e:
                 logged_in = False
                 send = False
@@ -456,15 +477,20 @@ def _report(mothership: str):
     start_time = datetime.now()
     session = utils.resilient_session.create_resilient_session()
     session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
+    last_log_time: Optional[datetime] = None
+    last_configuration: Optional[str] = None
 
     while data_layer.running and session:
         try:
-            json_data = _get_report_data()
+            json_data, newest_log_time, sent_configuration = _get_report_data(last_log_time, last_configuration)
             json_data["app_id"] = os.environ.get("APP_ID")
             response = session.post(url=f"{mothership}/api/v1/app",
                                     timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                     json=json_data)
             response.raise_for_status()
+            # Only remember what was sent after a successful report, so failures are retried.
+            last_log_time = newest_log_time
+            last_configuration = sent_configuration
         except Exception as e:
             send = False
             if mothership in data_layer.last_mothership_sending_error_log:
