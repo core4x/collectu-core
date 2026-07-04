@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.62.0 (2026-07-04)
+
+### Bug Fixes
+
+- Fixed conversion to float of env var from ACCESS_TOKEN_EXPIRE_HOURS.
+  ([`2ab7c66`](https://github.com/core4x/collectu-core/commit/2ab7c664a394a989d26fc3594363bb82e2a10a09))
+
+### Features
+
+- Added auto-download feature for modules locally not available during loading of configuration from
+  hub.
+  ([`c52fd7b`](https://github.com/core4x/collectu-core/commit/c52fd7b401fa523a340ff0b74df63732c3822cff))
+
+- Apps now submit only changes in logs/configuration.
+  ([`48bb0f7`](https://github.com/core4x/collectu-core/commit/48bb0f763bdf02f564765e18354501f5caac1ead))
+
+
 ## v1.61.0 (2026-07-01)
 
 ### Features
