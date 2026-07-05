@@ -16,6 +16,7 @@ import shutil
 # Internal imports.
 import config
 import data_layer
+import metrics
 import models
 import utils.updater
 import utils.plugin_interface
@@ -65,7 +66,11 @@ class DatabaseWorker:
                 python_version=app.get("python_version"),
                 disk_total_gb=app.get("disk_total_gb"),
                 disk_used_gb=app.get("disk_used_gb"),
-                disk_free_gb=app.get("disk_free_gb"))
+                disk_free_gb=app.get("disk_free_gb"),
+                processed_per_min_min=app.get("processed_per_min_min"),
+                processed_per_min_max=app.get("processed_per_min_max"),
+                processed_per_min_avg=app.get("processed_per_min_avg"),
+                module_count=app.get("module_count"))
 
         Thread(target=self._checker,
                daemon=False,
@@ -101,7 +106,11 @@ class DatabaseWorker:
                                     "python_version": mothership_data.python_version,
                                     "disk_total_gb": mothership_data.disk_total_gb,
                                     "disk_used_gb": mothership_data.disk_used_gb,
-                                    "disk_free_gb": mothership_data.disk_free_gb}
+                                    "disk_free_gb": mothership_data.disk_free_gb,
+                                    "processed_per_min_min": mothership_data.processed_per_min_min,
+                                    "processed_per_min_max": mothership_data.processed_per_min_max,
+                                    "processed_per_min_avg": mothership_data.processed_per_min_avg,
+                                    "module_count": mothership_data.module_count}
                             if tinydb:
                                 self.db.update(data, tinydb.where('id') == app_id)
                             else:
@@ -119,7 +128,11 @@ class DatabaseWorker:
                                 "python_version": mothership_data.python_version,
                                 "disk_total_gb": mothership_data.disk_total_gb,
                                 "disk_used_gb": mothership_data.disk_used_gb,
-                                "disk_free_gb": mothership_data.disk_free_gb}
+                                "disk_free_gb": mothership_data.disk_free_gb,
+                                "processed_per_min_min": mothership_data.processed_per_min_min,
+                                "processed_per_min_max": mothership_data.processed_per_min_max,
+                                "processed_per_min_avg": mothership_data.processed_per_min_avg,
+                                "module_count": mothership_data.module_count}
                         if tinydb:
                             self.db.insert(data)
                         else:
@@ -255,6 +268,7 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
             newest_log_time = log.time
 
     mothership_data["latest_logs"] = simplified_logs
+    mothership_data.update(metrics.metrics_registry.overall_performance())
     mothership_data.update(_get_system_stats())
     return mothership_data, newest_log_time, configuration
 

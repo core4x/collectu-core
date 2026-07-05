@@ -628,6 +628,38 @@ class MetricsRegistry:
         # Record outside the lock - _CircularStats is internally thread-safe.
         self._flows[key].record(seconds)
 
+    def overall_performance(self) -> dict:
+        """
+        Overall performance KPI across all registered modules.
+
+        For every module, the processed rate over the last 60 seconds is
+        extrapolated to data objects per minute; min, max, and average are
+        then taken across all modules. All values are `None` while no
+        modules are registered, so downstream consumers don't need to
+        special-case an empty pipeline.
+
+        :returns: A flat dict with `processed_per_min_min`,
+            `processed_per_min_max`, `processed_per_min_avg`, and the
+            `module_count` the KPI was computed over.
+        """
+        with self._module_lock:
+            modules = list(self._modules.values())
+
+        rates = [m._processed.rate(60) * 60.0 for m in modules]
+        if not rates:
+            return {
+                "processed_per_min_min": None,
+                "processed_per_min_max": None,
+                "processed_per_min_avg": None,
+                "module_count": 0,
+            }
+        return {
+            "processed_per_min_min": round(min(rates), 2),
+            "processed_per_min_max": round(max(rates), 2),
+            "processed_per_min_avg": round(statistics.mean(rates), 2),
+            "module_count": len(rates),
+        }
+
     def snapshot(self) -> dict:
         """
         Full JSON-serializable snapshot of all per-module and per-flow metrics.

@@ -144,3 +144,19 @@ class MothershipData:
         metadata=dict(description="The free disk space in GB.",
                       required=False),
         default=None)
+    processed_per_min_min: float | None = field(
+        metadata=dict(description="The minimum data objects processed per minute across all modules.",
+                      required=False),
+        default=None)
+    processed_per_min_max: float | None = field(
+        metadata=dict(description="The maximum data objects processed per minute across all modules.",
+                      required=False),
+        default=None)
+    processed_per_min_avg: float | None = field(
+        metadata=dict(description="The average data objects processed per minute across all modules.",
+                      required=False),
+        default=None)
+    module_count: int | None = field(
+        metadata=dict(description="The number of modules the performance KPI was computed over.",
+                      required=False),
+        default=None)
