@@ -23,9 +23,6 @@ import utils.plugin_interface
 import utils.security
 import utils.resilient_session
 
-# Third party imports.
-import requests
-
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
