@@ -122,6 +122,8 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
     :param session: The optional session instance with authorization header.
     :return: True if the import was successful, False otherwise.
     """
+    # Remove invisible characters (e.g. zero-width spaces from copy-pasted module names) and surrounding whitespace.
+    module_name = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", module_name).strip()
     module_name = module_name.removesuffix(".variable").removesuffix(".tag")
     logger.info("Trying to download {0} with version {1} from {2}."
                 .format(module_name, version, config.HUB_MODULES_ADDRESS))

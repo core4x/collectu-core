@@ -153,6 +153,13 @@ def start(logger: logging.Logger):
         # ===========================
         # CONSOLE LOGGING
         # ===========================
+        # On Windows the console stream may use a legacy encoding (e.g. cp1252) that cannot represent
+        # all characters appearing in log messages. Replace unencodable characters instead of raising.
+        if hasattr(sys.stdout, "reconfigure"):
+            try:
+                sys.stdout.reconfigure(errors="backslashreplace")
+            except (ValueError, OSError):
+                pass
         console_logging = logging.StreamHandler(sys.stdout)
         console_logging.addFilter(TracebackInfoFilter())
         if config.DEBUG:
