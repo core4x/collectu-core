@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.64.2 (2026-07-10)
+
+### Bug Fixes
+
+- Handle invisible characters in copy-pasted module names.
+  ([`3f50436`](https://github.com/core4x/collectu-core/commit/3f5043688cc90493b89fc10bd5deff95a815c032))
+
+### Documentation
+
+- Removed unnecessary import and added description for import.
+  ([`68dad6c`](https://github.com/core4x/collectu-core/commit/68dad6c581252615e1a573a0454a652d6319de5d))
+
+
 ## v1.64.1 (2026-07-05)
 
 
