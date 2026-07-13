@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.65.0 (2026-07-13)
+
+### Features
+
+- Added dashboard logic for a new chat dashboard module.
+  ([`6bd616a`](https://github.com/core4x/collectu-core/commit/6bd616a5a28771daa678fef5031653cbb12ec3cb))
+
+
 ## v1.64.2 (2026-07-10)
 
 ### Bug Fixes
