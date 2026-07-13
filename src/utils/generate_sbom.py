@@ -1,17 +1,18 @@
 """
-generate_sbom.py – CycloneDX 1.4 SBOM generator for collectu-core.
+generate_sbom.py – CycloneDX 1.7 SBOM generator for collectu-core.
 
 Reads all requirements files, fetches metadata from PyPI and checks
-known vulnerabilities via the OSV API, then writes a CycloneDX 1.4
+known vulnerabilities via the OSV API, then writes a CycloneDX 1.7
 JSON SBOM to collectu-core-sbom.cdx.json.
 
 Usage:
     python generate_sbom.py [--output <path>] [--no-vuln-check]
 
-Dependencies: none (stdlib only – urllib, json, uuid, datetime, pathlib)
+Dependencies: none (stdlib only – urllib, json, math, uuid, datetime, pathlib)
 """
 import argparse
 import json
+import math
 import re
 import sys
 import urllib.error
@@ -19,6 +20,9 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+CYCLONEDX_SPEC_VERSION = "1.7"
+CYCLONEDX_SCHEMA = "http://cyclonedx.org/schema/bom-1.7.schema.json"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -174,40 +178,209 @@ def build_component(pkg: dict, meta: dict, index: int) -> dict:
     return comp
 
 
-def build_vulnerability(vuln: dict, bom_ref: str) -> dict:
+# ─────────────────────────────────────────────────────────────────────────────
+# CVSS scoring (stdlib only)
+#
+# OSV reports the CVSS *vector* string in the "score" field of a severity entry.
+# CycloneDX requires ratings[].score to be a *number* and ratings[].method to be
+# one of a fixed enum, with the vector string living in ratings[].vector. These
+# helpers turn an OSV severity entry into a schema-valid rating object.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CVSS3_AV = {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2}
+_CVSS3_AC = {"L": 0.77, "H": 0.44}
+_CVSS3_UI = {"N": 0.85, "R": 0.62}
+_CVSS3_PR_U = {"N": 0.85, "L": 0.62, "H": 0.27}   # scope unchanged
+_CVSS3_PR_C = {"N": 0.85, "L": 0.68, "H": 0.5}    # scope changed
+_CVSS3_CIA = {"H": 0.56, "L": 0.22, "N": 0.0}
+
+_CVSS2_AV = {"L": 0.395, "A": 0.646, "N": 1.0}
+_CVSS2_AC = {"H": 0.35, "M": 0.61, "L": 0.71}
+_CVSS2_AU = {"M": 0.45, "S": 0.56, "N": 0.704}
+_CVSS2_CIA = {"N": 0.0, "P": 0.275, "C": 0.660}
+
+
+def _parse_cvss_vector(vector: str) -> dict:
+    """Split a CVSS vector string into a {metric: value} mapping."""
+    metrics = {}
+    for part in vector.split("/"):
+        key, sep, value = part.partition(":")
+        if sep:
+            metrics[key.strip()] = value.strip()
+    return metrics
+
+
+def _roundup_31(value: float) -> float:
+    """Official CVSS v3.1 Roundup (one decimal place)."""
+    int_input = int(round(value * 100000))
+    if int_input % 10000 == 0:
+        return int_input / 100000.0
+    return (math.floor(int_input / 10000) + 1) / 10.0
+
+
+def _score_cvss3(metrics: dict, minor: str) -> float:
+    """Compute the CVSS v3.0/v3.1 base score from a parsed vector."""
+    scope_changed = metrics.get("S") == "C"
+    av = _CVSS3_AV[metrics["AV"]]
+    ac = _CVSS3_AC[metrics["AC"]]
+    ui = _CVSS3_UI[metrics["UI"]]
+    pr = (_CVSS3_PR_C if scope_changed else _CVSS3_PR_U)[metrics["PR"]]
+    iss = 1 - (1 - _CVSS3_CIA[metrics["C"]]) * (1 - _CVSS3_CIA[metrics["I"]]) * (1 - _CVSS3_CIA[metrics["A"]])
+    if scope_changed:
+        impact = 7.52 * (iss - 0.029) - 3.25 * (iss - 0.02) ** 15
+    else:
+        impact = 6.42 * iss
+    if impact <= 0:
+        return 0.0
+    exploitability = 8.22 * av * ac * pr * ui
+    base = 1.08 * (impact + exploitability) if scope_changed else (impact + exploitability)
+    base = min(base, 10.0)
+    if minor == "3.0":
+        return math.ceil(base * 10) / 10.0
+    return _roundup_31(base)
+
+
+def _score_cvss2(metrics: dict) -> float:
+    """Compute the CVSS v2 base score from a parsed vector."""
+    impact = 10.41 * (1 - (1 - _CVSS2_CIA[metrics["C"]]) *
+                          (1 - _CVSS2_CIA[metrics["I"]]) *
+                          (1 - _CVSS2_CIA[metrics["A"]]))
+    exploitability = 20 * _CVSS2_AV[metrics["AV"]] * _CVSS2_AC[metrics["AC"]] * _CVSS2_AU[metrics["Au"]]
+    f_impact = 0.0 if impact == 0 else 1.176
+    return round(((0.6 * impact) + (0.4 * exploitability) - 1.5) * f_impact, 1)
+
+
+def _severity_v3(score: float) -> str:
+    if score == 0:
+        return "none"
+    if score < 4.0:
+        return "low"
+    if score < 7.0:
+        return "medium"
+    if score < 9.0:
+        return "high"
+    return "critical"
+
+
+def _severity_v2(score: float) -> str:
+    if score < 4.0:
+        return "low"
+    if score < 7.0:
+        return "medium"
+    return "high"
+
+
+def build_rating(sev: dict) -> dict | None:
+    """
+    Turn an OSV severity entry into a schema-valid CycloneDX rating.
+
+    OSV puts the CVSS vector in sev["score"]; we route it to "vector" and,
+    where possible, compute a numeric "score" and qualitative "severity".
+    """
+    osv_type = sev.get("type", "")
+    vector = sev.get("score", "")
+    if not vector:
+        return None
+
+    rating: dict = {"source": {"name": "OSV"}, "vector": vector}
+    metrics = _parse_cvss_vector(vector)
+    try:
+        if osv_type == "CVSS_V2":
+            rating["method"] = "CVSSv2"
+            score = _score_cvss2(metrics)
+            rating["score"] = score
+            rating["severity"] = _severity_v2(score)
+        elif osv_type == "CVSS_V3":
+            minor = metrics.get("CVSS", "3.1")
+            rating["method"] = "CVSSv31" if minor == "3.1" else "CVSSv3"
+            score = _score_cvss3(metrics, minor)
+            rating["score"] = score
+            rating["severity"] = _severity_v3(score)
+        elif osv_type == "CVSS_V4":
+            # No stdlib-only CVSS v4 calculator; keep the vector + method only.
+            rating["method"] = "CVSSv4"
+        else:
+            rating["method"] = "other"
+    except (KeyError, ValueError):
+        # Malformed / incomplete vector: keep vector + method, drop numeric score.
+        rating.pop("score", None)
+        rating.pop("severity", None)
+        rating.setdefault("method", "other")
+    return rating
+
+
+def build_vulnerability(vuln: dict, bom_ref: str) -> tuple[str, dict]:
     """
     Map an OSV vuln to a CycloneDX vulnerability object.
+
+    Returns (vid, vulnerability) where ``vid`` is the de-duplication key
+    (the CVE id when available, otherwise the OSV id).
     """
     aliases = vuln.get("aliases", [])
+    osv_id = vuln.get("id", "")
     cve_id = next((a for a in aliases if a.startswith("CVE-")), None)
-    vid = cve_id or vuln.get("id", "UNKNOWN")
+    vid = cve_id or osv_id or "UNKNOWN"
 
     ratings = []
     for sev in vuln.get("severity", []):
-        score_type = sev.get("type", "")
-        score_val = sev.get("score", "")
-        if score_type and score_val:
-            ratings.append({"method": score_type, "score": score_val})
+        rating = build_rating(sev)
+        if rating:
+            ratings.append(rating)
+
+    # Every identifier except the primary vid becomes a related reference.
+    ref_ids: list[str] = []
+    for ident in [osv_id, *aliases]:
+        if ident and ident != vid and ident not in ref_ids:
+            ref_ids.append(ident)
 
     result: dict = {
         "bom-ref": f"vuln-{vid}",
         "id": vid,
-        "source": {"name": "OSV", "url": f"https://osv.dev/vulnerability/{vuln.get('id', '')}"},
+        "source": {"name": "OSV", "url": f"https://osv.dev/vulnerability/{osv_id}"},
         "affects": [{"ref": bom_ref}],
     }
-    if aliases:
-        result["references"] = [{"id": a, "source": {"name": "OSV"}} for a in aliases]
+    if ref_ids:
+        result["references"] = [{"id": r, "source": {"name": "OSV"}} for r in ref_ids]
     if ratings:
         result["ratings"] = ratings
     if vuln.get("summary"):
         result["description"] = vuln["summary"]
+    if vuln.get("published"):
+        result["published"] = vuln["published"]
     if vuln.get("modified"):
         result["updated"] = vuln["modified"]
-    return result
+    return vid, result
+
+
+def merge_vulnerability(existing: dict, new: dict) -> None:
+    """
+    Merge a duplicate vulnerability (same vid) into an existing entry so that
+    each CVE appears once with a unique bom-ref, unioning affects & references.
+    """
+    existing_refs = {a["ref"] for a in existing["affects"]}
+    for affected in new.get("affects", []):
+        if affected["ref"] not in existing_refs:
+            existing["affects"].append(affected)
+            existing_refs.add(affected["ref"])
+
+    references = existing.get("references", [])
+    seen_ids = {r["id"] for r in references}
+    for ref in new.get("references", []):
+        if ref["id"] not in seen_ids:
+            references.append(ref)
+            seen_ids.add(ref["id"])
+    # Also fold in the other record's own OSV id (from its source URL).
+    if references:
+        existing["references"] = references
+
+    if "ratings" not in existing and "ratings" in new:
+        existing["ratings"] = new["ratings"]
+    if new.get("updated") and new["updated"] > existing.get("updated", ""):
+        existing["updated"] = new["updated"]
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate CycloneDX 1.4 SBOM for collectu-core.")
+    parser = argparse.ArgumentParser(description="Generate CycloneDX 1.7 SBOM for collectu-core.")
     parser.add_argument("--output", default=str(SCRIPT_DIR / "collectu-core-sbom.cdx.json"),
                         help="Output file path (default: collectu-core-sbom.cdx.json)")
     parser.add_argument("--no-vuln-check", action="store_true",
@@ -233,9 +406,12 @@ def main():
     print(f"\nTotal unique packages: {len(all_packages)}")
 
     # 2. Fetch metadata & build components
-    print("\nFetching metadata from PyPI …")
+    print("\nFetching metadata from PyPI ...")
     components: list[dict] = []
-    vulnerabilities: list[dict] = []
+    # Keyed by vid (CVE id when available) so each vulnerability appears once
+    # with a unique bom-ref; duplicates from OSV aliases are merged.
+    vuln_map: dict[str, dict] = {}
+    advisory_count = 0  # raw OSV advisories, before de-duplication by CVE
 
     # Docker base image component
     components.append({
@@ -256,7 +432,7 @@ def main():
     for i, pkg in enumerate(all_packages):
         name = pkg["name"]
         version = pkg["version"]
-        print(f"  [{i+1}/{len(all_packages)}] {name}=={version} … ", end="", flush=True)
+        print(f"  [{i+1}/{len(all_packages)}] {name}=={version} ... ", end="", flush=True)
 
         meta = fetch_pypi(name, version)
         comp = build_component(pkg, meta, i)
@@ -264,34 +440,45 @@ def main():
 
         if not args.no_vuln_check:
             vulns = fetch_osv(name, version)
+            advisory_count += len(vulns)
             for v in vulns:
-                vulnerabilities.append(build_vulnerability(v, comp["bom-ref"]))
-            status = f"OK  ({len(vulns)} vuln{'s' if len(vulns) != 1 else ''})"
+                vid, vobj = build_vulnerability(v, comp["bom-ref"])
+                if vid in vuln_map:
+                    merge_vulnerability(vuln_map[vid], vobj)
+                else:
+                    vuln_map[vid] = vobj
+            status = f"OK  ({len(vulns)} advisor{'ies' if len(vulns) != 1 else 'y'})"
         else:
             status = "OK  (vuln check skipped)"
 
         print(status)
 
+    vulnerabilities: list[dict] = list(vuln_map.values())
+
     # 3. Build CycloneDX document
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     sbom = {
+        "$schema": CYCLONEDX_SCHEMA,
         "bomFormat": "CycloneDX",
-        "specVersion": "1.4",
+        "specVersion": CYCLONEDX_SPEC_VERSION,
         "version": 1,
         "serialNumber": f"urn:uuid:{uuid.uuid4()}",
         "metadata": {
             "timestamp": now,
-            "tools": [
-                {
-                    "vendor": "Collectu GmbH",
-                    "name": "generate_sbom.py",
-                    "version": "1.0.0",
-                    "externalReferences": [
-                        {"type": "vcs", "url": COMPONENT_HOMEPAGE},
-                    ],
-                }
-            ],
+            "tools": {
+                "components": [
+                    {
+                        "type": "application",
+                        "name": "generate_sbom.py",
+                        "version": "1.1.0",
+                        "publisher": COMPONENT_AUTHOR,
+                        "externalReferences": [
+                            {"type": "vcs", "url": COMPONENT_HOMEPAGE},
+                        ],
+                    }
+                ]
+            },
             "authors": [{"name": COMPONENT_AUTHOR}],
             "component": {
                 "type": "application",
@@ -325,7 +512,9 @@ def main():
     print(f"  Components:      {comp_count}  ({comp_count - 1} Python packages + 1 base image)")
     if not args.no_vuln_check:
         if vuln_count:
-            print(f"  Vulnerabilities: {vuln_count}  ← review recommended!")
+            merged = advisory_count - vuln_count
+            note = f" ({advisory_count} advisories, {merged} merged by CVE)" if merged else ""
+            print(f"  Vulnerabilities: {vuln_count}{note}  <- review recommended!")
         else:
             print(f"  Vulnerabilities: {vuln_count}  (none found)")
     print("=" * 60)
