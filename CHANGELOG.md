@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.66.1 (2026-07-16)
+
+### Bug Fixes
+
+- Go back to Python3.13 instead of Python3.14 since a lot of modules and third-party packages
+  currently do not support 3.14.
+  ([`7079a18`](https://github.com/core4x/collectu-core/commit/7079a18072877d55bfb0c568039a2c850ae7b057))
+
+
 ## v1.66.0 (2026-07-13)
 
 
