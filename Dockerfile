@@ -1,4 +1,4 @@
-FROM python:3.14.3
+FROM python:3.13.14
 
 # gosu sets up the user environment and then executes (replaces itself with) the Python process.
 # Your Python app becomes PID 1. When Docker sends a shutdown signal, it goes directly to Python.
