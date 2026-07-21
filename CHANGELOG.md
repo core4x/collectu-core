@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.66.2 (2026-07-21)
+
+### Bug Fixes
+
+- Refactored ai assistant and added stream support to api. Also fixed download and unpacking of
+  non-existing modules.
+  ([`44d0895`](https://github.com/core4x/collectu-core/commit/44d089536214f5f473a1e3de405d948c9de2f94f))
+
+
 ## v1.66.1 (2026-07-16)
 
 ### Bug Fixes
