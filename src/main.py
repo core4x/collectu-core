@@ -25,11 +25,6 @@ def exit_handler():
     Note: The exit function is not called when the program is killed by a signal,
     when a Python fatal internal error is detected, or when os._exit() is called.
     """
-    # Stop frontend.
-    if data_layer.frontend_process:
-        logger.info("Stopping frontend process...")
-        data_layer.frontend_process.terminate()
-        data_layer.frontend_process.join()
     logger.info("Thank you for using {0}!".format(config.APP_NAME))
 
 
@@ -100,18 +95,9 @@ if __name__ == "__main__":
         elif bool(int(os.environ.get('MCP', '0'))):
             logger.error("In order to use the mcp, enable the api.")
 
-        if bool(int(os.environ.get('FRONTEND', '1'))):
-            if not bool(int(os.environ.get('API', '1'))):
-                logger.error("In order to use the frontend, enable the api.")
-            else:
-                try:
-                    import interface.frontend_v1.app
-
-                    # Start the frontend.
-                    data_layer.frontend_process = interface.frontend_v1.app.start()
-                except Exception as e:
-                    logger.error("Could not start frontend ({0}). Do you have a valid git access token?"
-                                 .format(str(e)), exc_info=config.EXC_INFO)
+        # The frontend is served by the api itself, on the same port. It used to be a
+        # second web server in a second process, whose whole job was to return HTML
+        # that then called the api on another port.
 
         # Initialize the configuration.
         configuration.Configuration()

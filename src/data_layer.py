@@ -55,8 +55,5 @@ last_mothership_receiving_error_log: dict[str, datetime.datetime] = {}
 """A dictionary with the receiving address as key and the timestamp as value of the last error logging 
 if the task receiving process failed."""
 
-frontend_process = None
-"""The frontend process."""
-
 mcp_app = None
 """The model context protocol (mcp) application instance."""
