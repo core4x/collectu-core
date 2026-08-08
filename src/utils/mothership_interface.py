@@ -544,7 +544,10 @@ def _request_tasks(mothership):
 
     while data_layer.running and session:
         try:
-            response = session.get(url=f"{mothership}/api/v1/task/{os.environ.get('APP_ID')}",
+            # `/task/app_id/{app_id}`, matching the hub — see HUB_TASK_ADDRESS above,
+            # which has always addressed tasks this way. The two are now spelled the
+            # same, so a mothership is a mothership whether it is the hub or a peer.
+            response = session.get(url=f"{mothership}/api/v1/task/app_id/{os.environ.get('APP_ID')}",
                                    timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
             response.raise_for_status()
