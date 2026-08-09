@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 # Internal imports.
-import config_store
+import utils.config_store
 
 
 class TestStoreEquivalence(unittest.TestCase):
@@ -23,8 +23,8 @@ class TestStoreEquivalence(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.mkdtemp()
         self.stores = {
-            "tinydb": config_store.TinyDbStore(os.path.join(self.directory, "test.db")),
-            "memory": config_store.MemoryStore(),
+            "tinydb": utils.config_store.TinyDbStore(os.path.join(self.directory, "test.db")),
+            "memory": utils.config_store.MemoryStore(),
         }
 
     def tearDown(self):
@@ -103,7 +103,7 @@ class TestMemoryStoreIsolation(unittest.TestCase):
     """
 
     def setUp(self):
-        self.store = config_store.MemoryStore()
+        self.store = utils.config_store.MemoryStore()
         self.store.insert({"id": "a", "title": "one"})
 
     def test_all_returns_copies(self):

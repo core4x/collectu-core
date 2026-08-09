@@ -14,7 +14,7 @@ import platform
 import shutil
 
 # Internal imports.
-import config_store
+import utils.config_store
 import config
 import data_layer
 import metrics
@@ -41,7 +41,7 @@ class DatabaseWorker:
         # Create the path to the database.
         self.db_path = os.path.join('..', 'data', 'mothership', 'mothership.db')
         # Instantiate the database.
-        self.db = config_store.open_store(self.db_path, description="the mothership peer registry")
+        self.db = utils.config_store.open_store(self.db_path, description="the mothership peer registry")
         # First we add all existing database entries to the data_layer.
         for app in self.db:
             data_layer.mothership_data[app.get("id")] = models.MothershipData(

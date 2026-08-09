@@ -18,7 +18,7 @@ import queue
 import dataclasses
 
 # Internal imports.
-import config_store
+import utils.config_store
 import config
 import data_layer
 import models
@@ -66,7 +66,7 @@ class Configuration:
         # Create directory for the database if it does not exist.
         pathlib.Path(os.path.join('..', 'data', 'configuration')).mkdir(parents=True, exist_ok=True)
         # Instantiate the database.
-        self.config_db = config_store.open_store(
+        self.config_db = utils.config_store.open_store(
             os.path.join('..', 'data', 'configuration', 'configuration.db'),
             description="the configuration library")
         """
