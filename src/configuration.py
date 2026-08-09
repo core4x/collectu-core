@@ -18,6 +18,7 @@ import queue
 import dataclasses
 
 # Internal imports.
+import config_store
 import config
 import data_layer
 import models
@@ -36,21 +37,6 @@ try:
 except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
-
-# Optional: the configuration database only. Absent, this app still acquires,
-# processes and outputs data — which is its job — and only loses the ability to keep
-# a library of saved configurations. That is worth degrading rather than refusing to
-# start for, on a machine whose pipeline may be the only thing holding a line up.
-#
-# What is deliberately *not* here is a fallback store. This used to fall back to a
-# plain dict, which made saving appear to work and then lost every configuration on
-# the next restart, announced by one log line at start-up. Silently discarding an
-# operator's work is worse than not offering to store it: `config_db` is None instead,
-# the api reports `configuration_library: false`, and the interface hides the page.
-try:
-    import tinydb
-except ImportError:
-    tinydb = None
 
 _thread_local = threading.local()
 """
@@ -80,13 +66,18 @@ class Configuration:
         # Create directory for the database if it does not exist.
         pathlib.Path(os.path.join('..', 'data', 'configuration')).mkdir(parents=True, exist_ok=True)
         # Instantiate the database.
-        self.config_db = (tinydb.TinyDB(os.path.join('..', 'data', 'configuration', 'configuration.db'))
-                          if tinydb is not None else None)
-        """The configuration database, or None when tinydb is not installed."""
-        if self.config_db is None:
-            logger.warning("tinydb is not installed, so configurations cannot be saved on this app. "
-                           "Everything else, including the running pipeline, is unaffected. "
-                           "Install it with 'pip install tinydb' to enable the configuration library.")
+        self.config_db = config_store.open_store(
+            os.path.join('..', 'data', 'configuration', 'configuration.db'),
+            description="the configuration library")
+        """
+        The configuration library.
+
+        Saved configurations and autosaves — history, not the running pipeline, which
+        is loaded from a file in /configuration and does not come from here. So when
+        tinydb is missing this is an in-memory store rather than nothing: saving,
+        opening and autosaving all work for as long as the app runs, and only the
+        history across a restart is lost. `config_db.persistent` says which it is.
+        """
         self.database_queue: queue.Queue = queue.Queue()
         """A queue with tasks for the database worker. 
         Allowed queue content: 
@@ -231,12 +222,6 @@ class Configuration:
                 except queue.Empty:
                     continue
 
-                if self.config_db is None:
-                    # Drained and discarded rather than left to grow: without a
-                    # database there is nothing to apply these to, and the queue has
-                    # no bound. The warning is at start-up, not once per task.
-                    continue
-
                 task = data.get("task", None)
                 task = task.lower().strip() if task is not None else None
                 # Get the additional attributes.
@@ -299,15 +284,15 @@ class Configuration:
                     if autosave is not None:
                         update_dict["autosave"] = autosave
 
-                    updates = self.config_db.update(update_dict, tinydb.where('id') == config_id)
-                    if len(updates) > 0:
+                    updates = self.config_db.update(update_dict, 'id', config_id)
+                    if updates > 0:
                         logger.debug("Updated entry with the id '{0}' in configuration database.".format(config_id))
                     else:
                         logger.warning("Could not update entry in configuration database. "
                                        "Could not find entry with the id '{0}'.".format(config_id))
                 elif task == "delete":
-                    removals = self.config_db.remove(tinydb.where('id') == config_id)
-                    if len(removals) > 0:
+                    removals = self.config_db.remove('id', config_id)
+                    if removals > 0:
                         logger.debug("Removed entry with the id '{0}' from configuration database."
                                      .format(config_id))
                     else:
@@ -318,10 +303,10 @@ class Configuration:
 
                 # Check the number of autosave elements (config.AUTOSAVE_NUMBER) and remove the oldest ones,
                 # if we have more.
-                while len(self.config_db.search(tinydb.where('autosave') == True)) > config.AUTOSAVE_NUMBER:
-                    oldest_element = min(self.config_db.search(tinydb.where('autosave') == True),
+                while len(self.config_db.search('autosave', True)) > config.AUTOSAVE_NUMBER:
+                    oldest_element = min(self.config_db.search('autosave', True),
                                          key=lambda x: x['updated_at'])
-                    self.config_db.remove(tinydb.where('id') == oldest_element.get("id"))
+                    self.config_db.remove('id', oldest_element.get("id"))
                     logger.debug("Removed oldest autosave element from configuration database.")
 
             except Exception as e:
@@ -355,11 +340,8 @@ class Configuration:
 
         :returns: All database entries or exactly one if requested with id (can be None if id was not found).
         """
-        if self.config_db is None:
-            return None if config_id is not None else []
-
         if config_id is not None:
-            entry = self.config_db.get(tinydb.where('id') == config_id)
+            entry = self.config_db.get('id', config_id)
             if entry is not None and convert_timestamps:
                 entry["created_at"] = datetime.fromisoformat(entry["created_at"])
                 entry["updated_at"] = datetime.fromisoformat(entry["updated_at"])
