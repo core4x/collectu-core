@@ -26,12 +26,8 @@ import utils.resilient_session
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
-# Third-party imports (optional).
-try:
-    import tinydb
-except ImportError as e:
-    tinydb = None
-    logger.error("Optional tinydb package not installed! Some features may not be supported.")
+# Third-party imports.
+import tinydb
 
 
 class DatabaseWorker:
@@ -46,9 +42,9 @@ class DatabaseWorker:
         # Create the path to the database.
         self.db_path = os.path.join('..', 'data', 'mothership', 'mothership.db')
         # Instantiate the database.
-        self.db = tinydb.TinyDB(self.db_path) if tinydb else {}
+        self.db = tinydb.TinyDB(self.db_path)
         # First we add all existing database entries to the data_layer.
-        for app in self.db if tinydb else self.db.values():
+        for app in self.db:
             data_layer.mothership_data[app.get("id")] = models.MothershipData(
                 app_id=app.get("id"),
                 status="unknown",  # This will be updated if we receive a report.
@@ -87,7 +83,7 @@ class DatabaseWorker:
             try:
                 # Get the mothership data entries.
                 for app_id, mothership_data in data_layer.mothership_data.copy().items():
-                    entry = self.db.get(tinydb.where('id') == app_id) if tinydb else self.db.get(app_id, None)
+                    entry = self.db.get(tinydb.where('id') == app_id)
                     if entry is not None:
                         # Check if description, version, or updated_at changed.
                         if mothership_data.description != entry.get("description") or \
@@ -108,10 +104,7 @@ class DatabaseWorker:
                                     "processed_per_min_max": mothership_data.processed_per_min_max,
                                     "processed_per_min_avg": mothership_data.processed_per_min_avg,
                                     "module_count": mothership_data.module_count}
-                            if tinydb:
-                                self.db.update(data, tinydb.where('id') == app_id)
-                            else:
-                                self.db[app_id].update(data)
+                            self.db.update(data, tinydb.where('id') == app_id)
                     else:
                         data = {"id": app_id,
                                 "description": mothership_data.description,
@@ -130,10 +123,7 @@ class DatabaseWorker:
                                 "processed_per_min_max": mothership_data.processed_per_min_max,
                                 "processed_per_min_avg": mothership_data.processed_per_min_avg,
                                 "module_count": mothership_data.module_count}
-                        if tinydb:
-                            self.db.insert(data)
-                        else:
-                            self.db[app_id] = data
+                        self.db.insert(data)
 
                     # Reset status if we received no update in a configured time.
                     if (datetime.now(timezone.utc) - mothership_data.updated_at).seconds > config.REPORTER_TIMEOUT:
@@ -142,12 +132,11 @@ class DatabaseWorker:
 
                 # Delete app ids from db, if they are no longer in the data.mothership_data dict.
                 # This can be the case, if a user deletes the key (using the according rest endpoint).
-                for entry in self.db if tinydb else self.db.values():
+                # Over a snapshot: removing from the table while iterating it skips
+                # the entry that moves into the freed slot.
+                for entry in self.db.all():
                     if entry.get("id") not in data_layer.mothership_data:
-                        if tinydb:
-                            self.db.remove(tinydb.where('id') == entry.get("id"))
-                        else:
-                            self.db.pop(entry.get("id"))
+                        self.db.remove(tinydb.where('id') == entry.get("id"))
             except Exception as e:
                 logger.error("Could not interact with mothership db '{0}': {1}".format(str(self.db_path), str(e)),
                              exc_info=config.EXC_INFO)

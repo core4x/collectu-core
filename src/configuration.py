@@ -37,11 +37,7 @@ except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
 
-try:
-    import tinydb
-except ImportError as e:
-    tinydb = None
-    logger.error("Optional tinydb package not installed! Some features may not be supported.")
+import tinydb
 
 _thread_local = threading.local()
 """
@@ -71,8 +67,7 @@ class Configuration:
         # Create directory for the database if it does not exist.
         pathlib.Path(os.path.join('..', 'data', 'configuration')).mkdir(parents=True, exist_ok=True)
         # Instantiate the database.
-        self.config_db = tinydb.TinyDB(
-            os.path.join('..', 'data', 'configuration', 'configuration.db')) if tinydb else {}
+        self.config_db = tinydb.TinyDB(os.path.join('..', 'data', 'configuration', 'configuration.db'))
         """The configuration database."""
         self.database_queue: queue.Queue = queue.Queue()
         """A queue with tasks for the database worker. 
@@ -253,10 +248,7 @@ class Configuration:
                              "description": description if description is not None else "",
                              "modules": len(configuration),
                              "configuration": configuration}
-                    if tinydb:
-                        self.config_db.insert(entry)
-                    else:
-                        self.config_db[config_id] = entry
+                    self.config_db.insert(entry)
                     logger.debug("Added entry with the id '{0}' to configuration database.".format(config_id))
 
                 elif task == "update":
@@ -283,27 +275,14 @@ class Configuration:
                     if autosave is not None:
                         update_dict["autosave"] = autosave
 
-                    if tinydb:
-                        updates = self.config_db.update(update_dict, tinydb.where('id') == config_id)
-                    elif config_id in self.config_db:
-                        updates = [1]
-                        self.config_db[config_id].update(update_dict)
-                    else:
-                        updates = []
-
+                    updates = self.config_db.update(update_dict, tinydb.where('id') == config_id)
                     if len(updates) > 0:
                         logger.debug("Updated entry with the id '{0}' in configuration database.".format(config_id))
                     else:
                         logger.warning("Could not update entry in configuration database. "
                                        "Could not find entry with the id '{0}'.".format(config_id))
                 elif task == "delete":
-                    if tinydb:
-                        removals = self.config_db.remove(tinydb.where('id') == config_id)
-                    elif config_id in self.config_db:
-                        self.config_db.pop(config_id)
-                        removals = [1]
-                    else:
-                        removals = []
+                    removals = self.config_db.remove(tinydb.where('id') == config_id)
                     if len(removals) > 0:
                         logger.debug("Removed entry with the id '{0}' from configuration database."
                                      .format(config_id))
@@ -315,19 +294,11 @@ class Configuration:
 
                 # Check the number of autosave elements (config.AUTOSAVE_NUMBER) and remove the oldest ones,
                 # if we have more.
-                if tinydb:
-                    while len(self.config_db.search(tinydb.where('autosave') == True)) > config.AUTOSAVE_NUMBER:
-                        oldest_element = min(self.config_db.search(tinydb.where('autosave') == True),
-                                             key=lambda x: x['updated_at'])
-                        self.config_db.remove(tinydb.where('id') == oldest_element.get("id"))
-                        logger.debug("Removed oldest autosave element from configuration database.")
-                else:
-                    autosave_entries = {k: v for k, v in self.config_db.items() if v.get("autosave")}
-                    while len(autosave_entries) > config.AUTOSAVE_NUMBER:
-                        oldest_key = min(autosave_entries, key=lambda k: autosave_entries[k]["updated_at"])
-                        del self.config_db[oldest_key]
-                        del autosave_entries[oldest_key]
-                        logger.debug("Removed oldest autosave element from configuration database.")
+                while len(self.config_db.search(tinydb.where('autosave') == True)) > config.AUTOSAVE_NUMBER:
+                    oldest_element = min(self.config_db.search(tinydb.where('autosave') == True),
+                                         key=lambda x: x['updated_at'])
+                    self.config_db.remove(tinydb.where('id') == oldest_element.get("id"))
+                    logger.debug("Removed oldest autosave element from configuration database.")
 
             except Exception as e:
                 logger.error("Something went wrong while trying to interact with the configuration database: {0}"
@@ -361,14 +332,13 @@ class Configuration:
         :returns: All database entries or exactly one if requested with id (can be None if id was not found).
         """
         if config_id is not None:
-            entry = self.config_db.get(tinydb.where('id') == config_id) if tinydb else self.config_db.get(config_id,
-                                                                                                          None)
+            entry = self.config_db.get(tinydb.where('id') == config_id)
             if entry is not None and convert_timestamps:
                 entry["created_at"] = datetime.fromisoformat(entry["created_at"])
                 entry["updated_at"] = datetime.fromisoformat(entry["updated_at"])
             return entry
         else:
-            entries = self.config_db.all() if tinydb else self.config_db.values()
+            entries = self.config_db.all()
             # Sort by updated_at and autosave.
             entries = sorted(entries, key=lambda i: (not i['autosave'], i['updated_at']), reverse=True)
             # Convert the timestamps to be datetime.
