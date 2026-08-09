@@ -81,8 +81,7 @@ services:
     container_name: collectu-core
     restart: unless-stopped
     ports:
-      - "8181:8181"   # API
-      - "8282:8282"   # Frontend
+      - "8181:8181"   # API and user interface
     environment:  # Overwrites the settings.ini variables.
       # - RUN_AS_ROOT=1  # Run as root instead of appuser. Useful when host device access (e.g. USB ports) is required.
       - APP_DESCRIPTION=My Machine  # The description of the app.
@@ -98,9 +97,7 @@ services:
       - LOCAL_ADMIN_USERNAME=admin  # The local admin username.
       # - LOCAL_ADMIN_PASSWORD=  # The local admin password, a default password is generated on start-up.
       - MCP=0  # Enable the MCP server - the API has to be enabled.
-      - FRONTEND=1  # Start the frontend.
-      - FRONTEND_HOST=0.0.0.0  # Host address of the frontend.
-      - FRONTEND_PORT=8282  # Port of the frontend.
+      - FRONTEND=1  # Serve the user interface from the api, on API_PORT.
       - MOTHERSHIPS=[]  # The host addresses of the motherships to report to.
       # - HUB_API_ACCESS_TOKEN=<token>  # The api access token of the hub profile collectu.de.
       - REPORT_TO_HUB=1  # Shall this app report and receive tasks from the hub collectu.de.
@@ -125,7 +122,7 @@ docker compose up
 
 ### First Steps
 
-Open the frontend at [http://localhost:8282](http://localhost:8282) and log in. 
+Open the user interface at [http://localhost:8181](http://localhost:8181) and log in. 
 Create your first pipeline by adding a `random_1` input module and a `logger_1`
 output module, connecting them, and saving and executing the configuration — the generated
 random data appears in the console. See
@@ -174,7 +171,7 @@ from various data sources (e.g. industrial devices, protocols, APIs, files, data
 and forward it to different target systems. Its main functions are:
 
 - Modular input, processing, and output modules configured via YAML or the no-code frontend
-- A REST API (default port `8181`) and a web frontend (default port `8282`) for configuration and operation
+- A REST API and a web user interface, both on one port (default `8181`), for configuration and operation
 - Optional connection to the Collectu Hub for downloading modules and reporting app status
 - Optional remote control by "motherships" via a configurable command allowlist
 
@@ -228,8 +225,8 @@ Detailed instructions are available at [collectu.de/docs](https://collectu.de/do
 
 1. Change the default local admin credentials (`local_admin_username` / `local_admin_password` in `settings.ini`).
 2. Enable authentication: set `api_authentication = 1`.
-3. Restrict network exposure: set `api_host` / `frontend_host` to a specific interface or firewall
-   ports `8181` and `8282`; place a TLS-terminating reverse proxy in front for remote access.
+3. Restrict network exposure: set `api_host` to a specific interface or firewall port `8181`;
+   place a TLS-terminating reverse proxy in front for remote access.
 4. Reduce `allowed_commands` to the minimum required set.
 5. In restricted environments, disable automatic module/requirement downloads
    (`auto_install = 0`, `auto_download = 0`, `initial_download = 0`).
