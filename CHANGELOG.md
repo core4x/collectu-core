@@ -2,6 +2,41 @@
 
 <!-- version list -->
 
+## v1.67.0 (2026-08-09)
+
+### Bug Fixes
+
+- Moved config_store to utils.
+  ([`c085dd1`](https://github.com/core4x/collectu-core/commit/c085dd1898f43ba0eb5944c54bc2a1d151cb82aa))
+
+- Poll a peer mothership at /task/app_id/{app_id}.
+  ([`a791123`](https://github.com/core4x/collectu-core/commit/a791123c00a906bd59a612cbc8a838fe20477724))
+
+- Updated third-party requirements.txt.
+  ([`02b5cf7`](https://github.com/core4x/collectu-core/commit/02b5cf75f941d6dbdd2997620fc263b5a8ddbd7b))
+
+### Documentation
+
+- Changed frontend description.
+  ([`217fd59`](https://github.com/core4x/collectu-core/commit/217fd59cdcca28cacd16bfdcd54bbcc17bb3cee5))
+
+### Features
+
+- Give the configuration library an in-memory backend.
+  ([`61f8ea1`](https://github.com/core4x/collectu-core/commit/61f8ea170e0b2a21d7fbbb56b6351b35a8dacda6))
+
+- Make tinydb optional again, without a fallback store.
+  ([`bef5886`](https://github.com/core4x/collectu-core/commit/bef5886aad2a28367fb9133ce494df932cde72fe))
+
+### Refactoring
+
+- Assume tinydb is present.
+  ([`7b3df68`](https://github.com/core4x/collectu-core/commit/7b3df68a3404b6c49e289a231fdbd54799a5052c))
+
+- Stop running a second process for the frontend.
+  ([`4ac0d2e`](https://github.com/core4x/collectu-core/commit/4ac0d2e9a1a618ed455b546bfabfc6b1c7264253))
+
+
 ## v1.66.2 (2026-07-21)
 
 ### Bug Fixes
