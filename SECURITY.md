@@ -56,8 +56,8 @@ Updates are distributed through this git repository and are user-triggered (Coll
 Collectu is intended to be operated in a trusted, access-controlled network. Before production use:
 
 - Change the admin credentials and set `api_authentication = 1` in `settings.ini`.
-- Do not expose the API (port `8181`) or frontend (port `8282`) directly to the internet;
-  use a TLS-terminating reverse proxy and restrict the bind addresses (`api_host`, `frontend_host`).
+- Do not expose the API and user interface (port `8181`) directly to the internet;
+  use a TLS-terminating reverse proxy and restrict the bind address (`api_host`).
 - Restrict `allowed_commands` to the minimum required set.
 - Consider disabling automatic module and requirement downloads from the hub
   (`auto_install = 0`, `auto_download = 0`, `initial_download = 0`), since downloaded modules are executable code.
