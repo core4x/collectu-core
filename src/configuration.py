@@ -37,7 +37,20 @@ except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
 
-import tinydb
+# Optional: the configuration database only. Absent, this app still acquires,
+# processes and outputs data — which is its job — and only loses the ability to keep
+# a library of saved configurations. That is worth degrading rather than refusing to
+# start for, on a machine whose pipeline may be the only thing holding a line up.
+#
+# What is deliberately *not* here is a fallback store. This used to fall back to a
+# plain dict, which made saving appear to work and then lost every configuration on
+# the next restart, announced by one log line at start-up. Silently discarding an
+# operator's work is worse than not offering to store it: `config_db` is None instead,
+# the api reports `configuration_library: false`, and the interface hides the page.
+try:
+    import tinydb
+except ImportError:
+    tinydb = None
 
 _thread_local = threading.local()
 """
@@ -67,8 +80,13 @@ class Configuration:
         # Create directory for the database if it does not exist.
         pathlib.Path(os.path.join('..', 'data', 'configuration')).mkdir(parents=True, exist_ok=True)
         # Instantiate the database.
-        self.config_db = tinydb.TinyDB(os.path.join('..', 'data', 'configuration', 'configuration.db'))
-        """The configuration database."""
+        self.config_db = (tinydb.TinyDB(os.path.join('..', 'data', 'configuration', 'configuration.db'))
+                          if tinydb is not None else None)
+        """The configuration database, or None when tinydb is not installed."""
+        if self.config_db is None:
+            logger.warning("tinydb is not installed, so configurations cannot be saved on this app. "
+                           "Everything else, including the running pipeline, is unaffected. "
+                           "Install it with 'pip install tinydb' to enable the configuration library.")
         self.database_queue: queue.Queue = queue.Queue()
         """A queue with tasks for the database worker. 
         Allowed queue content: 
@@ -213,6 +231,12 @@ class Configuration:
                 except queue.Empty:
                     continue
 
+                if self.config_db is None:
+                    # Drained and discarded rather than left to grow: without a
+                    # database there is nothing to apply these to, and the queue has
+                    # no bound. The warning is at start-up, not once per task.
+                    continue
+
                 task = data.get("task", None)
                 task = task.lower().strip() if task is not None else None
                 # Get the additional attributes.
@@ -331,6 +355,9 @@ class Configuration:
 
         :returns: All database entries or exactly one if requested with id (can be None if id was not found).
         """
+        if self.config_db is None:
+            return None if config_id is not None else []
+
         if config_id is not None:
             entry = self.config_db.get(tinydb.where('id') == config_id)
             if entry is not None and convert_timestamps:

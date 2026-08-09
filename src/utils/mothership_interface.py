@@ -27,7 +27,15 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
 # Third-party imports.
-import tinydb
+# Optional: persistence for the peer registry only. Without it, peers that report in
+# are still tracked and still shown — they are simply not remembered across a restart
+# and reappear as each one next reports. That is a far smaller loss than refusing to
+# start, and there is deliberately no in-memory fallback store pretending otherwise;
+# see the note in configuration.py.
+try:
+    import tinydb
+except ImportError:
+    tinydb = None
 
 
 class DatabaseWorker:
@@ -42,9 +50,12 @@ class DatabaseWorker:
         # Create the path to the database.
         self.db_path = os.path.join('..', 'data', 'mothership', 'mothership.db')
         # Instantiate the database.
-        self.db = tinydb.TinyDB(self.db_path)
+        self.db = tinydb.TinyDB(self.db_path) if tinydb is not None else None
+        if self.db is None:
+            logger.warning("tinydb is not installed, so apps reporting to this mothership are not "
+                           "remembered across a restart. They reappear as each one next reports.")
         # First we add all existing database entries to the data_layer.
-        for app in self.db:
+        for app in (self.db if self.db is not None else []):
             data_layer.mothership_data[app.get("id")] = models.MothershipData(
                 app_id=app.get("id"),
                 status="unknown",  # This will be updated if we receive a report.
@@ -83,7 +94,14 @@ class DatabaseWorker:
             try:
                 # Get the mothership data entries.
                 for app_id, mothership_data in data_layer.mothership_data.copy().items():
-                    entry = self.db.get(tinydb.where('id') == app_id)
+                    entry = self.db.get(tinydb.where('id') == app_id) if self.db is not None else None
+                    if self.db is None:
+                        # No store to write to. The timeout check below is live state
+                        # and still has to run, so this only skips the persistence.
+                        if (datetime.now(timezone.utc) - mothership_data.updated_at).seconds > config.REPORTER_TIMEOUT:
+                            if app_id in data_layer.mothership_data:
+                                data_layer.mothership_data[app_id].status = "unknown"
+                        continue
                     if entry is not None:
                         # Check if description, version, or updated_at changed.
                         if mothership_data.description != entry.get("description") or \
@@ -134,7 +152,7 @@ class DatabaseWorker:
                 # This can be the case, if a user deletes the key (using the according rest endpoint).
                 # Over a snapshot: removing from the table while iterating it skips
                 # the entry that moves into the freed slot.
-                for entry in self.db.all():
+                for entry in (self.db.all() if self.db is not None else []):
                     if entry.get("id") not in data_layer.mothership_data:
                         self.db.remove(tinydb.where('id') == entry.get("id"))
             except Exception as e:
