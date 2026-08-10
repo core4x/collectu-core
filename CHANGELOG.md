@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.67.2 (2026-08-10)
+
+### Bug Fixes
+
+- Updated interface version.
+  ([`a991b76`](https://github.com/core4x/collectu-core/commit/a991b76870a0e893cb28069cf3b881e001946f20))
+
+
 ## v1.67.1 (2026-08-10)
 
 ### Bug Fixes
