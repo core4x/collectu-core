@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.67.1 (2026-08-10)
+
+### Bug Fixes
+
+- Updated interface.
+  ([`66f86a3`](https://github.com/core4x/collectu-core/commit/66f86a3e05fc82a0855e8d7989866dd3a5f21f3c))
+
+### Documentation
+
+- The interface is served on the api's port, not 8282.
+  ([`dcad672`](https://github.com/core4x/collectu-core/commit/dcad672e6f5c2ba9bdd29a7241f75e9094f7a414))
+
+### Testing
+
+- Guard the api's static media types.
+  ([`b84bf9f`](https://github.com/core4x/collectu-core/commit/b84bf9fa81f225515627f5a3ed9360fe91ae42bb))
+
+
 ## v1.67.0 (2026-08-09)
 
 ### Bug Fixes
