@@ -55,6 +55,15 @@ DEFAULT_REQUEST_TIMEOUT: int = int(os.getenv("DEFAULT_REQUEST_TIMEOUT", 5))
 HUB_ADDRESS: str = os.getenv("HUB_ADDRESS", "https://api.collectu.de/api/v1")
 """The base address of the api."""
 
+WEBSITE_ADDRESS: str = os.getenv("WEBSITE_ADDRESS", "https://collectu.de")
+"""The address of the manufacturer's website."""
+
+SECURITY_EMAIL: str = os.getenv("SECURITY_EMAIL", "security@collectu.de")
+"""The single point of contact for vulnerability reports, published in security.txt."""
+
+SECURITY_POLICY_URL: str = os.getenv("SECURITY_POLICY_URL", f"{WEBSITE_ADDRESS}/.well-known/security-policy")
+"""The coordinated vulnerability disclosure policy, published as the Policy field of security.txt."""
+
 HUB_MODULES_ADDRESS: str = os.getenv("HUB_MODULES_ADDRESS", f"{HUB_ADDRESS}/module")
 """The endpoint of the api for registering modules."""
 

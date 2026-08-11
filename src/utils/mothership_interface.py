@@ -12,6 +12,7 @@ import logging
 import pathlib
 import platform
 import shutil
+import importlib.metadata
 
 # Internal imports.
 import utils.config_store
@@ -208,19 +209,63 @@ def _get_system_stats() -> Dict[str, Any]:
     return stats
 
 
+def _get_installed_packages() -> List[models.InstalledPackage]:
+    """
+    List the distributions installed in this app's Python environment.
+
+    This is what the hub needs for an "as-deployed" software bill of materials: a module
+    declares third-party requirements, but an unpinned requirement resolves to whatever pip
+    found at install time on this particular device, so only the device knows the real
+    versions.
+
+    The result is sorted by name, so an unchanged environment always serializes identically
+    and the caller can skip resending it.
+
+    :return: The installed packages, sorted by lowercased name.
+    """
+    packages: List[models.InstalledPackage] = []
+    try:
+        seen: set = set()
+        for distribution in importlib.metadata.distributions():
+            try:
+                name = distribution.metadata["Name"]
+                if not name:
+                    continue
+                # A path with several entries for one distribution (an editable install
+                # shadowing a wheel, for example) would otherwise report it twice.
+                key = name.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                packages.append(models.InstalledPackage(name=name,
+                                                        version=distribution.version or "unknown"))
+            except Exception:
+                # One unreadable dist-info directory must not cost us the whole inventory.
+                continue
+        packages.sort(key=lambda package: package.name.lower())
+    except Exception as e:
+        logger.error("Could not get installed packages: {0}".format(str(e)), exc_info=config.EXC_INFO)
+    return packages
+
+
 def _get_report_data(last_log_time: Optional[datetime] = None,
-                     last_configuration: Optional[str] = None) -> Tuple[Dict[str, Any], Optional[datetime], str]:
+                     last_configuration: Optional[str] = None,
+                     last_installed_packages: Optional[str] = None
+                     ) -> Tuple[Dict[str, Any], Optional[datetime], str, str]:
     """
     Create the data to be sent to the motherships.
 
-    Only logs newer than last_log_time are included, and the configuration is only included
-    if it differs from last_configuration. The caller has to store the returned tracking values
-    after a successful sending, so failed reports are retried with the complete data.
+    Only logs newer than last_log_time are included, and the configuration and the installed
+    packages are only included if they differ from what was last sent. The caller has to store
+    the returned tracking values after a successful sending, so failed reports are retried with
+    the complete data.
 
     :param last_log_time: The timestamp of the newest log already sent to this mothership.
     :param last_configuration: The serialized configuration last sent to this mothership.
+    :param last_installed_packages: The serialized package list last sent to this mothership.
     :return: A tuple containing the report data, the timestamp of the newest included log
-             (or last_log_time if no new logs exist), and the serialized current configuration.
+             (or last_log_time if no new logs exist), the serialized current configuration,
+             and the serialized current package list.
     """
     mothership_data = {
         # Determine the status of the app (check if modules are configured).
@@ -235,6 +280,15 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
     configuration = json.dumps(getattr(data_layer.configuration, "configuration_dict", []), default=str)
     if configuration != last_configuration:
         mothership_data["configuration"] = json.loads(configuration)
+
+    # Same for the installed packages: the list is stable for the lifetime of an environment
+    # and only changes when a module requirement gets installed, so resending it on every
+    # heartbeat would be pure noise.
+    # Dumped through __dict__ like the logs below - json.dumps would otherwise fall back to
+    # default=str and serialize each dataclass as its repr rather than as an object.
+    installed_packages = json.dumps([package.__dict__ for package in _get_installed_packages()], default=str)
+    if installed_packages != last_installed_packages:
+        mothership_data["installed_packages"] = json.loads(installed_packages)
 
     # Get the new logs (the ones not already sent to this mothership).
     simplified_logs = []
@@ -255,7 +309,7 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
     mothership_data["latest_logs"] = simplified_logs
     mothership_data.update(metrics.metrics_registry.overall_performance())
     mothership_data.update(_get_system_stats())
-    return mothership_data, newest_log_time, configuration
+    return mothership_data, newest_log_time, configuration, installed_packages
 
 
 def process_tasks(task: dict[str, str | list]):
@@ -310,6 +364,7 @@ def _report_hub():
     session = utils.resilient_session.create_resilient_session()
     last_log_time: Optional[datetime] = None
     last_configuration: Optional[str] = None
+    last_installed_packages: Optional[str] = None
 
     while data_layer.running:
         if not logged_in:
@@ -344,7 +399,8 @@ def _report_hub():
                 logged_in = False
         if logged_in:
             try:
-                json_data, newest_log_time, sent_configuration = _get_report_data(last_log_time, last_configuration)
+                json_data, newest_log_time, sent_configuration, sent_installed_packages = _get_report_data(
+                    last_log_time, last_configuration, last_installed_packages)
                 json_data["app_id"] = os.environ.get("APP_ID")
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
                                         timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
@@ -353,6 +409,7 @@ def _report_hub():
                 # Only remember what was sent after a successful report, so failures are retried.
                 last_log_time = newest_log_time
                 last_configuration = sent_configuration
+                last_installed_packages = sent_installed_packages
             except Exception as e:
                 logged_in = False
                 send = False
@@ -478,10 +535,12 @@ def _report(mothership: str):
     session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
     last_log_time: Optional[datetime] = None
     last_configuration: Optional[str] = None
+    last_installed_packages: Optional[str] = None
 
     while data_layer.running and session:
         try:
-            json_data, newest_log_time, sent_configuration = _get_report_data(last_log_time, last_configuration)
+            json_data, newest_log_time, sent_configuration, sent_installed_packages = _get_report_data(
+                last_log_time, last_configuration, last_installed_packages)
             json_data["app_id"] = os.environ.get("APP_ID")
             response = session.post(url=f"{mothership}/api/v1/app",
                                     timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
@@ -490,6 +549,7 @@ def _report(mothership: str):
             # Only remember what was sent after a successful report, so failures are retried.
             last_log_time = newest_log_time
             last_configuration = sent_configuration
+            last_installed_packages = sent_installed_packages
         except Exception as e:
             send = False
             if mothership in data_layer.last_mothership_sending_error_log:

@@ -76,6 +76,19 @@ class Log:
 
 
 @dataclass
+class InstalledPackage:
+    """
+    This is the data object for an installed package in this environment.
+    """
+    name: str = field(
+        metadata=dict(description="The name of the package.",
+                      required=True))
+    version: str = field(
+        metadata=dict(description="The version of the package.",
+                      required=True))
+
+
+@dataclass
 class MothershipData:
     """
     This is the data object used for storing mothership data of the reporting apps.
@@ -102,6 +115,10 @@ class MothershipData:
         default=None)
     latest_logs: list[Log] = field(
         metadata=dict(description="The latest logs of the reporting app.",
+                      required=False),
+        default_factory=list)
+    installed_packages: list[InstalledPackage] = field(
+        metadata=dict(description="The distributions installed in the reporting app's Python environment.",
                       required=False),
         default_factory=list)
     created_at: datetime = field(

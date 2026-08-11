@@ -6,6 +6,12 @@ which includes all source code repositories managed through our GitHub organizat
 If you believe you have found a security vulnerability in any Collectu-owned repository, 
 please report it to us as described below.
 
+The machine-readable version of this policy is served at
+[`/.well-known/security.txt`](https://collectu.de/.well-known/security.txt) (RFC 9116), and its
+full text at [`/.well-known/security-policy`](https://collectu.de/.well-known/security-policy).
+A running Collectu Core also serves its own `security.txt` at
+`http://<host>:8181/.well-known/security.txt`, pointing at the same contact.
+
 ## Single Point of Contact / Reporting Security Issues
 
 *Please do not report security vulnerabilities through public GitHub issues.*
@@ -35,13 +41,46 @@ Collectu follows the principle of Coordinated Vulnerability Disclosure:
 
 We will credit reporters in the release notes unless they prefer to remain anonymous.
 
+## Safe Harbour
+
+We will not pursue or support legal action against anyone who reports a vulnerability in good
+faith under this policy, provided that you:
+
+- Only test against installations and data you own or have explicit permission to test.
+- Do not access, modify, delete, or exfiltrate other users' data.
+- Do not degrade, disrupt, or overload our services — no denial-of-service, no spam, and no
+  automated scanning that materially affects availability.
+- Do not use social engineering, physical attacks, or attacks against our employees.
+- Give us reasonable time to remediate before disclosing.
+
+## Scope
+
+**In scope**
+
+- Collectu Core: the data engine, its API and user interface, the updater, and the hub
+  communication (reporting, task execution, module download).
+- The official modules shipped in `src/modules`.
+
+**Out of scope**
+
+- Findings that only apply to a deployment configured against the guidance in
+  [Secure Configuration](#secure-configuration) — for example an unauthenticated API exposed
+  directly to the internet.
+- Third-party packages pulled in as module requirements. Report these to their maintainers;
+  tell us as well if a Collectu module is the reason they are installed, and we will look at
+  the requirement. Known vulnerabilities in dependencies are visible in the generated SBOM
+  (see [below](#software-bill-of-materials-sbom)).
+- Community-contributed modules published by third parties on the Collectu Hub. Report them to
+  us anyway — we unpublish malicious modules — but they are not Collectu products.
+- Missing hardening headers or raw scanner output, without a demonstrated impact.
+
 ## Security Updates and Support Period
 
 - Security fixes are provided for the **latest released version** on the `main` branch of
   [github.com/core4x/collectu-core](https://github.com/core4x/collectu-core).
   Users are expected to stay on the latest version.
 - Security-relevant releases are documented in [CHANGELOG.md](CHANGELOG.md).
-- End date of the security support period: At least 5 years from now on
+- End date of the security support period: At least 5 years from now on.
 
 ### Installing security updates
 
@@ -76,6 +115,23 @@ python src/utils/generate_sbom.py
 ```
 
 The output is written to `collectu-core-sbom.cdx.json`.
+
+This covers the packages Collectu Core itself declares. Modules install their own third-party
+requirements at runtime, so what is *actually* installed on a given device can differ — a module
+requirement without a pinned version resolves to whatever was current at install time. A Core
+that reports to the Collectu Hub therefore also sends the list of distributions installed in its
+Python environment, which is what the Hub uses to answer "is this deployment affected" for a
+given advisory. Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.
+
+## Integrity of Downloaded Modules
+
+Modules downloaded from the Collectu Hub are executable code. Each module version is stored on
+the Hub with the SHA-256 of its code, so a downloaded version can be checked against the one
+that was reviewed. Commands pushed from the Hub (`restart`, `update`, `load`, …) carry an ES256
+signature that Collectu Core verifies against the Hub's published keys
+([`/.well-known/jwks.json`](https://api.collectu.de/.well-known/jwks.json)) before executing.
+Verification is on by default; do not set the `VERIFY_TASK_SIGNATURE` environment variable to
+`0` outside of development.
 
 ## Manufacturer Contact
 
