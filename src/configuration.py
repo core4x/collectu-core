@@ -31,12 +31,44 @@ import json
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 
+CONFIGURATION_DIR = pathlib.Path('..', 'configuration')
+"""The one directory configuration files are read from and written to."""
+
 # Third-party imports (optional).
 try:
     import yaml
 except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
+
+
+def configuration_path(filename: str) -> pathlib.Path:
+    """
+    Resolve a configuration filename to a path inside the configuration directory.
+
+    A subdirectory *within* the configuration folder stays allowed — `save` creates the
+    parents, so `line_3/press.yml` is an ordinary thing to ask for. What is refused is
+    anything that resolves outside it.
+
+    :param filename: The filename, possibly with subdirectories, to resolve.
+
+    :returns: The absolute path to the file.
+
+    :raises ValueError: If the filename resolves outside the configuration directory.
+    """
+    root = CONFIGURATION_DIR.resolve()
+    # `resolve()` on both sides, so the comparison is between two absolute, normalised
+    # paths — `..` already collapsed, symlinks already followed, and on Windows the
+    # drive letter and separators already agreed.
+    path = (root / filename).resolve()
+
+    if path != root and root not in path.parents:
+        raise ValueError("The configuration filename '{0}' is outside the configuration directory."
+                         .format(filename))
+    if path == root:
+        raise ValueError("'{0}' is the configuration directory, not a file.".format(filename))
+
+    return path
 
 _thread_local = threading.local()
 """
@@ -371,8 +403,8 @@ class Configuration:
         try:
             if not filename:
                 filename = os.environ.get('CONFIG', 'configuration.yml')
-            # Set the path to the file.
-            file = os.path.join('..', 'configuration', filename)
+            # Set the path to the file, guaranteed to be inside the configuration directory — see `configuration_path`.
+            file = configuration_path(filename)
             # Read the file.
             with open(file) as content:
                 content = content.read().strip()
@@ -1073,8 +1105,12 @@ class Configuration:
         if not content:
             content = json.dumps(self._configuration_dict)
 
-        # This is the file path including the file name.
-        file = os.path.join('..', 'configuration', '{0}').format(filename)
+        # This is the file path including the file name, guaranteed to be inside the configuration directory.
+        try:
+            file = configuration_path(filename)
+        except ValueError as e:
+            return False, str(e)
+
         try:
             # Validate the content.
             configuration, configuration_dict, errors = self.validate_configuration_from_stream(content=content)
@@ -1082,8 +1118,7 @@ class Configuration:
                 return False, f"The given content is not a valid configuration."
             else:
                 # Create directory and file.
-                pathlib.Path(os.path.join('..', 'configuration',
-                                          str(pathlib.Path(filename).parents[0]))).mkdir(parents=True, exist_ok=True)
+                file.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     # Write content to file.
                     with open(file, 'w') as stream:
