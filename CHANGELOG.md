@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.67.3 (2026-08-11)
+
+### Bug Fixes
+
+- Configuration file has to be in the configuration folder. Added guard.
+  ([`5976baf`](https://github.com/core4x/collectu-core/commit/5976bafc6f5698967befd60deb8d4e1264342c14))
+
+- Updated interface version.
+  ([`c4adc62`](https://github.com/core4x/collectu-core/commit/c4adc6278e0a7da5ed4283cf294d003b11a1dcfd))
+
+
 ## v1.67.2 (2026-08-10)
 
 ### Bug Fixes
