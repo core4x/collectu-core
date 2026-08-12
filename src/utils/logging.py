@@ -6,26 +6,12 @@ import sys
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import socket
-import threading
-import uuid
 from typing import Optional
 
 # Internal imports.
 import config
 import data_layer
 import models
-
-
-def threaded(function):
-    """
-    Decorator to run the called function in a separate thread.
-    """
-
-    def run(*args, **kwargs):
-        threading.Thread(target=function, daemon=False, args=args, kwargs=kwargs,
-                         name="Logging_{0}".format(uuid.uuid4())).start()
-
-    return run
 
 
 class TracebackInfoFilter(logging.Filter):
@@ -67,11 +53,9 @@ class LoggingTrigger(logging.Handler):
         self.levels = levels
         """The logging levels of the messages, which shall be stored in the output modules."""
 
-    @threaded
     def emit(self, record):
         """
-        This method creates an own thread for execution.
-        So, the calling threads are not blocked until the storage has finished.
+        Store the record for the output modules and the mothership report.
 
         :param record: The log record.
         """
@@ -129,7 +113,11 @@ def start(logger: logging.Logger):
         # FILE LOGGING
         # ===========================
         # Set the path to the file.
-        file = os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'Logs.log')
+        log_directory = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+        # A checkout has this folder, but a container volume or a copied-out src tree may not,
+        # and the handler does not create it - the whole logging setup then failed and exited.
+        os.makedirs(log_directory, exist_ok=True)
+        file = os.path.join(log_directory, 'Logs.log')
         # Create file handler which creates every day a new file (after five files are created, they are overwritten).
         file_logging = TimedRotatingFileHandler(filename=file,
                                                 when="d",
@@ -167,17 +155,13 @@ def start(logger: logging.Logger):
         else:
             console_logging.setLevel(logging.INFO)
 
-        format_1 = '%(levelname)s - %(processName)s - %(threadName)s - %(name)s:%(lineno)d: %(message)s'
-        """Complete format."""
-        format_2 = '%(levelname)s - %(name)s:%(lineno)d: %(message)s'
-        """Simplified format (without process and thread info)."""
-        format_3 = '%(levelname)s - %(pathname)s:%(lineno)d: %(message)s'
-        """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        format_4 = '%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
-        """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        format_5 = '%(levelname)s - %(processName)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
-        """Simplified format with the path name instead of the logger name (without process and thread info)."""
-        formatter_console = logging.Formatter(format_4)
+        # Alternatives, should the console output ever need more or less context:
+        # '%(levelname)s - %(processName)s - %(threadName)s - %(name)s:%(lineno)d: %(message)s'  (everything)
+        # '%(levelname)s - %(name)s:%(lineno)d: %(message)s'                                     (shortest)
+        # '%(levelname)s - %(pathname)s:%(lineno)d: %(message)s'                                 (clickable path)
+        # '%(levelname)s - %(processName)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'   (with process)
+        console_format = '%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d - %(name)s - %(message)s'
+        formatter_console = logging.Formatter(console_format)
         console_logging.setFormatter(formatter_console)
         logger.addHandler(console_logging)
         logger.info("Successfully created logger.")

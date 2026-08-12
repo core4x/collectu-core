@@ -4,6 +4,7 @@ Some helpful functions for analyzing application behaviour.
 import time
 import logging
 import threading
+import functools
 
 # Internal imports.
 import config
@@ -26,14 +27,12 @@ def log_all_threads(interval: int = 0):
            daemon=True,
            args=(2,)).start()
     """
-    continuously = True
-    while continuously:
+    while True:
         logger.info(
             "Running threads: " + str([f"{thread.name} (daemon: {thread.daemon})" for thread in threading.enumerate()]))
         if interval == 0:
             break
-        else:
-            time.sleep(interval)
+        time.sleep(interval)
 
 
 def timing(f):
@@ -47,11 +46,12 @@ def timing(f):
         ...
     """
 
+    @functools.wraps(f)
     def wrap(*args, **kwargs):
-        time1 = time.time()
+        start = time.perf_counter()
         ret = f(*args, **kwargs)
-        time2 = time.time()
-        logger.info("The function '{:s}' took {:.3f} ms for execution".format(f.__name__, (time2 - time1) * 1000.0))
+        logger.info("The function '{:s}' took {:.3f} ms for execution"
+                    .format(f.__name__, (time.perf_counter() - start) * 1000.0))
         return ret
 
     return wrap

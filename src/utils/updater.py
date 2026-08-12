@@ -5,10 +5,7 @@ This will only work, if the app was checked-out via git (and not downloaded).
 import os
 import sys
 import logging
-import subprocess
 from pathlib import Path
-import tempfile
-import shutil
 
 # Internal imports
 import config
@@ -108,11 +105,17 @@ def check_for_updates(with_submodule: bool = True) -> int:
     try:
         repo = git.Repo("..")
 
-        # Get version info.
-        result = subprocess.run("git describe --abbrev=7 --always --long --match v* main",
-                                stdout=subprocess.PIPE, shell=True, universal_newlines=True)
-        data_layer.version = result.stdout.strip()
-        logger.info("The app is running on version: {0}".format(data_layer.version))
+        # Get version info. Asked of the repo object rather than a shell, so it resolves
+        # against the repository the rest of this function operates on instead of the
+        # working directory, and 'v*' cannot be glob-expanded by the shell on the way.
+        # Kept non-fatal, as it was before: a checkout without a 'main' branch should still
+        # get its update check and its submodules.
+        try:
+            data_layer.version = repo.git.describe(
+                "--abbrev=7", "--always", "--long", "--match", "v*", "main").strip()
+            logger.info("The app is running on version: {0}".format(data_layer.version))
+        except Exception as e:
+            logger.warning("Could not determine the app version: {0}".format(str(e)))
 
         # Update local refs.
         repo.remotes.origin.fetch()
@@ -120,17 +123,19 @@ def check_for_updates(with_submodule: bool = True) -> int:
         # Count commits ahead.
         commit_count = sum(1 for _ in repo.iter_commits(f"{repo.active_branch}..origin/{repo.active_branch}"))
 
-        # Handle submodule.
-        if check_git_access_token() and with_submodule and folder_exists_and_empty("./interface"):
-            if folder_exists_and_empty("./interface"):
-                logger.info("Empty interface folder detected. Trying to initialize submodule...")
-                try:
-                    repo.git.submodule("update", "--init", "--recursive")
-                    logger.info("Successfully cloned interface submodule. Restarting...")
-                    restart_application()
-                except Exception as e:
-                    logger.error("Could not initialize interface submodule: {0}"
-                                 .format(str(e)), exc_info=config.EXC_INFO)
+        # Handle submodule. check_git_access_token() is called unconditionally because it also
+        # exports GIT_SSH_COMMAND, which the fetch in update_app depends on - it must not
+        # become conditional on the interface folder happening to be empty.
+        token_available = check_git_access_token()
+        if token_available and with_submodule and folder_exists_and_empty("./interface"):
+            logger.info("Empty interface folder detected. Trying to initialize submodule...")
+            try:
+                repo.git.submodule("update", "--init", "--recursive")
+                logger.info("Successfully cloned interface submodule. Restarting...")
+                restart_application()
+            except Exception as e:
+                logger.error("Could not initialize interface submodule: {0}"
+                             .format(str(e)), exc_info=config.EXC_INFO)
     except Exception as e:
         logger.error("Update check failed: {0}".format(str(e)), exc_info=config.EXC_INFO)
     return commit_count
@@ -160,7 +165,12 @@ def update_app() -> str:
         # Never merge on dirty trees. Never prompt. Remote always updates.
 
         # 1. Stash ALL local changes (tracked + untracked).
+        # Record whether this actually created a stash. On a clean tree 'stash push' stores
+        # nothing, and the unconditional 'stash pop' in step 5 then popped whatever the user
+        # had stashed by hand earlier - applying unrelated changes on top of the update.
+        stashes_before = len(repo.git.stash("list").splitlines())
         repo.git.stash("push", "-u", "-m", "auto-update")
+        stash_created = len(repo.git.stash("list").splitlines()) > stashes_before
         # 2. Fetch latest remote state.
         repo.git.fetch("origin")
         # 3. Force working tree to remote HEAD (deterministic update).
@@ -175,12 +185,13 @@ def update_app() -> str:
                 logger.error("Could not update app submodule: {0}".format(str(e)), exc_info=config.EXC_INFO)
         else:
             logger.info("Updating app...")
-        # 5. Best-effort restore local changes.
-        try:
-            repo.git.stash("pop")
-        except git.exc.GitCommandError:
-            # Do NOT fail updater — stash is preserved for safety.
-            logger.warning("Local changes could not be reapplied automatically. They remain stashed.")
+        # 5. Best-effort restore local changes, but only the ones we stashed ourselves.
+        if stash_created:
+            try:
+                repo.git.stash("pop")
+            except git.exc.GitCommandError:
+                # Do NOT fail updater — stash is preserved for safety.
+                logger.warning("Local changes could not be reapplied automatically. They remain stashed.")
 
         # Refresh version info.
         check_for_updates(with_submodule=False)

@@ -24,16 +24,71 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 # Third-party imports (optional).
 try:
     import markdown
-except ImportError as e:
+except ImportError:
     markdown = None
-    logger.error("Optional markdown package not installed! Some features may not be supported.")
+    logger.warning("Optional markdown package not installed! Some features may not be supported.")
 
 try:
     from packaging.requirements import Requirement
     from packaging.version import parse as parse_version
-except ImportError as e:
+except ImportError:
     Requirement = None
-    logger.error("Optional packaging package not installed! Some features may not be supported.")
+    logger.warning("Optional packaging package not installed! Some features may not be supported.")
+
+
+def get_custom_module_folder() -> pathlib.Path | None:
+    """
+    The configured custom module folder, if it is set and exists.
+
+    :returns: The path to the custom module folder, or None.
+    """
+    custom_module_folder = os.environ.get("CUSTOM_MODULE_FOLDER", "")
+    if not custom_module_folder:
+        return None
+    path = pathlib.Path(os.path.join("modules", custom_module_folder))
+    return path if path.is_dir() else None
+
+
+def module_registry_entries(modname: str, module: Any) -> list[tuple[str, Any]]:
+    """
+    The data_layer.registered_modules entries an imported module file provides.
+
+    An input file can hold up to three module classes, which is why the mapping between a
+    file and the entries it produces is kept in one place.
+
+    :param modname: The dotted module name, e.g. 'inputs.opc_ua.opc_ua_client'.
+    :param module: The imported module object.
+
+    :returns: A list of (registry key, module class) pairs, empty for an unknown module type.
+    """
+    if modname.startswith("inputs."):
+        attributes = [("InputModule", modname),
+                      ("VariableModule", modname + ".variable"),
+                      ("TagModule", modname + ".tag")]
+    elif modname.startswith("outputs."):
+        attributes = [("OutputModule", modname)]
+    elif modname.startswith("processors."):
+        attributes = [("ProcessorModule", modname)]
+    else:
+        return []
+
+    return [(registry_key, getattr(module, attribute))
+            for attribute, registry_key in attributes if hasattr(module, attribute)]
+
+
+def register_module(modname: str, module: Any) -> bool:
+    """
+    Register the module classes an imported module file exposes.
+
+    :param modname: The dotted module name, e.g. 'inputs.opc_ua.opc_ua_client'.
+    :param module: The imported module object.
+
+    :returns: True if at least one module class was registered.
+    """
+    entries = module_registry_entries(modname, module)
+    for registry_key, module_class in entries:
+        data_layer.registered_modules[registry_key] = module_class
+    return bool(entries)
 
 
 def requirement_is_installed(package: str) -> tuple[bool, str]:
@@ -168,20 +223,7 @@ def load_modules():
             try:
                 module = importlib.import_module(modname)
                 modname = modname.replace("modules.", "").lower()
-                if modname.startswith("inputs."):
-                    if hasattr(module, "InputModule"):
-                        data_layer.registered_modules[modname] = getattr(module, "InputModule")
-                    if hasattr(module, "VariableModule"):
-                        data_layer.registered_modules[modname + ".variable"] = getattr(module, "VariableModule")
-                    if hasattr(module, "TagModule"):
-                        data_layer.registered_modules[modname + ".tag"] = getattr(module, "TagModule")
-                elif modname.startswith("outputs."):
-                    if hasattr(module, "OutputModule"):
-                        data_layer.registered_modules[modname] = getattr(module, "OutputModule")
-                elif modname.startswith("processors."):
-                    if hasattr(module, "ProcessorModule"):
-                        data_layer.registered_modules[modname] = getattr(module, "ProcessorModule")
-                else:
+                if not register_module(modname, module):
                     logger.debug("Unknown module: {0}.".format(modname))
             except Exception as e:
                 logger.warning("Could not import and register module '{0}': {1}".format(str(modname), str(e)),
@@ -192,9 +234,9 @@ def load_modules():
             pass
 
     # Second: Load (and overwrite if it already exists) all modules from the custom module folder if defined.
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
-            "CUSTOM_MODULE_FOLDER", None):
-        package_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER"))).resolve()
+    custom_module_folder = get_custom_module_folder()
+    if custom_module_folder is not None:
+        package_path = custom_module_folder.resolve()
         sys.path.append(str(package_path))
         try:
             top_package = importlib.import_module("modules." + os.environ.get("CUSTOM_MODULE_FOLDER"))
@@ -217,39 +259,28 @@ def load_modules():
                         module_path = f"modules.{os.path.basename(package_path)}.{relative_dir.replace(os.sep, '.')}.{module_name}"
                     else:
                         module_path = f"modules.{os.path.basename(package_path)}.{module_name}"
-                    # Dynamically import the module.
+                    # Dynamically import the module. Wrapped like the general module loop
+                    # above: one custom module that fails to import used to abort the walk,
+                    # so every module after it in the folder went unregistered as well.
                     logger.debug("Importing custom module: {0}".format(module_path))
-                    module = importlib.import_module(module_path)
-                    module = importlib.reload(module)  # Required if it is just a hot-reload.
                     modname = module_path.split(".", 2)[-1].lower()
+                    try:
+                        module = importlib.import_module(module_path)
+                        module = importlib.reload(module)  # Required if it is just a hot-reload.
+                    except Exception as e:
+                        logger.warning("Could not import and register custom module '{0}': {1}"
+                                       .format(module_path, str(e)), exc_info=config.EXC_INFO)
+                        continue
 
-                    if modname in data_layer.registered_modules:
-                        logger.warning("A module with the name {0} was already registered and "
-                                       "is now overwritten with the one in your custom module folder ({1})."
-                                       .format(modname, os.environ.get("CUSTOM_MODULE_FOLDER")))
-                    if modname.startswith("inputs."):
-                        if hasattr(module, "InputModule"):
-                            data_layer.registered_modules[modname] = getattr(module, "InputModule")
-                        if hasattr(module, "VariableModule"):
-                            if modname + ".variable" in data_layer.registered_modules:
-                                logger.warning("A module with the name {0} was already registered and "
-                                               "is now overwritten with the one in your custom module folder ({1})."
-                                               .format(modname + ".variable", os.environ.get("CUSTOM_MODULE_FOLDER")))
-                            data_layer.registered_modules[modname + ".variable"] = getattr(module, "VariableModule")
-                        if hasattr(module, "TagModule"):
-                            if modname + ".tag" in data_layer.registered_modules:
-                                logger.warning("A module with the name {0} was already registered and "
-                                               "is now overwritten with the one in your custom module folder ({1})."
-                                               .format(modname + ".tag", os.environ.get("CUSTOM_MODULE_FOLDER")))
-                            data_layer.registered_modules[modname + ".tag"] = getattr(module, "TagModule")
-                    elif modname.startswith("outputs."):
-                        if hasattr(module, "OutputModule"):
-                            data_layer.registered_modules[modname] = getattr(module, "OutputModule")
-                    elif modname.startswith("processors."):
-                        if hasattr(module, "ProcessorModule"):
-                            data_layer.registered_modules[modname] = getattr(module, "ProcessorModule")
-                    else:
+                    entries = module_registry_entries(modname, module)
+                    if not entries:
                         logger.debug("Unknown module: {0}.".format(modname))
+                    for registry_key, module_class in entries:
+                        if registry_key in data_layer.registered_modules:
+                            logger.warning("A module with the name {0} was already registered and "
+                                           "is now overwritten with the one in your custom module folder ({1})."
+                                           .format(registry_key, os.environ.get("CUSTOM_MODULE_FOLDER")))
+                        data_layer.registered_modules[registry_key] = module_class
 
     logger.info("Successfully registered {0} modules.".format(str(len(data_layer.registered_modules))))
 
@@ -273,7 +304,7 @@ def get_all_module_files() -> dict[str, dict[str, Any]]:
                 if (module_name.startswith("processors.") or
                         module_name.startswith("inputs.") or
                         module_name.startswith("outputs.")):
-                    found_modules[module_name] = {"code": open(found_path, encoding="utf-8").read(),
+                    found_modules[module_name] = {"code": found_path.read_text(encoding="utf-8"),
                                                   "path": found_path}
     return found_modules
 
@@ -289,10 +320,8 @@ def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
 
     :returns: A list containing the module name as key and some attributes as value.
     """
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
-            "CUSTOM_MODULE_FOLDER", None):
-        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
-    else:
+    custom_folder_path = get_custom_module_folder()
+    if custom_folder_path is None:
         return {}
 
     found_modules: dict[str, dict[str, Any]] = {}
@@ -309,9 +338,9 @@ def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
             )
             if filename.endswith('.py') and filename != "__init__.py" and is_module_dir:
                 found_path = pathlib.Path(os.path.join(dirpath, filename))
-                module_name = dirpath.replace(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")),
-                                              "").replace(os.sep, ".")[1:] + "." + filename[:-3]
-                found_modules[module_name] = {"code": open(found_path, encoding="utf-8").read(),
+                module_name = dirpath.replace(str(custom_folder_path), "").replace(os.sep, ".")[1:] \
+                    + "." + filename[:-3]
+                found_modules[module_name] = {"code": found_path.read_text(encoding="utf-8"),
                                               "path": found_path}
     return found_modules
 
@@ -360,7 +389,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
       "default": "default_value",
       "dynamic": True/False}
     """
-    modules = []
+    described_modules = []
     for module_name, module in data_layer.registered_modules.items():
         # Apply the filter functionality.
         if processors and not module_name.startswith("processors."):
@@ -424,8 +453,8 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
             data["field_requirements"] = getattr(module, "field_requirements", [])
             data["tag_requirements"] = getattr(module, "tag_requirements", [])
 
-        modules.append(data)
-    return modules
+        described_modules.append(data)
+    return described_modules
 
 
 def dynamically_import_module(module_path: str):
@@ -444,25 +473,11 @@ def dynamically_import_module(module_path: str):
     modname = module_path.replace("modules.", "", 1) if module_path.startswith("modules.") else module_path
 
     # Register the module.
-    if modname.startswith("inputs."):
-        if hasattr(imported_module, "InputModule"):
-            data_layer.registered_modules[modname] = getattr(imported_module, "InputModule")
-        if hasattr(imported_module, "VariableModule"):
-            data_layer.registered_modules[modname + ".variable"] = getattr(imported_module,
-                                                                           "VariableModule")
-        if hasattr(imported_module, "TagModule"):
-            data_layer.registered_modules[modname + ".tag"] = getattr(imported_module, "TagModule")
-    elif modname.startswith("outputs."):
-        if hasattr(imported_module, "OutputModule"):
-            data_layer.registered_modules[modname] = getattr(imported_module, "OutputModule")
-    elif modname.startswith("processors."):
-        if hasattr(imported_module, "ProcessorModule"):
-            data_layer.registered_modules[modname] = getattr(imported_module, "ProcessorModule")
-    else:
+    if not register_module(modname, imported_module):
         logger.error("Unknown module: {0}.".format(modname))
 
     logger.info("Successfully imported {0} with version: {1}."
-                .format(modname, imported_module.__version__))
+                .format(modname, getattr(imported_module, "__version__", "unknown")))
 
 
 def write_module_to_file(module_name: str, code: str, import_module: bool = True):
@@ -474,52 +489,31 @@ def write_module_to_file(module_name: str, code: str, import_module: bool = True
     :param import_module: Do you want to directly import the module.
     """
     # Check if a custom module folder exists.
-    if pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER", ""))).is_dir() and os.environ.get(
-            "CUSTOM_MODULE_FOLDER", None):
-        custom_folder_path = pathlib.Path(os.path.join("modules", os.environ.get("CUSTOM_MODULE_FOLDER")))
-    else:
-        custom_folder_path = None
+    custom_folder_path = get_custom_module_folder()
 
-    # This is the file path including the file name.
-    file = None
-    if module_name.startswith("inputs."):
-        path_list = module_name.replace('inputs.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'inputs', *path_list)):
-                file = os.path.join(custom_folder_path, 'inputs', *path_list)
-        if not file:
-            file = os.path.join('modules', 'inputs', *path_list)
-    elif module_name.startswith("outputs."):
-        path_list = module_name.replace('outputs.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'outputs', *path_list)):
-                file = os.path.join(custom_folder_path, 'outputs', *path_list)
-        if not file:
-            file = os.path.join('modules', 'outputs', *path_list)
-    elif module_name.startswith("processors."):
-        path_list = module_name.replace('processors.', '').split(".")
-        path_list[-1] += ".py"
-        if custom_folder_path is not None:
-            # Check if the module exists in the custom module folder.
-            if os.path.isfile(os.path.join(custom_folder_path, 'processors', *path_list)):
-                file = os.path.join(custom_folder_path, 'processors', *path_list)
-        if not file:
-            file = os.path.join('modules', 'processors', *path_list)
-    else:
+    module_type = module_name.split(".", 1)[0]
+    if module_type not in ("inputs", "outputs", "processors"):
         raise Exception("Unknown module: {0}.".format(module_name))
 
+    path_list = module_name.split(".")[1:]
+    path_list[-1] += ".py"
+
+    # This is the file path including the file name. An existing file in the custom module
+    # folder wins, so an update lands on the copy that is actually being loaded.
+    file = None
+    if custom_folder_path is not None:
+        custom_file = os.path.join(custom_folder_path, module_type, *path_list)
+        if os.path.isfile(custom_file):
+            file = custom_file
+    if not file:
+        file = os.path.join('modules', module_type, *path_list)
+
     # Create directory.
-    pathlib.Path(os.path.join(str(pathlib.Path(file).parents[0]))).mkdir(
-        parents=True,
-        exist_ok=True)
+    pathlib.Path(file).parent.mkdir(parents=True, exist_ok=True)
 
     # Check if __init__.py files exist in all folders on the path. Otherwise, create them.
     current_dir = os.path.dirname(file)
-    while True:
+    while current_dir:
         if os.path.basename(current_dir) == os.environ.get("CUSTOM_MODULE_FOLDER", None):
             break
         init_py_path = os.path.join(current_dir, '__init__.py')
@@ -527,9 +521,10 @@ def write_module_to_file(module_name: str, code: str, import_module: bool = True
             open(init_py_path, "a").close()
         if os.path.basename(current_dir) == "modules":
             break
-        if current_dir == '/':
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
             break
-        current_dir = os.path.dirname(current_dir)
+        current_dir = parent_dir
 
     if os.path.isfile(file):
         logger.warning("File '{0}' already exists and is now overwritten.".format(file))

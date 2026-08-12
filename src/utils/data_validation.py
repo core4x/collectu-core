@@ -1,7 +1,28 @@
 """
 Validation functions for checking that data input fulfills the module requirements.
 """
-from typing import Tuple, Union, List, Dict, Any
+import ast
+import operator
+from typing import Callable, Tuple, Union, List, Dict, Any
+
+OPERATORS: Dict[str, Callable[[Any, Any], bool]] = {
+    '==': operator.eq,
+    '!=': operator.ne,
+    '>=': operator.ge,
+    '<=': operator.le,
+    '<': operator.lt,
+    '>': operator.gt,
+}
+"""
+The comparison operators a requirement may use.
+
+Comparisons are applied through these functions rather than by building a Python expression
+and calling eval() on it. The right-hand side of a requirement is authored with the module,
+but the left-hand side is a *data value*, and it used to be interpolated into the expression
+inside quotes - so a value carrying a quote character escaped into the expression and ran as
+code. Data reaches this function straight from an input module (an mqtt payload, an opc ua
+node), which makes that a remote code execution path.
+"""
 
 
 class ValidationError(Exception):
@@ -9,6 +30,42 @@ class ValidationError(Exception):
     Base class for validation errors.
     """
     pass
+
+
+def _compare(left: Any, comparison_operator: str, right: Any) -> bool:
+    """
+    Apply a comparison operator from a requirement.
+
+    :param left: The left-hand operand, usually a value taken from the data object.
+    :param comparison_operator: One of the keys of {@link OPERATORS}.
+    :param right: The right-hand operand.
+
+    :returns: The result of the comparison.
+    """
+    try:
+        function = OPERATORS[comparison_operator]
+    except KeyError:
+        raise Exception(f"'{comparison_operator}' is an unknown operator.")
+    return function(left, right)
+
+
+def _as_literal(token: str) -> Any:
+    """
+    Read the right-hand side of a 'value' expression.
+
+    Numbers, booleans and None are taken as the literal they spell; anything else is taken as
+    the string it is written as, so '(value state == init)' compares against "init". This
+    mirrors what the previous eval-based implementation achieved by passing the token to
+    itself as a global.
+
+    :param token: The token as written in the requirement.
+
+    :returns: The parsed value.
+    """
+    try:
+        return ast.literal_eval(token)
+    except (ValueError, SyntaxError):
+        return token
 
 
 def _is_same_data_type(data_type: str, value: Any) -> bool:
@@ -25,7 +82,7 @@ def _is_same_data_type(data_type: str, value: Any) -> bool:
 
     for data_type in data_types:
         if data_type in ["strs", "bools", "ints", "floats", "numbers"]:
-            if type(value) == list:
+            if isinstance(value, list):
                 correct = True
                 for item in value:
                     # Check if every value is of the given type.
@@ -40,7 +97,7 @@ def _is_same_data_type(data_type: str, value: Any) -> bool:
             else:
                 correct_type.append(False)
         elif data_type == "list":
-            correct_type.append(bool(type(value) == list))
+            correct_type.append(isinstance(value, list))
         elif data_type in ["str", "bool", "int", "float"]:
             correct_type.append(bool(type(value).__name__ == data_type))
         elif data_type == "number":
@@ -105,13 +162,11 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
                     messages.append(f"The key '{variables[1]}' should be in the data object but wasn't.")
 
         elif variables[0] == "keys":  # Check the length of the data object.
-            valid_input = True
-            if variables[1] not in ['==', '!=', '>=', '<=', '<', '>']:
+            if variables[1] not in OPERATORS:
                 raise Exception(f"'{variables[1]}' is an unknown operator for checking the length of the data object.")
             if not variables[2].isdigit():
                 raise Exception(f"'{variables[2]}' is not a valid number for checking the length of the data object.")
-            if valid_input:
-                valid = eval(str(len(data.items())) + variables[1] + variables[2], {})
+            valid = _compare(len(data), variables[1], int(variables[2]))
             if not valid:
                 messages.append(f"The length of the data object should be '{variables[1]} {variables[2]}' "
                                 f"but was '{len(data.items())}'.")
@@ -123,7 +178,7 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
                 if variables[1][0] == '!':
                     key_not_to_be_checked = variables[1].replace('!', '', 1)
                 # Check the length off all elements of the data object to be 'operator number' or 'equal'.
-                if variables[2] in ['==', '!=', '>=', '<=', '<', '>']:
+                if variables[2] in OPERATORS:
                     if not variables[3].isdigit():
                         raise Exception(f"'{variables[3]}' is not a valid number for checking the length of a list.")
                     else:
@@ -131,8 +186,8 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
                         for key, value in data.items():  # Get every key/value pair of the data object.
                             if key == key_not_to_be_checked:
                                 continue
-                            if type(value) == list:
-                                if not eval(str(len(value)) + variables[2] + variables[3], {}):
+                            if isinstance(value, list):
+                                if not _compare(len(value), variables[2], int(variables[3])):
                                     same_length = False
                                     break
                             else:
@@ -165,10 +220,10 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
 
             # Should be a key of the data object. Example: (length test1 == test2) or (length test1 == 2).
             elif variables[1] in data.keys():
-                if type(data.get(variables[1], None)) is list:
+                if isinstance(data.get(variables[1]), list):
                     if variables[3].isdigit():  # Check if to compare with a number or key.
-                        if variables[2] in ['==', '!=', '>=', '<=', '<', '>']:
-                            valid = eval(str(len(data.get(variables[1]))) + variables[2] + variables[3], {})
+                        if variables[2] in OPERATORS:
+                            valid = _compare(len(data.get(variables[1])), variables[2], int(variables[3]))
                             if not valid:
                                 messages.append(f"The length of the list from key '{variables[1]}' "
                                                 f"should be '{variables[2]} {variables[3]}' but was "
@@ -178,10 +233,10 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
                                             f"the length of lists.")
                     else:  # Compare with another list.
                         if variables[3] in data.keys():
-                            if type(data.get(variables[3], None)) is list:
-                                if variables[2] in ['==', '!=', '>=', '<=', '<', '>']:
-                                    valid = eval(str(len(data.get(variables[1]))) + variables[2] + str(
-                                        len(data.get(variables[3]))), {})
+                            if isinstance(data.get(variables[3]), list):
+                                if variables[2] in OPERATORS:
+                                    valid = _compare(len(data.get(variables[1])), variables[2],
+                                                     len(data.get(variables[3])))
                                     if not valid:
                                         messages.append(
                                             f"The length of the list from key '{variables[1]}' should be "
@@ -206,13 +261,8 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
         elif variables[0] == "value":
             # Should be a key of the data object. Example: (value test1 == 1).
             if variables[1] in data.keys():
-                if variables[2] in ['==', '!=', '>=', '<=', '<', '>']:
-                    if isinstance(data.get(variables[1]), str):
-                        variable_1 = '"' + str(data.get(variables[1])) + '"'
-                    else:
-                        variable_1 = str(data.get(variables[1]))
-
-                    valid = eval(variable_1 + variables[2] + variables[3], {variables[3]: variables[3]})
+                if variables[2] in OPERATORS:
+                    valid = _compare(data.get(variables[1]), variables[2], _as_literal(variables[3]))
                     if not valid:
                         messages.append(f"The value of the key '{variables[1]}' "
                                         f"should be '{variables[2]} {variables[3]}' but was "
@@ -259,7 +309,10 @@ def _evaluate_requirement(requirement: str, data: dict) -> Tuple[bool, List[str]
             expressions.append(requirement[temp_buffer.pop() + 1:index])
 
     # Get the lowest expressions.
-    expressions: List[str] = [expression for expression in expressions if ('(' or ')') not in expression]
+    # Caution: this read `if ('(' or ')') not in expression`, which is `'(' or ')'` evaluated
+    # first - always '(' - so a nested closing bracket alone never excluded an expression.
+    expressions: List[str] = [expression for expression in expressions
+                              if '(' not in expression and ')' not in expression]
 
     # Evaluate the lowest expressions
     for expression in expressions:
@@ -269,7 +322,9 @@ def _evaluate_requirement(requirement: str, data: dict) -> Tuple[bool, List[str]
 
     try:
         # Evaluate the complete requirement, where the single expressions are replaced with the evaluated ones.
-        valid = eval(requirement, {})
+        # Only 'True', 'False' and the boolean operators joining them are left at this point. An empty
+        # __builtins__ keeps it that way - passing {} lets Python insert the real builtins itself.
+        valid = eval(requirement, {"__builtins__": {}})
 
         # Make sure that valid is a boolean.
         if type(valid) is not bool:

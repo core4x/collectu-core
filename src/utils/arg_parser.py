@@ -66,7 +66,7 @@ def process_commands():
     args = parser.parse_args()
 
     if args.modules:
-        _command_version(args.modules)
+        _command_modules(args.modules)
         sys.exit(0)
     if args.about:
         _command_about()
@@ -89,24 +89,22 @@ def process_commands():
         sys.exit(0)
 
 
-def _command_version(requested_module_type: list[str]):
+def _command_modules(requested_module_types: list[str]):
     """
     Prints all available modules.
 
-    :param requested_module_type: The requested modules. Can be: all, inputs, outputs, or processors.
+    :param requested_module_types: The requested module types.
+    Can be: all, and/or any of inputs, outputs, processors.
     """
-    for mod_name, module in data_layer.registered_modules.items():
-        if "all" in requested_module_type:
-            sys.stdout.write(f"{mod_name}: {module.description}\n")
-        elif "inputs" in requested_module_type:
-            if mod_name.startswith("inputs."):
-                sys.stdout.write(f"{mod_name}: {module.description}\n")
-        elif "outputs" in requested_module_type:
-            if mod_name.startswith("outputs."):
-                sys.stdout.write(f"{mod_name}: {module.description}\n")
-        elif "processors" in requested_module_type:
-            if mod_name.startswith("processors."):
-                sys.stdout.write(f"{mod_name}: {module.description}\n")
+    if "all" in requested_module_types:
+        selected = data_layer.registered_modules.items()
+    else:
+        prefixes = tuple(f"{module_type}." for module_type in requested_module_types)
+        selected = [(mod_name, module) for mod_name, module in data_layer.registered_modules.items()
+                    if mod_name.startswith(prefixes)]
+
+    for mod_name, module in selected:
+        sys.stdout.write(f"{mod_name}: {module.description}\n")
 
 
 def _command_about():
@@ -164,14 +162,18 @@ def _command_update():
 
 def _command_download_modules(requested_module_type: list[str]):
     """
-    Loads all official modules from the hub.
+    Downloads modules of the requested type from the hub.
+
+    :param requested_module_type: A single-element list holding 'all', 'my', or 'official'.
     """
     utils.hub_connection.download_modules(requested_module_types=requested_module_type[0])
 
 
 def _command_update_modules(module_name: str):
     """
-    Loads all official modules from the hub.
+    Updates the given module, or all registered ones, from the hub.
+
+    :param module_name: The module to update, or 'all'.
     """
     if module_name == "all":
         module_names = None

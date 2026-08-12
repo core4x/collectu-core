@@ -67,8 +67,10 @@ def parse_requirements(path: Path) -> list[dict]:
             # Skip comments and blank lines
             if not line or line.startswith("#") or line.startswith("-"):
                 continue
-            # Match "name==version" (pinned) or "name>=version" etc.
-            m = re.match(r"^([A-Za-z0-9_\-\.]+)\s*([=<>!~]{1,2})\s*([^\s;]+)", line)
+            # Match "name==version" (pinned) or "name>=version" etc. Three characters, so the
+            # arbitrary-equality operator "===" is read as one operator and not as "==" plus a
+            # version that starts with "=".
+            m = re.match(r"^([A-Za-z0-9_\-\.]+)\s*(===|[=<>!~]{1,2})\s*([^\s;]+)", line)
             if m:
                 packages.append({
                     "name": m.group(1),
@@ -156,9 +158,12 @@ def build_component(pkg: dict, meta: dict, index: int) -> dict:
     """
     Build a CycloneDX component object for a Python package.
     """
+    # The index keeps the ref unique even when two requirements files pin the same
+    # distribution differently; make_purl normalises the name the same way as "purl" does,
+    # so the two identifiers cannot disagree on spelling.
     comp: dict = {
         "type": "library",
-        "bom-ref": f"pkg:pypi/{pkg['name'].lower()}@{pkg['version']}-{index}",
+        "bom-ref": f"{make_purl(pkg['name'], pkg['version'])}-{index}",
         "name": pkg["name"],
         "version": pkg["version"] or "unknown",
         "purl": make_purl(pkg["name"], pkg["version"]),
@@ -369,7 +374,9 @@ def merge_vulnerability(existing: dict, new: dict) -> None:
         if ref["id"] not in seen_ids:
             references.append(ref)
             seen_ids.add(ref["id"])
-    # Also fold in the other record's own OSV id (from its source URL).
+    # The duplicate's own OSV id is already among its references: build_vulnerability puts
+    # every identifier other than the primary vid there, and the two records only merge
+    # because they resolved to the same vid.
     if references:
         existing["references"] = references
 

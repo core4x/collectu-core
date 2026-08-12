@@ -44,12 +44,28 @@ def create_authenticated_session() -> requests.Session | None:
         return None
 
 
+MODULE_ENDPOINTS: dict[str, tuple[str, ...]] = {
+    "minimal": ("minimal",),
+    "standard": ("standard",),
+    "my": ("all_my",),
+    "official": ("official",),
+    "all": ("all_my", "official"),
+}
+"""The hub endpoints backing each module selection accepted by download_modules."""
+
+
 def download_modules(requested_module_types: str = "minimal"):
     """
     Download modules from the hub.
 
     :param requested_module_types: Can be 'minimal', 'standard', 'all', 'official', or 'my'.
     """
+    endpoints = MODULE_ENDPOINTS.get(requested_module_types)
+    if endpoints is None:
+        logger.error("Invalid module type: {0}. Expected one of: {1}."
+                     .format(requested_module_types, ", ".join(sorted(MODULE_ENDPOINTS))))
+        return
+
     logger.info("Trying to download {0} modules from {1}."
                 .format(requested_module_types, config.HUB_MODULES_ADDRESS))
     session = create_authenticated_session()
@@ -58,44 +74,13 @@ def download_modules(requested_module_types: str = "minimal"):
         return
     with session as s:
         try:
-            if "all" == requested_module_types:
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
+            modules = []
+            for endpoint in endpoints:
+                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/{endpoint}",
                                  allow_redirects=True,
                                  timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
-                modules = response.json()
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
-                                 allow_redirects=True,
-                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
-                modules = modules + response.json()
-            elif "minimal" == requested_module_types:
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/minimal",
-                                 allow_redirects=True,
-                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
-                modules = response.json()
-            elif "standard" == requested_module_types:
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/standard",
-                                 allow_redirects=True,
-                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
-                modules = response.json()
-            elif "my" == requested_module_types:
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/all_my",
-                                 allow_redirects=True,
-                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
-                modules = response.json()
-            elif "official" == requested_module_types:
-                response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/official",
-                                 allow_redirects=True,
-                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
-                modules = response.json()
-            else:
-                logger.error("Invalid module type: {0}.".format(requested_module_types))
-                return
+                modules += response.json()
 
             logger.info("Starting download of {0} modules...".format(len(modules)))
             total = len(modules)
@@ -113,6 +98,36 @@ def download_modules(requested_module_types: str = "minimal"):
                          exc_info=config.EXC_INFO)
 
 
+def _base_name(module_name: str) -> str:
+    """
+    The module name without the variable/tag suffix a registered input module can carry.
+
+    :param module_name: The module name.
+    :return: The name the hub knows the module by.
+    """
+    return module_name.removesuffix(".variable").removesuffix(".tag")
+
+
+def _is_newer_than_registered(module: dict) -> bool:
+    """
+    Whether the module the hub returned is newer than the registered one, or is unknown here.
+
+    :param module: The module as returned by the hub.
+    :return: True if it should be written to file.
+    """
+    hub_name = module.get("module_name")
+    registered_versions = [registered.version for name, registered in list(data_layer.registered_modules.items())
+                           if _base_name(name) == hub_name]
+    if not registered_versions:
+        # Not registered at all, so anything the hub has is newer.
+        return True
+    hub_version = (module.get("version") or module.get("latest") or {}).get("version")
+    if hub_version is None:
+        # No version to compare against - let the caller write it rather than skip it.
+        return True
+    return hub_version > max(registered_versions)
+
+
 def download_module(module_name: str, version: int = 0, session: requests.Session = None) -> bool:
     """
     Retrieve the given module or all from hub.
@@ -123,8 +138,7 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
     :return: True if the import was successful, False otherwise.
     """
     # Remove invisible characters (e.g. zero-width spaces from copy-pasted module names) and surrounding whitespace.
-    module_name = re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", module_name).strip()
-    module_name = module_name.removesuffix(".variable").removesuffix(".tag")
+    module_name = _base_name(re.sub("[\u200b\u200c\u200d\u2060\ufeff]", "", module_name).strip())
     logger.info("Trying to download {0} with version {1} from {2}."
                 .format(module_name, version, config.HUB_MODULES_ADDRESS))
 
@@ -146,24 +160,20 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
                             str(response.json().get("id"))))
         module = response.json()
 
-        if module.get('module_name') not in [registered_module.removesuffix(".variable").removesuffix(".tag") for
-                                             registered_module in data_layer.registered_modules] or module.get(
-            "version").get("version") > next(
-            (value for module_name, value in list(data_layer.registered_modules.items()) if
-             module_name.startswith(module.get('module_name'))), None).version or version != 0:
-
-            modname = module_name.lower()
-            # Save code as file in the given path.
-            if "version" in module:
-                code = module.get("version").get("code")
-            else:
-                code = module.get("latest").get("code")
-            utils.plugin_interface.write_module_to_file(module_name=modname, code=code)
-            return True
-        else:
+        if not _is_newer_than_registered(module) and version == 0:
             logger.info("Module '{0}' already exists in the latest version. "
                         "Skipping update procedure...".format(module_name))
             return True
+
+        # Save code as file in the given path. The hub answers with the requested
+        # 'version' when one was asked for, and with 'latest' otherwise.
+        code = (module.get("version") or module.get("latest") or {}).get("code")
+        if code is None:
+            logger.error("Could not download module ('{0}'): the hub response contained no code."
+                         .format(module_name))
+            return False
+        utils.plugin_interface.write_module_to_file(module_name=module_name.lower(), code=code)
+        return True
     except Exception as e:
         logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
                      exc_info=config.EXC_INFO)
@@ -181,12 +191,9 @@ def update_modules(module_names: Optional[List[str]] = None):
         logger.error("Could not update modules because no valid session could be established.")
         return None
     if module_names is None:
-        for module_name in list(
-                set([module_name.removesuffix(".variable").removesuffix(".tag") for module_name in data_layer.registered_modules])):
-            download_module(module_name=module_name, session=session)
-    else:
-        for module_name in module_names:
-            download_module(module_name=module_name, session=session)
+        module_names = sorted({_base_name(module_name) for module_name in data_layer.registered_modules})
+    for module_name in module_names:
+        download_module(module_name=module_name, session=session)
 
 
 def send_modules(module_names: List[str] | None):
@@ -216,6 +223,7 @@ def send_modules(module_names: List[str] | None):
     session = create_authenticated_session()
     if session is None:
         logger.error("Could not send modules because no valid session could be established.")
+        return
     with session as s:
 
         def find_file(full_relative_path: str, search_dir: str | pathlib.Path = "modules") -> pathlib.Path | None:
@@ -261,9 +269,10 @@ def send_modules(module_names: List[str] | None):
                     local_content_without_version = pattern.sub('', data.get("code"))
 
                     if local_content_without_version != server_content_without_version:
-                        # Update the module in the hub.
+                        # Update the module in the hub. The body is sent as a raw json string,
+                        # which is what json.loads(json.dumps(json.dumps(x))) also produced.
                         response = s.put(url=f"{config.HUB_MODULES_ADDRESS}/{module.get('id')}",
-                                         data=json.loads(json.dumps(json.dumps(data))),
+                                         data=json.dumps(data),
                                          allow_redirects=True,
                                          timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                         response.raise_for_status()
@@ -278,7 +287,7 @@ def send_modules(module_names: List[str] | None):
                                 .format(module_name))
                     # Create the module in the hub.
                     response = s.post(url=config.HUB_MODULES_ADDRESS,
-                                      data=json.loads(json.dumps(json.dumps(data | {"module_name": module_name}))),
+                                      data=json.dumps(data | {"module_name": module_name}),
                                       allow_redirects=True,
                                       timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                     response.raise_for_status()
@@ -287,10 +296,11 @@ def send_modules(module_names: List[str] | None):
 
                 module = response.json()
                 # Save code as file in the given path.
-                if "version" in module:
-                    code = module.get("version").get("code")
-                else:
-                    code = module.get("latest").get("code")
+                code = (module.get("version") or module.get("latest") or {}).get("code")
+                if code is None:
+                    logger.error("Could not store module ('{0}'): the hub response contained no code."
+                                 .format(module_name))
+                    return
                 utils.plugin_interface.write_module_to_file(module_name=module_name, code=code)
             except Exception as e:
                 logger.error("Could not send module data ('{0}'): {1}.".format(module_name, str(e)),
@@ -311,7 +321,7 @@ def send_modules(module_names: List[str] | None):
                 if found_path is None:
                     logger.error("Could not find module: {0}".format(module_name))
                 else:
-                    send_module(module_name=module_name, code=open(found_path, encoding="utf-8").read())
+                    send_module(module_name=module_name, code=found_path.read_text(encoding="utf-8"))
         #  2. If modules are defined, search in both module folders and send them (if found in custom, prefer this one).
         else:
             for module_name, values in utils.plugin_interface.get_all_custom_module_files().items():

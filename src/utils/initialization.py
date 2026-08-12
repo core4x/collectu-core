@@ -4,6 +4,7 @@ Furthermore, all defined third party requirements are checked and installed.
 """
 from configparser import ConfigParser
 import os
+import re
 import logging
 import uuid
 import socket
@@ -24,61 +25,83 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
 
+def _normalize_package_name(name: str) -> str:
+    """
+    Normalize a distribution name for comparison, following PEP 503.
+
+    'ruamel.yaml', 'ruamel-yaml' and 'Ruamel_YAML' all name the same distribution, but
+    requirements.txt and the installed metadata do not have to spell it the same way. Compared
+    verbatim, the difference read as a missing package and triggered a needless reinstall.
+
+    :param name: The distribution name as written.
+    :returns: The normalized name.
+    """
+    return re.sub(r"[-_.]+", "-", name).strip().lower()
+
+
+def _read_pinned_requirements(path: str, into: dict[str, tuple[str, str]]):
+    """
+    Read the '=='-pinned requirements of a requirements file into the given dict.
+
+    :param path: The requirements file to read.
+    :param into: The dict to fill, keyed by normalized name with (name as written, version).
+    """
+    with open(path, "r") as requirements_file:
+        for line in requirements_file.read().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if "==" in line:
+                package_name, version = line.split("==", 1)
+                package_name = package_name.strip()
+                into[_normalize_package_name(package_name)] = (package_name, version.strip())
+
+
 def check_installed_app_packages():
     """
     Compares the installed app packages with the ones listed in the requirements.txt file.
     If a package is missing, an exception is raised. If a version differs, a critical log message is printed.
     """
     # Get all installed packages.
-    installed_packages = {pkg.metadata['Name']: pkg.version for pkg in importlib.metadata.distributions()}
+    installed_packages = {_normalize_package_name(pkg.metadata['Name']): pkg.version
+                          for pkg in importlib.metadata.distributions() if pkg.metadata['Name']}
 
-    # Get all required packages from requirements.txt.
-    required_packages = {}
+    # Get all required packages from requirements.txt, keyed by normalized name.
+    required_packages: dict[str, tuple[str, str]] = {}
 
     # If we have an interface module, we check those requirements as well.
     if os.path.exists("interface/requirements.txt"):
         # If MCP server is enabled.
         if bool(int(os.environ.get('MCP', '0'))):
-            with open("interface/requirements-mcp.txt", "r") as requirements_file:
-                for line in requirements_file.read().splitlines():
-                    if "==" in line:
-                        package_name, version = line.split("==", 1)
-                        required_packages[package_name] = version
-        with open("interface/requirements.txt", "r") as requirements_file:
-            for line in requirements_file.read().splitlines():
-                if "==" in line:
-                    package_name, version = line.split("==", 1)
-                    required_packages[package_name] = version
+            _read_pinned_requirements("interface/requirements-mcp.txt", required_packages)
+        _read_pinned_requirements("interface/requirements.txt", required_packages)
 
     # The main requirements (overwrite the one of the interface).
-    with open("requirements.txt", "r") as requirements_file:
-        for line in requirements_file.read().splitlines():
-            if "==" in line:
-                package_name, version = line.split("==", 1)
-                required_packages[package_name] = version
+    _read_pinned_requirements("requirements.txt", required_packages)
+
+    auto_install = bool(int(os.environ.get('AUTO_INSTALL', '0')))
 
     # Compare the installed and required packages.
-    not_installed_required_packages = set(required_packages.items()) - set(installed_packages.items())
-    if not_installed_required_packages:
-        # Check if the package is missing, or installed in another version.
-        for missing_package in not_installed_required_packages:
-            missing_package_str = f"{missing_package[0]}=={missing_package[1]}"
-            if next(iter(missing_package)) not in installed_packages.keys():
-                if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
-                    logger.error("Missing package installation: {0}. Attempting to install..."
-                                .format(missing_package_str))
-                    utils.plugin_interface.install_plugin_requirement(package=missing_package_str)
-                else:
-                    logger.critical("Missing package installation: {0}. AUTO_INSTALL is disabled, skipping installation."
-                                    .format(missing_package_str))
+    for normalized_name, (package_name, version) in sorted(required_packages.items()):
+        installed_version = installed_packages.get(normalized_name)
+        if installed_version == version:
+            continue
+
+        required_package_str = f"{package_name}=={version}"
+        if installed_version is None:
+            if auto_install:
+                logger.error("Missing package installation: {0}. Attempting to install..."
+                             .format(required_package_str))
+                utils.plugin_interface.install_plugin_requirement(package=required_package_str)
             else:
-                logger.error("Package version {0} differs from the one defined in requirements.txt: {1}."
-                             .format(installed_packages[missing_package[0]], missing_package_str))
-                if bool(int(os.environ.get('AUTO_INSTALL', '0'))):
-                    utils.plugin_interface.install_plugin_requirement(package=missing_package_str)
-                else:
-                    logger.critical("Wrong package version: {0}. AUTO_INSTALL is disabled, skipping upgrade."
-                                    .format(missing_package_str))
+                logger.critical("Missing package installation: {0}. AUTO_INSTALL is disabled, skipping installation."
+                                .format(required_package_str))
+        else:
+            logger.error("Package version {0} differs from the one defined in requirements.txt: {1}."
+                         .format(installed_version, required_package_str))
+            if auto_install:
+                utils.plugin_interface.install_plugin_requirement(package=required_package_str)
+            else:
+                logger.critical("Wrong package version: {0}. AUTO_INSTALL is disabled, skipping upgrade."
+                                .format(required_package_str))
 
 
 def load_and_process_settings_file() -> bool:
@@ -88,8 +111,10 @@ def load_and_process_settings_file() -> bool:
     :return: True if the settings file was updated, false otherwise.
     """
     try:
+        settings_path = "../" + config.SETTINGS_FILENAME
         parser = ConfigParser(comment_prefixes='/', allow_no_value=True)
-        parser.read_file(open("../" + config.SETTINGS_FILENAME))
+        with open(settings_path) as settings_file:
+            parser.read_file(settings_file)
 
         updated: bool = False
         """Indicates if the config was updated e.g. when auto-generating an app_id."""
@@ -111,7 +136,13 @@ def load_and_process_settings_file() -> bool:
                     value = ''.join(secrets.choice(string.ascii_letters + string.digits + "!$&*+-<>?@_") for _ in range(16))
                     parser.set('env', name.lower(), value)
                     updated = True
-                    logger.info(f"Auto-generated local_admin_password: {value}")
+                    # The value itself is deliberately not logged. Log records are mirrored into
+                    # data_layer.latest_logs and reported to the hub and every configured
+                    # mothership, which would put the admin password on the wire and into a
+                    # remote log. It is written to the settings file just below.
+                    logger.info("Auto-generated a local_admin_password. "
+                                "You find it as 'local_admin_password' in your {0}."
+                                .format(config.SETTINGS_FILENAME))
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
             # If no app_description is set, we generate one.
@@ -136,12 +167,23 @@ def load_and_process_settings_file() -> bool:
                 data_layer.settings[name.upper()] = os.environ.get(name.upper())
 
         # Safe GIT_ACCESS_TOKEN (base64-encoded) as file.
+        # Guarded on its own, so a malformed token cannot abort the rest of the initialization
+        # below - the api access token in particular used to be skipped along with it.
         git_access_token = os.environ.get("GIT_ACCESS_TOKEN", False)
         if git_access_token:
-            decoded_token = base64.b64decode(git_access_token).decode("utf-8")
-            with open("../git_access_token.txt", 'w') as file:
+            try:
+                decoded_token = base64.b64decode(git_access_token).decode("utf-8")
+                token_path = "../git_access_token.txt"
+                with open(token_path, 'w') as file:
+                    file.write(decoded_token)
+                # The file is an ssh private key, and ssh refuses a key others can read.
+                try:
+                    os.chmod(token_path, 0o600)
+                except OSError as e:
+                    logger.warning("Could not restrict the permissions of {0}: {1}".format(token_path, str(e)))
                 logger.info("Successfully updated git_access_token.txt file with your git token.")
-                file.write(decoded_token)
+            except Exception as e:
+                logger.error("Could not store the GIT_ACCESS_TOKEN: {0}".format(str(e)), exc_info=config.EXC_INFO)
 
         # Load the api_access_token.txt file if it exists.
         api_access_token_path = '../api_access_token.txt'
@@ -187,7 +229,8 @@ def load_and_process_settings_file() -> bool:
 
         # Write updated settings.ini file.
         if updated:
-            parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...
+            with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
+                parser.write(settings_file)
 
         logger.info(f"Successfully initialized app using {config.SETTINGS_FILENAME}.")
         return updated
@@ -201,14 +244,17 @@ def update_env_variables():
     Sets the environment variables and the settings.ini to the current values in data_layer.settings.
     """
     try:
+        settings_path = "../" + config.SETTINGS_FILENAME
         parser = ConfigParser(comment_prefixes='/', allow_no_value=True)
-        parser.read_file(open("../" + config.SETTINGS_FILENAME))
+        with open(settings_path) as settings_file:
+            parser.read_file(settings_file)
 
         for key, value in data_layer.settings.items():
             os.environ[key] = value
             parser.set('env', key.lower(), value)
 
-        parser.write(open("../" + config.SETTINGS_FILENAME, 'w'))  # Caution: everything is automatically lowered...
+        with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
+            parser.write(settings_file)
         logger.info(f"Successfully updated environment variables and {config.SETTINGS_FILENAME}.")
     except Exception as e:
         logger.error("Could not update and write settings: {0}".format(str(e)))
