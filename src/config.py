@@ -85,6 +85,11 @@ HUB_TEST_TOKEN_ADDRESS: str = os.getenv("HUB_TEST_TOKEN_ADDRESS", f"{HUB_ADDRESS
 HUB_LOGIN_ADDRESS: str = os.getenv("HUB_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/access-token")
 """The endpoint of the api for logging in."""
 
+HUB_MFA_LOGIN_ADDRESS: str = os.getenv("HUB_MFA_LOGIN_ADDRESS", f"{HUB_ADDRESS}/login/mfa")
+"""The endpoint of the api for completing a login with the second factor. Used when the hub
+account has two-factor authentication enabled: HUB_LOGIN_ADDRESS then answers a challenge
+instead of a token, and the code is posted here to finish signing in."""
+
 HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_REFRESH_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
 """The endpoint of the api for refreshing token."""
 
