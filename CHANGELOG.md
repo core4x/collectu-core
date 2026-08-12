@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.69.0 (2026-08-12)
+
+### Features
+
+- Added multi-factor authentication support.
+  ([`687341e`](https://github.com/core4x/collectu-core/commit/687341e826a4d857c99da092db979bd299997961))
+
+
 ## v1.68.1 (2026-08-11)
 
 ### Bug Fixes
