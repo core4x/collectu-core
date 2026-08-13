@@ -77,6 +77,14 @@ def download_modules(requested_module_types: str = "minimal"):
             modules = []
             for endpoint in endpoints:
                 response = s.get(url=f"{config.HUB_MODULES_ADDRESS}/{endpoint}",
+                                 # Never install a module this core's own owner is not
+                                 # allowed to execute. The hub evaluates its module policy
+                                 # against each module's latest version, which is the one
+                                 # downloaded below - so what arrives here is what a
+                                 # configuration using it would be allowed to run.
+                                 # An owner whose policy is `all` (the default) is
+                                 # unaffected, and an older hub ignores the parameter.
+                                 params={"only_allowed": "true"},
                                  allow_redirects=True,
                                  timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                 response.raise_for_status()
