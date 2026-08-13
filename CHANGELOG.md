@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.70.1 (2026-08-13)
+
+### Bug Fixes
+
+- Updated frontend.
+  ([`7d8da87`](https://github.com/core4x/collectu-core/commit/7d8da877b61a964f1f673f416f5b888481784bcc))
+
+
 ## v1.70.0 (2026-08-13)
 
 ### Bug Fixes
