@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.70.2 (2026-08-13)
+
+### Bug Fixes
+
+- Refactored app endpoints to split heavy data out of apps (logs, configurations, and installed
+  packages).
+  ([`cf31752`](https://github.com/core4x/collectu-core/commit/cf31752d805c7679440c3b18d063ee9c00bcd6aa))
+
+
 ## v1.70.1 (2026-08-13)
 
 ### Bug Fixes
