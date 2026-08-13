@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.70.0 (2026-08-13)
+
+### Bug Fixes
+
+- Refactored code.
+  ([`92a99c4`](https://github.com/core4x/collectu-core/commit/92a99c4b33ae3afa0735fea8f905e7c13386491b))
+
+- Updated interface.
+  ([`2211a86`](https://github.com/core4x/collectu-core/commit/2211a86934a100f47ca599907d67615496d59532))
+
+### Features
+
+- Added new policy/approval feature on hub. Now, the initial download only includes modules matching
+  the owners policy.
+  ([`ec962e7`](https://github.com/core4x/collectu-core/commit/ec962e7c06b536bede46568332954b8a2962412f))
+
+
 ## v1.69.0 (2026-08-12)
 
 ### Features
