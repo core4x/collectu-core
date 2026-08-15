@@ -175,7 +175,16 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
 
         # Save code as file in the given path. The hub answers with the requested
         # 'version' when one was asked for, and with 'latest' otherwise.
-        code = (module.get("version") or module.get("latest") or {}).get("code")
+        module_code = module.get("version") or module.get("latest") or {}
+
+        # The hub flags a version malicious when its review found malicious intent.
+        if module_code.get("malicious"):
+            logger.critical("Refused to download module '{0}' with version {1}: the hub has "
+                            "flagged this version as malicious."
+                            .format(module_name, version if version != 0 else "latest"))
+            return False
+
+        code = module_code.get("code")
         if code is None:
             logger.error("Could not download module ('{0}'): the hub response contained no code."
                          .format(module_name))
