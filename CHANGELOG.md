@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.71.1 (2026-08-16)
+
+### Bug Fixes
+
+- Fixed workflow to include the semantic release in the following steps.
+  ([`c833a4c`](https://github.com/core4x/collectu-core/commit/c833a4cc8016ec7f94bc61374e02aa67f125352b))
+
+
 ## v1.71.0 (2026-08-16)
 
 ### Bug Fixes
