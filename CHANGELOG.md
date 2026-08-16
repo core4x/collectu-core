@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.71.0 (2026-08-16)
+
+### Bug Fixes
+
+- Added security guard to not download maliciously marked modules from hub.
+  ([`f54da50`](https://github.com/core4x/collectu-core/commit/f54da50bdd7e57203cb118fd6bd1464de8e13b37))
+
+- Updated third-party requirements.
+  ([`9860b54`](https://github.com/core4x/collectu-core/commit/9860b547f662173b2fcad14664170d2877e96175))
+
+### Features
+
+- Added sbom generation in workflow.
+  ([`4ebc548`](https://github.com/core4x/collectu-core/commit/4ebc548601aa946a015a1c35dc64b51066b41d0c))
+
+
 ## v1.70.2 (2026-08-13)
 
 ### Bug Fixes
