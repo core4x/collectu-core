@@ -43,8 +43,62 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  build-and-push:
+  commit-sbom:
+    # What the repository declares, scanned from src/requirements.txt and committed so it ships
+    # with the code. The container image is built by cloning this repository (see the Dockerfile),
+    # so this has to land before build-and-push for the image to carry it.
+    #
+    # Only this repository's own requirements: src/interface is an optional submodule with its own
+    # repository and its own SBOM, and actions/checkout does not fetch submodules here.
     needs: create-release
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get release version
+        run: |
+          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+          echo "Release version: $latest_tag"
+          echo "VERSION=$latest_tag" >> $GITHUB_ENV
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Commit SBOM
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sbom.cdx.json
+          # Only the serialNumber and timestamp change when nothing else did, so an unchanged
+          # dependency set must not produce an empty-but-noisy commit.
+          if git diff --cached --quiet; then
+            echo "No dependency changes; nothing to commit."
+          else
+            # [skip ci] matters: this workflow triggers on push to main and would otherwise
+            # re-enter itself on its own commit.
+            git commit -m "chore: Update SBOM for ${{ env.VERSION }}. [skip ci]"
+            git push
+          fi
+
+    outputs:
+      version: ${{ env.VERSION }}
+
+  build-and-push:
+    needs: commit-sbom
     if: success()
     runs-on: ubuntu-latest
     permissions:
@@ -99,6 +153,7 @@ jobs:
             type=raw,value=${{ env.VERSION }}
 
       - name: Build and push Docker images
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: ./
@@ -106,3 +161,82 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Attaches an SPDX SBOM and a provenance attestation to the pushed manifest, so the
+          # image carries a bill of materials wherever it is pulled from. This is the registry
+          # half of the answer; the CycloneDX document produced by container-sbom below is the
+          # one our own tooling consumes.
+          sbom: true
+          provenance: mode=max
+
+      - name: Record image digest
+        run: echo "IMAGE_DIGEST=${{ steps.build.outputs.digest }}" >> $GITHUB_ENV
+
+    outputs:
+      version: ${{ env.VERSION }}
+      image_digest: ${{ steps.build.outputs.digest }}
+
+  container-sbom:
+    # The container SBOM: a syft scan of the image that was actually published. Unlike the
+    # committed one it also covers the operating system packages - openssl, glibc, busybox - which
+    # is where the vulnerabilities that matter for an industrial gateway live. Scanned once here,
+    # on a known platform, rather than by every device parsing package databases at runtime.
+    needs: build-and-push
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    env:
+      HUB_API_TOKEN: ${{ secrets.HUB_API_TOKEN }}
+      HUB_API_URL: ${{ vars.HUB_API_URL || 'https://api.collectu.de/api/v1' }}
+      VERSION: ${{ needs.build-and-push.outputs.version }}
+
+    steps:
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan the published image
+        uses: anchore/sbom-action@v0
+        with:
+          # One platform is enough: the Python distributions are identical across them and the
+          # OS package set differs only in architecture-specific builds of the same packages.
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          format: cyclonedx-json
+          output-file: sbom.container.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Attach the container SBOM to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: sbom.container.cdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the container SBOM to the Hub
+        # So a customer fetches every SBOM from one place, and so the Hub can resolve the product
+        # SBOM of the version a device reports it is running. Skipped rather than failed when the
+        # secret is absent, so a fork does not break here.
+        if: ${{ env.HUB_API_TOKEN != '' }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+
+          with open("sbom.container.cdx.json", encoding="utf-8") as handle:
+              sbom = json.load(handle)
+
+          payload = {"version": os.environ["VERSION"], "as_built_sbom_json": sbom}
+          request = urllib.request.Request(
+              os.environ["HUB_API_URL"].rstrip("/") + "/security/core_release",
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json",
+                       "Authorization": "Bearer " + os.environ["HUB_API_TOKEN"]},
+              method="POST")
+          with urllib.request.urlopen(request, timeout=60) as response:
+              print("Hub responded", response.status)
+          PY

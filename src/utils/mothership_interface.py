@@ -40,7 +40,7 @@ def _allowed_commands() -> List[str]:
     :return: The allowed command names.
     """
     return [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if
-                             item] if os.environ.get("ALLOWED_COMMANDS", "") else []
+            item] if os.environ.get("ALLOWED_COMMANDS", "") else []
 
 
 def _log_error_throttled(log_times: Dict[str, datetime], key: str, message: str):
@@ -245,15 +245,19 @@ def _get_system_stats() -> Dict[str, Any]:
 
 def _get_installed_packages() -> List[models.InstalledPackage]:
     """
-    List the distributions installed in this app's Python environment.
+    List the Python distributions installed in this app's environment.
 
-    This is what the hub needs for an "as-deployed" software bill of materials: a module
-    declares third-party requirements, but an unpinned requirement resolves to whatever pip
-    found at install time on this particular device, so only the device knows the real
-    versions.
+    This is the *live* half of what the hub needs: the shipped SBOM says what the repository
+    declares, and this says what pip actually resolved on this particular machine. An unpinned
+    requirement resolves to whatever the index served at install time, so only the device knows.
 
-    The result is sorted by name, so an unchanged environment always serializes identically
-    and the caller can skip resending it.
+    Python only, deliberately. Operating system packages are fixed at build time in a container
+    and are scanned once by syft in CI, rather than every device rediscovering them at runtime
+    with a parser per package manager. On a host they are the operator's own packages, which are
+    not ours to inventory or patch.
+
+    The result is sorted by name, so an unchanged environment always serializes identically and
+    the caller can skip resending it.
 
     :return: The installed packages, sorted by lowercased name.
     """

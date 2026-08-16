@@ -108,9 +108,6 @@ STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = int(os.getenv("STATISTIC
 ACCESS_TOKEN_EXPIRE_HOURS: float = float(os.environ.get('ACCESS_TOKEN_EXPIRE_HOURS', 0.25))
 """The time in hours after an access token expires."""
 
-CHECK_VALUE: str = "jkhdegkjhedlkl"
-"""A check value."""
-
 STOP_TIMEOUT: int = int(os.getenv("STOP_TIMEOUT", 3))
 """The timeout in seconds to stop all modules."""
 

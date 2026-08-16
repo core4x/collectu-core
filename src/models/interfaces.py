@@ -78,7 +78,7 @@ class Log:
 @dataclass
 class InstalledPackage:
     """
-    This is the data object for an installed package in this environment.
+    This is the data object for an installed Python distribution in this environment.
     """
     name: str = field(
         metadata=dict(description="The name of the package.",

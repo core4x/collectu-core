@@ -94,6 +94,26 @@ def check_git_access_token() -> bool:
     return True
 
 
+def determine_version(repo=None) -> str:
+    """
+    Determines the version of this app and stores it in the data layer.
+
+    Touches no network. A shallow clone carries no tags and legitimately yields a commit hash rather than a tag.
+
+    :param repo: The repository to ask. Opened from the parent directory when not given.
+    :return: The version, or "unknown" if it could not be determined.
+    """
+    try:
+        # Asked of the repo object rather than a shell, so it resolves against the repository
+        # instead of the working directory, and 'v*' cannot be glob-expanded on the way.
+        repo = repo if repo is not None else git.Repo("..")
+        data_layer.version = repo.git.describe(
+            "--abbrev=7", "--always", "--long", "--match", "v*", "main").strip()
+    except Exception as e:
+        logger.warning("Could not determine the app version: {0}".format(str(e)))
+    return data_layer.version
+
+
 def check_for_updates(with_submodule: bool = True) -> int:
     """
     Checks for new commits and clones empty submodules.
@@ -105,17 +125,9 @@ def check_for_updates(with_submodule: bool = True) -> int:
     try:
         repo = git.Repo("..")
 
-        # Get version info. Asked of the repo object rather than a shell, so it resolves
-        # against the repository the rest of this function operates on instead of the
-        # working directory, and 'v*' cannot be glob-expanded by the shell on the way.
-        # Kept non-fatal, as it was before: a checkout without a 'main' branch should still
-        # get its update check and its submodules.
-        try:
-            data_layer.version = repo.git.describe(
-                "--abbrev=7", "--always", "--long", "--match", "v*", "main").strip()
+        # A checkout without a 'main' branch should still get its update check and its submodules.
+        if determine_version(repo) != "unknown":
             logger.info("The app is running on version: {0}".format(data_layer.version))
-        except Exception as e:
-            logger.warning("Could not determine the app version: {0}".format(str(e)))
 
         # Update local refs.
         repo.remotes.origin.fetch()
