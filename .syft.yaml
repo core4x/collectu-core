@@ -1,0 +1,22 @@
+# Syft configuration for the committed, as-declared SBOM (see .github/workflows/main.yml).
+#
+# The scan covers the whole working tree so that any dependency manifest this repository gains
+# in future is picked up without a workflow change. These two directories are the deliberate
+# exceptions.
+exclude:
+  # Build tooling, not product. Scanning the tree turns every `uses:` in the workflow into a
+  # pkg:github/... component - actions/checkout, docker/login-action and friends - none of which
+  # is present in the shipped image. A consumer reading this file as the product bill of
+  # materials should not have to tell our CI apart from our dependencies.
+  - ./.github/**
+  # An optional submodule with its own repository and its own SBOM. actions/checkout does not
+  # fetch submodules, so this is empty in CI today; excluding it explicitly keeps the committed
+  # SBOM stable if that ever changes, rather than silently absorbing another product's
+  # dependencies.
+  - ./src/interface/**
+
+file:
+  metadata:
+    # Without this, syft emits a `type: file` component for each manifest it parsed, named by
+    # absolute path - baking `/home/runner/work/...` into a document we commit and ship.
+    selection: none

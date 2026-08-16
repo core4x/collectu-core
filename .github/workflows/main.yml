@@ -78,6 +78,10 @@ jobs:
         uses: anchore/sbom-action@v0
         with:
           path: .
+          # Scoping lives in .syft.yaml rather than here: it keeps the exclusions next to the
+          # reasoning for them, and makes the same document reproducible outside CI with a plain
+          # `syft scan dir:.` from the repository root.
+          config: .syft.yaml
           format: cyclonedx-json
           output-file: sbom.cdx.json
           upload-artifact: false
