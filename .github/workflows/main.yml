@@ -59,6 +59,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # The branch tip, not the SHA that triggered the workflow. create-release runs
+          # semantic-release, which commits the version bump and pushes it - so by the time this
+          # job starts the remote is one commit ahead of the trigger. Checking out the trigger SHA
+          # and committing on top of it produces a non-fast-forward push.
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -91,6 +96,10 @@ jobs:
             # [skip ci] matters: this workflow triggers on push to main and would otherwise
             # re-enter itself on its own commit.
             git commit -m "chore: Update SBOM for ${{ env.VERSION }}. [skip ci]"
+            # Anything that landed on the branch since the checkout - a concurrent release, a
+            # merge - would otherwise reject this push and fail an otherwise good release. Ours
+            # is the only local commit, so replaying it on top is safe.
+            git pull --rebase origin "${{ github.ref_name }}"
             git push
           fi
 
@@ -109,6 +118,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Same reason as commit-sbom: by now the branch is two commits ahead of the trigger
+          # (the version bump and the SBOM). `git describe` below would still find the tag, but
+          # operating on the trigger SHA here means the build context is not the tree that was
+          # just released.
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
 
