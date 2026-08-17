@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.71.2 (2026-08-17)
+
+### Bug Fixes
+
+- Exclude CI tooling from the committed SBOM
+  ([`c64eea0`](https://github.com/core4x/collectu-core/commit/c64eea01dd6fa4e3406112191dfe87a894dc0110))
+
+- Improved sbom generation to exclude CI software.
+  ([`eca73a5`](https://github.com/core4x/collectu-core/commit/eca73a5cfbe0a0e8df13d568ea5057b5ba2d1917))
+
+### Chores
+
+- Update SBOM for v1.71.1. [skip ci]
+  ([`82e9c02`](https://github.com/core4x/collectu-core/commit/82e9c02cb69baa70fe1b48b1dcb3402da0661470))
+
+
 ## v1.71.1 (2026-08-16)
 
 ### Bug Fixes
