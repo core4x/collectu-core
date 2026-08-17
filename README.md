@@ -185,7 +185,7 @@ protection (TLS termination, network-level access control, enabled authenticatio
 - Optional API/frontend authentication with local user management (`api_authentication` in `settings.ini`)
 - Configurable allowlist of remotely executable commands (`allowed_commands` in `settings.ini`)
 - Updates are only applied from the official git repository and are user-triggered (see below)
-- A Software Bill of Materials (SBOM) can be generated for every installation (see below)
+- A Software Bill of Materials (SBOM) is published with every release (see below)
 
 ### Known or Foreseeable Circumstances Leading to Cybersecurity Risks
 
@@ -268,11 +268,14 @@ documentation requirements of Annex VII:
 
 ### Software Bill of Materials (SBOM)
 
-An SBOM in CycloneDX (JSON) format can be generated for any installation with:
+SBOMs in CycloneDX (JSON) format are produced by the release workflow and published with every
+release, so nothing has to be generated on an installation:
 
-```bash
-python src/utils/generate_sbom.py
-```
+- `sbom.cdx.json`, committed in this repository and in the `src/interface` submodule: what the
+  product declares, shipped with the source and inside the container image.
+- `sbom.container.cdx.json`, attached to each GitHub release: the published container image as
+  built, including its operating system packages.
 
-This produces `collectu-core-sbom.cdx.json`, covering all Python dependencies of the core
-and interface components including known-vulnerability information from the OSV database.
+The published image additionally carries an SPDX SBOM and a provenance attestation on its
+manifest. See [SECURITY.md](SECURITY.md#software-bill-of-materials-sbom) for how to read them
+and for what an SBOM can and cannot tell you about a particular device.

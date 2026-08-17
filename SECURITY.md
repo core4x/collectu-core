@@ -68,7 +68,7 @@ faith under this policy, provided that you:
   directly to the internet.
 - Third-party packages pulled in as module requirements. Report these to their maintainers;
   tell us as well if a Collectu module is the reason they are installed, and we will look at
-  the requirement. Known vulnerabilities in dependencies are visible in the generated SBOM
+  the requirement. The dependencies themselves are listed in the published SBOMs
   (see [below](#software-bill-of-materials-sbom)).
 - Community-contributed modules published by third parties on the Collectu Hub. Report them to
   us anyway — we unpublish malicious modules — but they are not Collectu products.
@@ -107,21 +107,33 @@ full instructions on secure commissioning, updates, and secure decommissioning.
 
 ## Software Bill of Materials (SBOM)
 
-An SBOM in CycloneDX (JSON) format, including known-vulnerability information from the OSV
-database, can be generated for any installation with:
+SBOMs are produced by the release workflow
+([`.github/workflows/main.yml`](.github/workflows/main.yml)) in CycloneDX (JSON) format and
+published with every release, so there is nothing to generate on an installation:
+
+| Document | Where to find it | What it covers |
+|---|---|---|
+| `sbom.cdx.json` | Committed in this repository, so it ships with the source and inside the container image | What Collectu Core declares: the requirements in `src/requirements.txt` |
+| `src/interface/sbom.cdx.json` | Committed in the `src/interface` submodule, which is its own repository | What the API and user interface declare |
+| `sbom.container.cdx.json` | Attached to each [GitHub release](https://github.com/core4x/collectu-core/releases) | The published container image as built, including its operating system packages (openssl, glibc, …) |
+
+The published image additionally carries an SPDX SBOM and a provenance attestation on its
+manifest, readable without pulling the image:
 
 ```bash
-python src/utils/generate_sbom.py
+docker buildx imagetools inspect ghcr.io/core4x/collectu-core:latest --format "{{ json .SBOM }}"
 ```
 
-The output is written to `collectu-core-sbom.cdx.json`.
+The documents list dependencies, not vulnerabilities, and deliberately so: a scan result frozen
+into a released file is out of date as soon as the next advisory is published. Match them
+against an advisory database of your choice — `grype sbom:sbom.cdx.json`, for example.
 
-This covers the packages Collectu Core itself declares. Modules install their own third-party
-requirements at runtime, so what is *actually* installed on a given device can differ — a module
-requirement without a pinned version resolves to whatever was current at install time. A Core
-that reports to the Collectu Hub therefore also sends the list of distributions installed in its
-Python environment, which is what the Hub uses to answer "is this deployment affected" for a
-given advisory. Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.
+The committed document covers the packages Collectu Core itself declares. Modules install their
+own third-party requirements at runtime, so what is *actually* installed on a given device can
+differ — a module requirement without a pinned version resolves to whatever was current at
+install time. A Core that reports to the Collectu Hub therefore also sends the list of
+distributions installed in its Python environment. 
+Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.
 
 ## Integrity of Downloaded Modules
 
