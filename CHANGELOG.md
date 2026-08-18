@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.71.4 (2026-08-18)
+
+### Bug Fixes
+
+- Updated frontend and added sbom to gitattributes.
+  ([`c744627`](https://github.com/core4x/collectu-core/commit/c744627e722a8c4448c866f12e11b5aa60d05352))
+
+### Chores
+
+- Update SBOM for v1.71.3. [skip ci]
+  ([`fe2a94f`](https://github.com/core4x/collectu-core/commit/fe2a94f59d566374f693fb83fed9e0e8f62f48db))
+
+- Update SBOM for v1.71.3. [skip ci]
+  ([`9e09cad`](https://github.com/core4x/collectu-core/commit/9e09cad8344117f2161ba8f887f5a74836052727))
+
+
 ## v1.71.3 (2026-08-17)
 
 ### Bug Fixes
