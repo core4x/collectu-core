@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.71.3 (2026-08-17)
+
+### Bug Fixes
+
+- Updated frontend version.
+  ([`8c66e7b`](https://github.com/core4x/collectu-core/commit/8c66e7bf7a739eab5f1f0de984105c3c64dc73d4))
+
+### Chores
+
+- Update SBOM for v1.71.2. [skip ci]
+  ([`6a0b77c`](https://github.com/core4x/collectu-core/commit/6a0b77cb361dcef0e2ce46b684cbad624570017a))
+
+
 ## v1.71.2 (2026-08-17)
 
 ### Bug Fixes
