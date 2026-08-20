@@ -432,6 +432,39 @@ class AbstractModule(ABC):
                 return False
         return self.started.is_set()
 
+    def _await_input_module(self) -> bool:
+        """
+        Waits until the input module this module depends on reported that it is ready.
+
+        Tag and variable modules normally use a resource of their input module (e.g. a single
+        database connection shared by all of its tag and variable modules). That resource only
+        exists once the start method of the input module established it, and the input module
+        is started in its own thread, so it can still be connecting when this module starts.
+
+        Waits at most config.START_TIMEOUT seconds, and returns early if either module is
+        deactivated in the meantime. Modules without an input module return immediately.
+
+        :returns: True if there is no input module or it is ready, False otherwise.
+        """
+        input_module_instance = getattr(self, "input_module_instance", None)
+        if input_module_instance is None:
+            return True
+        started = getattr(input_module_instance, "started", None)
+        if started is None:
+            # An input module which does not provide the readiness flag can not be awaited.
+            return True
+        if started.is_set():
+            return True
+        waited: int = 0
+        while self.active and input_module_instance.active and not started.wait(timeout=1):
+            waited += 1
+            if waited >= config.START_TIMEOUT:
+                self.logger.warning("The input module '{0}' did not report to be ready within {1} s. "
+                                    "Starting anyway."
+                                    .format(input_module_instance.configuration.id, config.START_TIMEOUT))
+                return False
+        return started.is_set()
+
     @staticmethod
     def _invoke_async(method, *args, **kwargs):
         """

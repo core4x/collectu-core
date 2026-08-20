@@ -1035,12 +1035,17 @@ class Configuration:
         Should be called in a separate thread, as it blocks for the lifetime of the
         module's start method.
 
+        Tag and variable modules are not started before the input module they belong to
+        reported that it is ready, since they normally use one of its resources.
+
         :param module_data: The module data containing the instance to start.
         """
         retries: int = 0
         # An instance can be restarted in place, so a readiness reported by a previous run
         # has to be dropped before the start method is called again.
         module_data.instance.started.clear()
+        # Wait for the input module this module depends on (if any) to be ready.
+        module_data.instance._await_input_module()
         while getattr(module_data.instance, "active", False):
             try:
                 Configuration._invoke(module_data.instance.start)
