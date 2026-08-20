@@ -59,6 +59,8 @@ class AbstractProcessorModule(AbstractModule):
             module_name=configuration.module_name,
             queue=self.queue if thread_safe else None,
         )
+        self.queue_size_last_warning_band: int = 0
+        """The queue size band for which the last warning message was emitted."""
 
     def _process_queue(self):
         """
@@ -70,6 +72,10 @@ class AbstractProcessorModule(AbstractModule):
         Errors raised during processing are caught and logged per item so that a single
         failing item does not halt the queue worker.
         """
+        # Do not process anything before the module is ready. The data waits in the queue
+        # meanwhile, so nothing is lost and no producer is blocked.
+        self._await_started()
+
         while self.active:
             try:
                 data = self.queue.get(block=True, timeout=1)  # This blocks until timeout.
@@ -142,7 +148,8 @@ class AbstractProcessorModule(AbstractModule):
             by a dedicated queue worker thread. The queue worker is started lazily on
             the first call. Incoming data is silently dropped if the queue has reached
             config.STOP_LIMIT to prevent unbounded memory growth; a warning is logged
-            at every config.WARNING_LIMIT interval while the queue is oversized.
+            once per config.WARNING_LIMIT band the queue grows into, and re-armed once
+            the queue recovers below config.WARNING_LIMIT.
 
         Data objects with no measurement set are ignored and not forwarded.
 
@@ -174,10 +181,16 @@ class AbstractProcessorModule(AbstractModule):
                     threading.Thread(target=self._process_queue,
                                      daemon=False,
                                      name="Queue_Worker_{0}".format(self.configuration.id)).start()
-                if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
-                    self.logger.warning("You are probably trying to store more data then we can process. "
-                                        "We have currently '{0}' elements in our queue to store."
-                                        .format(str(self.queue.qsize())))
+                queue_size = self.queue.qsize()
+                warning_band = queue_size // config.WARNING_LIMIT
+                if warning_band == 0:
+                    # Recovered below the limit: re-arm the warning.
+                    self.queue_size_last_warning_band = 0
+                elif warning_band > self.queue_size_last_warning_band:
+                    self.logger.warning("You are probably trying to process more data than we can handle. "
+                                        "We have currently '{0}' elements in our queue to process."
+                                        .format(str(queue_size)))
+                    self.queue_size_last_warning_band = warning_band
                 if self.queue.qsize() < config.STOP_LIMIT:
                     # Stamp internal-queue entry time in the context (not on the data object).
                     if ctx is not None:
@@ -186,6 +199,8 @@ class AbstractProcessorModule(AbstractModule):
                     self.queue.put(data)
             else:
                 # Non-thread-safe: run synchronously on the calling thread.
+                # There is no queue to hold the data, so we wait here for the module to be ready.
+                self._await_started()
                 t0 = time.monotonic()
                 original_data = data
                 if not inspect.iscoroutinefunction(self._run):

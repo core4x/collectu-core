@@ -344,6 +344,10 @@ class AbstractModule(ABC):
         self.active: bool = self.configuration.active
         """Is the module currently active.
         Not the same as self.configuration.active, which represents the general state!"""
+        self.started: threading.Event = threading.Event()
+        """Is the module ready to process data.
+        Set automatically as soon as the start method returns. Modules whose start method blocks
+        for the lifetime of the module have to set this themselves before entering their loop."""
         self._workers_lock = threading.Lock()
         """A lock for checking existing workers thread-safe."""
         self._workers: dict[str, list[ModuleWorker]] = {}
@@ -403,6 +407,30 @@ class AbstractModule(ABC):
         The start method is only called if the module is active (self.configuration.active).
         """
         ...
+
+    def _await_started(self) -> bool:
+        """
+        Waits until the module reported that it is ready to process data.
+
+        The module logic must not be executed before the start method established whatever it
+        needs (e.g. a database connection), since the start method is called in its own thread
+        and is retried until it succeeds - data can arrive long before that.
+
+        Waits at most config.START_TIMEOUT seconds. A module which neither returns from its start
+        method nor sets self.started itself is not blocked forever, it only loses the guarantee.
+
+        :returns: True if the module is ready, False if it was stopped or the timeout was reached.
+        """
+        if self.started.is_set():
+            return True
+        waited: int = 0
+        while self.active and not self.started.wait(timeout=1):
+            waited += 1
+            if waited >= config.START_TIMEOUT:
+                self.logger.warning("The module did not report to be ready within {0} s. "
+                                    "Processing the data anyway.".format(config.START_TIMEOUT))
+                return False
+        return self.started.is_set()
 
     @staticmethod
     def _invoke_async(method, *args, **kwargs):

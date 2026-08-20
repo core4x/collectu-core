@@ -60,7 +60,7 @@ class AbstractOutputModule(AbstractModule):
             queue=self.queue,
         )
         self.queue_size_last_warning_band: int = 0
-        """The queue size when the last warning message was emitted."""
+        """The queue size band for which the last warning message was emitted."""
 
     def _validate_data(self, data: models.Data):
         """
@@ -94,7 +94,8 @@ class AbstractOutputModule(AbstractModule):
         If the queue has reached config.STOP_LIMIT, the data is forwarded to the configured buffer module instead
         of being dropped. If no buffer is configured, the data is lost and an error is logged.
 
-        A warning is logged at every config.WARNING_LIMIT interval while the queue is oversized.
+        A warning is logged once per config.WARNING_LIMIT band the queue grows into, and re-armed
+        once the queue recovers below config.WARNING_LIMIT.
         Data objects with no measurement set are not enqueued or forwarded.
 
         :param data: The data object to process.
@@ -173,6 +174,10 @@ class AbstractOutputModule(AbstractModule):
         Errors raised during processing are caught and logged per item so that a single
         failing item does not halt the queue worker.
         """
+        # Do not process anything before the module is ready. The data waits in the queue
+        # meanwhile, so nothing is lost and no producer is blocked.
+        self._await_started()
+
         while self.active:
             # Prioritize buffered data before consuming from the live queue.
             data = self._get_buffer()

@@ -173,6 +173,9 @@ class AbstractTagModule(AbstractModule):
             self.current_input_data = data
 
             # Execute the module specific logic.
+            # _run is called on the calling thread and there is no queue to hold the data,
+            # so we wait here for the module to be ready.
+            self._await_started()
             t0 = time.monotonic()
             if not inspect.iscoroutinefunction(self._run):
                 key_values = self._run() or {}

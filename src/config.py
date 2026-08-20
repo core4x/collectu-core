@@ -33,6 +33,14 @@ WARNING_LIMIT: int = int(os.getenv("WARNING_LIMIT", 10))
 STOP_LIMIT: int = int(os.getenv("STOP_LIMIT", 10000))
 """Do not store elements in the queue of a module as long as there are more elements than STOP_LIMIT."""
 
+START_TIMEOUT: int = int(os.getenv("START_TIMEOUT", 10))
+"""
+Seconds a module waits for its start method to report readiness before processing data anyway.
+The readiness is reported automatically as soon as the start method returns. Modules whose start
+method blocks for the lifetime of the module have to set self.started themselves before entering
+their loop - otherwise this timeout applies and a warning is logged.
+"""
+
 SLOW_WORKER_TIMEOUT: int = int(os.getenv("SLOW_WORKER_TIMEOUT", 1))
 """
 Seconds before a busy worker thread emits a warning.

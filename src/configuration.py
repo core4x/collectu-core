@@ -1038,6 +1038,9 @@ class Configuration:
         :param module_data: The module data containing the instance to start.
         """
         retries: int = 0
+        # An instance can be restarted in place, so a readiness reported by a previous run
+        # has to be dropped before the start method is called again.
+        module_data.instance.started.clear()
         while getattr(module_data.instance, "active", False):
             try:
                 Configuration._invoke(module_data.instance.start)
@@ -1050,6 +1053,10 @@ class Configuration:
                 logger.error("Retrying to start module '{0}' with the id '{1}' in the {2} attempt."
                              .format(module_data.module_name, module_data.configuration.id, str(retries)))
             else:
+                # The start method returned without raising, so the module is ready to process
+                # data. Modules whose start method blocks for the lifetime of the module never
+                # get here and report their readiness themselves.
+                module_data.instance.started.set()
                 if retries > 0:
                     logger.info("Successfully started module '{0}' with the id '{1}' after {2} retries."
                                 .format(module_data.module_name, module_data.configuration.id, retries))
