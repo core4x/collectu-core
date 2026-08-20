@@ -3,10 +3,12 @@ The configuration class.
 """
 from datetime import datetime, timezone
 import os
+import sys
 import copy
 import logging
 import time
 import pathlib
+import traceback
 import uuid
 import asyncio
 import inspect
@@ -227,6 +229,10 @@ class Configuration:
 
             t = threading.Thread(target=_run_in_thread, daemon=True)
             t.start()
+            # Deliberately without a timeout. This also carries the start method of a module, which
+            # legitimately runs for the lifetime of that module, and returning early would let
+            # _start_module call start a second time. An async stop which never returns is caught
+            # one level up, by the bounded wait in stop and stop_module, and reported there.
             t.join()
             if exc[0]:
                 raise exc[0]
@@ -634,9 +640,16 @@ class Configuration:
                     return errors
 
                 # Stop the running instance and wait for it to finish.
-                t = threading.Thread(target=self._stop_module, args=(module_data,), daemon=True)
+                t = threading.Thread(target=self._stop_module, args=(module_data,), daemon=True,
+                                     name="Stop_{0}".format(module_id))
                 t.start()
-                t.join()
+                # Bounded, so a module whose stop routine never returns can not block this call,
+                # and with it the request which triggered it, forever.
+                t.join(timeout=config.STOP_TIMEOUT)
+                if t.is_alive():
+                    logger.error("The stop routine of module '{0}' with the id '{1}' did not return within {2} s."
+                                 .format(module_data.module_name, module_id, config.STOP_TIMEOUT))
+                    self._report_leaked_threads(module_ids=[module_id], timeout=config.STOP_TIMEOUT)
 
                 if module_config is not None:
                     # Remove the old instance from the data layer.
@@ -660,8 +673,23 @@ class Configuration:
                     self._create_module(module_config=module_configuration)
                 else:
                     # No new config — restart the existing instance by re-activating it.
+                    # The previous start loop runs against this very instance and leaves it only
+                    # because active is false. Re-activating while it is still running - a module
+                    # sleeping off a long interval, or one blocked in a call that does not return -
+                    # would give the module two loops instead of one, so it is refused instead.
+                    running = [thread.name for thread in self._alive_module_threads([module_id])
+                               if thread.name.startswith("Start_")]
+                    if running:
+                        logger.error("Could not restart module '{0}' with the id '{1}': its previous start routine "
+                                     "is still running ({2}). Restarting now would run the module twice. "
+                                     "Please try again once it has ended."
+                                     .format(module_data.module_name, module_id, ", ".join(running)))
+                        self._report_leaked_threads(module_ids=[module_id], timeout=config.STOP_TIMEOUT)
+                        return {module_id: ["The previous start routine of the module is still running. "
+                                            "Please try again."]}
                     module_data.instance.active = True
-                    t = threading.Thread(target=self._start_module, args=(module_data,), daemon=True)
+                    t = threading.Thread(target=self._start_module, args=(module_data,), daemon=True,
+                                         name="Start_{0}".format(module_id))
                     t.start()
 
             else:
@@ -704,16 +732,20 @@ class Configuration:
                          .format(module_data.module_name, module_data.configuration.id))
             t = threading.Thread(target=self._stop_module,
                                  args=(module_data,),
-                                 daemon=True)
+                                 daemon=True,
+                                 name="Stop_{0}".format(module_id))
             t.start()
-            t.join(timeout=5)
+            t.join(timeout=config.STOP_TIMEOUT)
             if t.is_alive():
                 logger.error("Could not stop module '{0}' with id '{1}'."
                              .format(module_data.module_name, str(module_data.configuration.id)))
+                self._report_leaked_threads(module_ids=[module_id], timeout=config.STOP_TIMEOUT)
                 return {module_id: ["Could not stop module within time."]}
             else:
                 logger.info("Successfully stopped module '{0}' with the id '{1}'."
                             .format(module_data.module_name, str(module_data.configuration.id)))
+                # The stop routine returned, but the start loop of the module may still be running.
+                self._report_leaked_threads(module_ids=[module_id], timeout=config.STOP_TIMEOUT)
             return {}
         except Exception as e:
             logger.error("Unexpected error while trying to stop module '{0}': {1}".format(module_id, str(e)),
@@ -742,22 +774,105 @@ class Configuration:
                          .format(module_data.module_name, module_data.configuration.id,
                                  str(e)), exc_info=config.EXC_INFO)
 
+    @staticmethod
+    def _spawn_stop_threads(modules: dict[str, "models.ModuleData"]) -> list[tuple[str, threading.Thread]]:
+        """
+        Start one daemon thread per given module, each calling the stop routine of the module.
+
+        The threads are named 'Stop_<module id>', so a thread which outlives the stop routine
+        can be traced back to the module it belongs to. See _report_leaked_threads.
+
+        :param modules: The modules to stop, with the module id as key.
+        :returns: A list of tuples, each with the module id and the started thread.
+        """
+        sorted_modules = dict(sorted(modules.items(), key=lambda item: item[1].configuration.start_priority))
+        threads = [(module_id, threading.Thread(target=Configuration._stop_module,
+                                                args=(module_data,),
+                                                daemon=True,
+                                                name="Stop_{0}".format(module_id)))
+                   for module_id, module_data in sorted_modules.items()]
+        for _, t in threads:
+            t.start()
+        return threads
+
+    @staticmethod
+    def _alive_module_threads(module_ids: list[str]) -> list[threading.Thread]:
+        """
+        Collect all running threads which belong to one of the given modules.
+
+        Threads are matched by the naming convention used when they are created:
+        'Start_<id>', 'Stop_<id>' and 'Link_<id>_to_<id of the linked module>'.
+
+        :param module_ids: The ids of the modules whose threads are searched.
+        :returns: The threads which are still alive.
+        """
+        prefixes = tuple(prefix.format(module_id)
+                         for module_id in module_ids
+                         for prefix in ("Start_{0}", "Stop_{0}", "Link_{0}_to_"))
+        if not prefixes:
+            return []
+        return [thread for thread in threading.enumerate() if (thread.name or "").startswith(prefixes)]
+
+    @staticmethod
+    def _report_leaked_threads(module_ids: list[str], timeout: float) -> list[str]:
+        """
+        Log every thread which still belongs to one of the given modules after they were stopped.
+
+        Python can not kill a thread. A module which ignores self.active, or which is blocked in
+        a call that never returns, therefore keeps its thread alive for as long as the process
+        runs. All threads of the app are daemon threads, so they can never block a shutdown, and
+        _call_links drops everything a leaked thread produces, so it can not feed data into a
+        configuration it no longer belongs to. What is left to do is to say precisely which thread
+        refused to end and where it is stuck, which is the information needed to fix the module.
+
+        The stack of a leaked thread is only logged if config.EXC_INFO is set, following the same
+        convention as the traceback of an exception.
+
+        :param module_ids: The ids of the modules which were asked to stop.
+        :param timeout: The exceeded stop timeout in seconds, used for the log message.
+        :returns: The names of the threads which are still alive.
+        """
+        threads = Configuration._alive_module_threads(module_ids)
+        if not threads:
+            return []
+
+        # A private but long-stable interface. It is the only way to see where a foreign thread
+        # currently is, and a stop routine must never fail because of a diagnostic message.
+        try:
+            frames = sys._current_frames()
+        except Exception:
+            frames = {}
+
+        leaked = []
+        for thread in threads:
+            name = thread.name or ""
+            leaked.append(name)
+            location = ""
+            if config.EXC_INFO:
+                frame = frames.get(thread.ident)
+                if frame is not None:
+                    location = " It is currently at:\n{0}".format("".join(traceback.format_stack(frame)).rstrip())
+            logger.warning("Thread '{0}' did not end within {1} s and is leaked. It can not be killed and keeps "
+                           "holding whatever it is blocked on until the app is restarted.{2}"
+                           .format(name, timeout, location))
+
+        if leaked and not config.EXC_INFO:
+            logger.warning("Set the environment variable EXC_INFO to true to log where the leaked thread(s) "
+                           "are currently blocked.")
+        return leaked
+
     def stop(self):
         """
         Stop the execution of a configuration. Everything is reset.
         """
         try:
             logger.info("Starting configuration stop routine...")
+            module_ids = list(data_layer.module_data.keys())
 
             # Stop all variable modules by setting self.active to false and calling the stop method.
-            var_threads = []
-            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
-                             v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")}
-            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-            for module_id, module_data in sorted_dict.items():
-                var_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
-            for t in var_threads:
-                t.start()
+            var_threads = self._spawn_stop_threads(
+                {k: v for k, v in data_layer.module_data.items() if
+                 v.module_name.endswith(".variable") and v.module_name.startswith("inputs.")})
 
             # Now, no new data should be generated.
             # Wait a little, until all pipelines have executed.
@@ -766,60 +881,46 @@ class Configuration:
             time.sleep(0.5)
 
             # Stop all tag modules.
-            tag_threads = []
-            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
-                             v.module_name.endswith(".tag") and v.module_name.startswith("inputs.")}
-            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-            for module_id, module_data in sorted_dict.items():
-                tag_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
-            for t in tag_threads:
-                t.start()
+            tag_threads = self._spawn_stop_threads(
+                {k: v for k, v in data_layer.module_data.items() if
+                 v.module_name.endswith(".tag") and v.module_name.startswith("inputs.")})
 
             # Stop all input modules.
-            in_threads = []
-            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
-                             v.module_name.startswith("inputs.") and not v.module_name.endswith(
-                                 ".variable") and not v.module_name.endswith(".tag")}
-            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-            for module_id, module_data in sorted_dict.items():
-                in_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
-            for t in in_threads:
-                t.start()
+            in_threads = self._spawn_stop_threads(
+                {k: v for k, v in data_layer.module_data.items() if
+                 v.module_name.startswith("inputs.") and not v.module_name.endswith(
+                     ".variable") and not v.module_name.endswith(".tag")})
 
             # Stop all processor modules.
-            pro_threads = []
-            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
-                             v.module_name.startswith("processors.")}
-            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-            for module_id, module_data in sorted_dict.items():
-                pro_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
-            for t in pro_threads:
-                t.start()
+            pro_threads = self._spawn_stop_threads(
+                {k: v for k, v in data_layer.module_data.items() if
+                 v.module_name.startswith("processors.")})
 
             # Stop all output modules.
-            out_threads = []
-            filtered_dict = {k: v for k, v in data_layer.module_data.items() if
-                             v.module_name.startswith("outputs.")}
-            sorted_dict = dict(sorted(filtered_dict.items(), key=lambda item: item[1].configuration.start_priority))
-            for module_id, module_data in sorted_dict.items():
-                out_threads.append(threading.Thread(target=self._stop_module, args=(module_data,), daemon=True))
-            for t in out_threads:
-                t.start()
+            out_threads = self._spawn_stop_threads(
+                {k: v for k, v in data_layer.module_data.items() if
+                 v.module_name.startswith("outputs.")})
+
+            stop_threads = var_threads + tag_threads + in_threads + pro_threads + out_threads
 
             start_time = time.time()
             # Wait for the stopping threads to finish.
             while time.time() - start_time < config.STOP_TIMEOUT:
-                if all(not t.is_alive() for t in var_threads + tag_threads + in_threads + pro_threads + out_threads):
+                if all(not t.is_alive() for _, t in stop_threads):
                     break
                 time.sleep(0.1)
-            for t in var_threads + tag_threads + in_threads + pro_threads + out_threads:
-                if t.is_alive():
-                    pass
-                else:
-                    t.join()
 
-            logger.info("Successfully finished configuration stop routine (stopped {0} module(s))."
-                        .format(len(data_layer.module_data.keys())))
+            unstopped = [module_id for module_id, t in stop_threads if t.is_alive()]
+            if unstopped:
+                logger.error("The stop routine of {0} of {1} module(s) did not return within {2} s: {3}."
+                             .format(len(unstopped), len(stop_threads), config.STOP_TIMEOUT, ", ".join(unstopped)))
+
+            # Report every thread which is still running, not just the ones whose stop routine hung.
+            # A module whose stop returned cleanly can still have left its start loop behind.
+            self._report_leaked_threads(module_ids=module_ids, timeout=config.STOP_TIMEOUT)
+
+            logger.info("Successfully finished configuration stop routine (stopped {0} of {1} module(s))."
+                        .format(len(stop_threads) - len(unstopped), len(module_ids)))
         except Exception as e:
             logger.critical("Something unexpected went wrong while trying to stop modules: {0}"
                             .format(str(e)), exc_info=config.EXC_INFO)
@@ -898,7 +999,7 @@ class Configuration:
                     if getattr(data_layer.module_data[module_id].configuration, "is_buffer", False):
                         data_layer.buffer_instance = None
                     threading.Thread(target=self._stop_module, args=(data_layer.module_data[module_id],),
-                                     daemon=True).start()
+                                     daemon=True, name="Stop_{0}".format(module_id)).start()
                     data_layer.module_data.pop(module_id)
 
                     for dashboard_module in data_layer.dashboard_modules:

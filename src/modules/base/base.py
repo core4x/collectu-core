@@ -9,7 +9,7 @@ import os
 import asyncio
 import inspect
 import threading
-from queue import Queue
+from queue import Queue, Full
 from typing import Any, Optional
 import copy
 import ast
@@ -44,6 +44,16 @@ class ModuleWorker:
         If False (default), all data objects are queued and processed in order.
     """
 
+    stop_flush_share: float = 0.8
+    """
+    The share of the stop timeout a worker may spend on forwarding its remaining backlog.
+
+    The rest of the timeout is the margin for the data object which is already being forwarded
+    when the deadline is reached. A worker can only notice the deadline between two data objects,
+    so without that margin a worker which does exactly what it is asked would still be reported
+    as leaked whenever it holds a backlog.
+    """
+
     def __init__(
             self,
             configuration_id: str,
@@ -71,6 +81,15 @@ class ModuleWorker:
         # Slow-worker tracking (shared by both modes, written only by the worker thread).
         self.processing_since: Optional[float] = None
         self.slow_worker_warned: bool = False
+
+        self.stop_deadline: Optional[float] = None
+        """
+        The point in time (time.monotonic) after which the worker gives up on its backlog.
+
+        Set by signal_stop, unset while the worker is running. Without it, a queue holding up
+        to config.STOP_LIMIT data objects would have to be worked off completely before the
+        sentinel at its tail is reached, which turns a stop request into an unbounded wait.
+        """
 
         if forward_latest_data_only:
             # Latest-only mode.
@@ -188,9 +207,18 @@ class ModuleWorker:
 
         Continuously consumes data objects from the queue and forwards them to the linked module in submission order.
 
-        Stops when a ``None`` sentinel value is received.
+        Stops when a ``None`` sentinel value is received, or when the backlog is still not worked
+        off by the time the stop deadline set by signal_stop is reached. The remaining data is
+        dropped in that case — holding the thread open any longer would only leak it, since the
+        sentinel sits behind a backlog which can hold up to config.STOP_LIMIT data objects.
         """
         while True:
+            if self.stop_deadline is not None and time.monotonic() >= self.stop_deadline:
+                dropped = self.queue.qsize()
+                if dropped:
+                    self.logger.warning(f"Worker for linked module '{self.module_id}' could not work off its "
+                                        f"backlog within the stop timeout. Dropping {dropped} data object(s).")
+                break
             data = self.queue.get()
             if data is None:
                 break
@@ -206,24 +234,62 @@ class ModuleWorker:
                 self.processing_since = None  # Always clear, even on exception.
                 self.queue.task_done()
 
-    def stop(self):
+    def signal_stop(self, timeout: Optional[float] = None):
         """
-        Stop the worker thread gracefully.
+        Ask the worker thread to stop, without waiting for it.
 
         In latest-only mode, this wakes the worker so it can detect the stop flag.
 
         In queue mode, a ``None`` sentinel value is added to the queue to terminate the worker loop.
+        The sentinel sits at the tail of the backlog, so a deadline is set as well: the worker
+        forwards what it can within stop_flush_share of the timeout and drops the rest.
 
-        This method blocks until the worker thread has fully exited.
+        Separated from join so a module with several workers can signal them all first and then
+        wait for them in parallel, instead of paying the full timeout once per worker.
+
+        :param timeout: The seconds until the worker has to be gone.
+            Defaults to config.STOP_TIMEOUT.
         """
+        timeout = config.STOP_TIMEOUT if timeout is None else timeout
+        self.stop_deadline = time.monotonic() + timeout * self.stop_flush_share
         if self.forward_latest_data_only:
             with self.slot_lock:
                 self.stop_flag = True
                 self.slot = None
             self.has_data.set()  # Wake the thread so it can see stop_flag.
         else:
-            self.queue.put(None)
-        self.thread.join()
+            try:
+                self.queue.put_nowait(None)
+            except Full:
+                # A full queue means the worker is not waiting for data anyway,
+                # so it ends at the deadline instead of at the sentinel.
+                pass
+
+    def join(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for the worker thread to exit.
+
+        :param timeout: The maximum seconds to wait. Defaults to config.STOP_TIMEOUT.
+        :returns: True if the thread has exited, false if it is still running.
+        """
+        self.thread.join(timeout=max(0.0, config.STOP_TIMEOUT if timeout is None else timeout))
+        return not self.thread.is_alive()
+
+    def stop(self, timeout: Optional[float] = None) -> bool:
+        """
+        Stop the worker thread gracefully and wait for it to exit.
+
+        Never blocks longer than the given timeout. A linked module which blocks forever inside
+        run() must not be able to hold up a stop routine - if it does, the thread is left behind
+        as a daemon thread and reported by the caller.
+
+        :param timeout: The maximum seconds to wait. Defaults to config.STOP_TIMEOUT.
+        :returns: True if the thread has exited, false if it is still running.
+        """
+        timeout = config.STOP_TIMEOUT if timeout is None else timeout
+        deadline = time.monotonic() + timeout
+        self.signal_stop(timeout=timeout)
+        return self.join(timeout=deadline - time.monotonic())
 
 
 _thread_local = threading.local()
@@ -367,6 +433,11 @@ class AbstractModule(ABC):
 
             t = threading.Thread(target=_run_in_thread, daemon=True)
             t.start()
+            # Deliberately without a timeout. This also carries _run of the input, output and
+            # processor base classes, which may legitimately run for a long time, and returning
+            # early would hand the caller a result the coroutine has not produced yet. An async
+            # stop which never returns is caught one level up, by the bounded wait in
+            # Configuration.stop, and reported there.
             t.join()
             if exc[0]:
                 raise exc[0]
@@ -403,13 +474,39 @@ class AbstractModule(ABC):
 
             cls.stop = _wrapped_stop
 
-    def _stop_workers(self):
+    def _stop_workers(self, timeout: Optional[float] = None) -> list[str]:
         """
         Shuts down all persistent link worker threads.
+
+        All workers are signaled before the first one is waited for, so the timeout is spent
+        once for the whole module instead of once per worker.
+
+        The wait is bounded. A worker whose linked module blocks forever inside run() can not be
+        killed - Python has no way of terminating a thread - so it is left behind as a daemon
+        thread and named in the returned list, instead of holding up the entire stop routine.
+
+        :param timeout: The maximum seconds to wait for all workers together.
+            Defaults to config.STOP_TIMEOUT.
+        :returns: The names of the worker threads which are still running.
         """
-        for worker_list in self._workers.values():
-            for worker in worker_list:
-                worker.stop()
+        timeout = config.STOP_TIMEOUT if timeout is None else timeout
+        with self._workers_lock:
+            workers = [worker for worker_list in self._workers.values() for worker in worker_list]
+        if not workers:
+            return []
+
+        deadline = time.monotonic() + timeout
+        for worker in workers:
+            worker.signal_stop(timeout=timeout)
+        for worker in workers:
+            worker.join(timeout=deadline - time.monotonic())
+
+        leaked = [worker.thread.name for worker in workers if worker.thread.is_alive()]
+        if leaked:
+            self.logger.error("The following worker thread(s) of module '{0}' did not stop within {1} s and are "
+                              "leaked: {2}. The linked module is most probably blocking inside its run method."
+                              .format(self.configuration.id, timeout, ", ".join(leaked)))
+        return leaked
 
     def stop(self):
         """
@@ -432,8 +529,24 @@ class AbstractModule(ABC):
 
         :param data: The data object.
         """
+        if not self.active or not data_layer.running:
+            return
         if not data.measurement.strip():
             return
+
+        # A thread which outlives the stop routine of its module - a module which ignores
+        # self.active, or one stuck in a call that does not return - can not be killed, since
+        # Python has no way of terminating a thread. What it must not do is keep feeding data
+        # into a configuration it no longer belongs to.
+        module_entry = data_layer.module_data.get(self.configuration.id)
+        if module_entry is None:
+            # The module was removed, or the whole configuration was stopped.
+            self.logger.error(f"Could not find module '{self.configuration.id}' in data layer.")
+            return
+        if module_entry.instance is not self:
+            # The module id is registered again, but with a newer instance than this one.
+            return
+        module_entry.latest_data = data
 
         # Retrieve existing context (set by a previous _call_links hop) or establish this as the flow origin.
         now = time.monotonic()
@@ -441,12 +554,6 @@ class AbstractModule(ABC):
         pipeline_ts = existing_ctx.pipeline_ts if existing_ctx else now
         source_id = existing_ctx.source_id if existing_ctx else self.configuration.id
         visited = existing_ctx.visited if existing_ctx else frozenset()
-
-        module_entry = data_layer.module_data.get(self.configuration.id)
-        if module_entry is None:
-            self.logger.error(f"Could not find module '{self.configuration.id}' in data layer.")
-        else:
-            module_entry.latest_data = data
 
         current_links = set(getattr(self.configuration, "links", []))
         worker_count = getattr(self.configuration, "worker_count_per_link", 1)
@@ -491,10 +598,21 @@ class AbstractModule(ABC):
 
             workers_snapshot = list(self._workers.items())
 
-        # Stop removed workers outside the lock — .stop() blocks until thread joins.
-        for worker_list in removed.values():
-            for worker in worker_list:
-                worker.stop()
+        # Stop removed workers outside the lock — .stop() blocks until the thread joins.
+        # This runs in the data path, so the workers are signaled first and then waited for
+        # against a single deadline. A worker which does not make it is left behind rather than
+        # blocking the module which is currently forwarding data.
+        removed_workers = [worker for worker_list in removed.values() for worker in worker_list]
+        if removed_workers:
+            deadline = time.monotonic() + config.STOP_TIMEOUT
+            for worker in removed_workers:
+                worker.signal_stop(timeout=config.STOP_TIMEOUT)
+            for worker in removed_workers:
+                worker.join(timeout=deadline - time.monotonic())
+            leaked = [worker.thread.name for worker in removed_workers if worker.thread.is_alive()]
+            if leaked:
+                self.logger.error("The worker thread(s) of the removed link(s) did not stop within {0} s and are "
+                                  "leaked: {1}.".format(config.STOP_TIMEOUT, ", ".join(leaked)))
 
         for module_id, worker_list in workers_snapshot:
             data_copy = copy.deepcopy(data)
