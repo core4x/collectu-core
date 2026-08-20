@@ -385,6 +385,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
       "data_type": "data_type",
       "required": True/False,
       "category": "basic/advanced/...",
+      "secret": True/False,
       "description": "description",
       "default": "default_value",
       "dynamic": True/False}
@@ -415,6 +416,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
                                    "required": field.metadata.get("required", False),
                                    "category": field.metadata.get("category", "basic").lower(),
                                    "description": field.metadata.get("description", "-"),
+                                   "secret": field.metadata.get("secret", False),
                                    "default": default_value,
                                    "dynamic": field.metadata.get('dynamic', False)}, )
 

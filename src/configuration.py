@@ -19,6 +19,7 @@ import dataclasses
 
 # Internal imports.
 import utils.config_store
+import utils.secrets
 import config
 import data_layer
 import models
@@ -440,8 +441,7 @@ class Configuration:
                                          "valid": True,
                                          "autosave": True})
 
-                # This prints the complete configuration file.
-                logger.debug("Deserialized configuration:\n" + pformat(configuration))
+                # logger.debug("Deserialized configuration:\n" + pformat(configuration))
                 logger.info("Successfully set new configuration.")
         except Exception as e:
             errors = {"-": ["Failed to process configuration stream: {0}".format(str(e))]}
@@ -490,6 +490,15 @@ class Configuration:
             # If the file was empty, we create a default value.
             if not configuration_dict:
                 configuration_dict = []
+
+            # A configuration downloaded from the hub carries a placeholder wherever the hub
+            # removed a secret before publishing it. The credential is simply not there, so it is
+            # reported here rather than at connect time, where it surfaces as a failed login.
+            for module_id, key in utils.secrets.placeholders(configuration_dict):
+                errors[module_id].append("The parameter '{0}' holds no value. It was removed by "
+                                         "the hub because it is secret. Please enter "
+                                         "the value, or supply it at runtime with a dynamic variable "
+                                         "such as ${{env.MY_PASSWORD}}.".format(key))
 
             for module_configuration in configuration_dict:
                 try:
@@ -1088,7 +1097,7 @@ class Configuration:
                                       reverse=True):
             self._create_module(variable_config)
 
-    def save_configuration_as_file(self, filename: str = None, content: str = None) -> tuple[bool, str]:
+    def save_configuration_as_file(self, filename: str | None = None, content: str | None = None) -> tuple[bool, str]:
         """
         Create a YAML or JSON configuration file with the given filename and content.
         Caution: If the file already exists, it is overwritten.

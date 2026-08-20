@@ -96,6 +96,14 @@ HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_REFRESH_TOKEN_ADDRESS", f"{HUB_A
 HUB_LLM_DOCS_ADDRESS: str = os.getenv("HUB_LLM_DOCS_ADDRESS", "https://collectu.de/docs/llms.txt")
 """Sitemap for LLM friendly docs from Collectu."""
 
+SECRET_PLACEHOLDER: str = os.getenv("SECRET_PLACEHOLDER", "<secret-removed>")
+"""The value the hub writes over a secret configuration parameter before a configuration
+becomes publicly readable. Only ever recognised here, never produced: a configuration
+downloaded from the hub that still carries it is missing a credential, which utils.secrets
+reports as an error instead of letting the module fail later with an authentication problem.
+It therefore has to stay in step with SECRET_PLACEHOLDER of the hub api, which is the one
+side that writes it."""
+
 HUB_JWKS_URL: str = os.getenv("HUB_JWKS_URL", "https://api.collectu.de/.well-known/jwks.json")
 """The jwks url of the hub for validating signatures."""
 

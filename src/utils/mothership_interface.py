@@ -314,6 +314,7 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
     }
 
     # Only send the configuration if it changed since the last successful report.
+    # Reported as configured, secrets included.
     configuration = json.dumps(getattr(data_layer.configuration, "configuration_dict", []), default=str)
     if configuration != last_configuration:
         mothership_data["configuration"] = json.loads(configuration)
