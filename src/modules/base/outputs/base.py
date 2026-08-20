@@ -59,6 +59,8 @@ class AbstractOutputModule(AbstractModule):
             module_name=configuration.module_name,
             queue=self.queue,
         )
+        self.queue_size_last_warning_band: int = 0
+        """The queue size when the last warning message was emitted."""
 
     def _validate_data(self, data: models.Data):
         """
@@ -115,10 +117,16 @@ class AbstractOutputModule(AbstractModule):
                 self._metrics.record_link_wait(time.monotonic() - ctx.link_ts)
             self._metrics.record_received()
 
-            if self.queue.qsize() > config.WARNING_LIMIT and self.queue.qsize() % config.WARNING_LIMIT == 0:
-                self.logger.error("You are probably trying to store more data then we can process. "
-                                  "We have currently '{0}' elements in our queue to store."
-                                  .format(str(self.queue.qsize())))
+            queue_size = self.queue.qsize()
+            warning_band = queue_size // config.WARNING_LIMIT
+            if warning_band == 0:
+                # Recovered below the limit: re-arm the warning.
+                self.queue_size_last_warning_band = 0
+            elif warning_band > self.queue_size_last_warning_band:
+                self.logger.warning("You are probably trying to store more data than we can process. "
+                                    "We have currently '{0}' elements in our queue to store."
+                                    .format(str(queue_size)))
+                self.queue_size_last_warning_band = warning_band
 
             # Store the data in the latest data entry if a measurement is given.
             if not data.measurement:
