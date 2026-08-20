@@ -174,11 +174,13 @@ class AbstractOutputModule(AbstractModule):
         Errors raised during processing are caught and logged per item so that a single
         failing item does not halt the queue worker.
         """
-        # Do not process anything before the module is ready. The data waits in the queue
-        # meanwhile, so nothing is lost and no producer is blocked.
-        self._await_started()
-
         while self.active:
+            # Do not process anything while the module is not ready. A module can also lose
+            # its readiness again (e.g. a start method which blocks and raises on a connection
+            # loss), so this is checked for every data object. The data waits in the queue
+            # meanwhile, so nothing is lost and no producer is blocked.
+            self._await_started()
+
             # Prioritize buffered data before consuming from the live queue.
             data = self._get_buffer()
             if data is None:

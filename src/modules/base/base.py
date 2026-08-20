@@ -348,6 +348,9 @@ class AbstractModule(ABC):
         """Is the module ready to process data.
         Set automatically as soon as the start method returns. Modules whose start method blocks
         for the lifetime of the module have to set this themselves before entering their loop."""
+        self._readiness_timed_out: bool = False
+        """Did waiting for the readiness already time out once.
+        Prevents stalling every single data object for a module which never reports readiness."""
         self._workers_lock = threading.Lock()
         """A lock for checking existing workers thread-safe."""
         self._workers: dict[str, list[ModuleWorker]] = {}
@@ -416,19 +419,30 @@ class AbstractModule(ABC):
         needs (e.g. a database connection), since the start method is called in its own thread
         and is retried until it succeeds - data can arrive long before that.
 
+        Called for every data object, since a module can also lose its readiness again (e.g. a
+        start method which blocks and raises on a connection loss).
+
         Waits at most config.START_TIMEOUT seconds. A module which neither returns from its start
-        method nor sets self.started itself is not blocked forever, it only loses the guarantee.
+        method nor sets self.started itself is not blocked forever, it only loses the guarantee -
+        and it is only waited for once, so such a module does not stall every data object by the
+        full timeout. As soon as the module reports its readiness, the guarantee applies again.
 
         :returns: True if the module is ready, False if it was stopped or the timeout was reached.
         """
         if self.started.is_set():
+            # Readiness was (re-)reported, so wait again should it be lost later on.
+            self._readiness_timed_out = False
             return True
+        if self._readiness_timed_out:
+            # Already waited the full timeout for this module without success.
+            return False
         waited: int = 0
         while self.active and not self.started.wait(timeout=1):
             waited += 1
             if waited >= config.START_TIMEOUT:
                 self.logger.warning("The module did not report to be ready within {0} s. "
                                     "Processing the data anyway.".format(config.START_TIMEOUT))
+                self._readiness_timed_out = True
                 return False
         return self.started.is_set()
 

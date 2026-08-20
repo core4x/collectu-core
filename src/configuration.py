@@ -1050,6 +1050,10 @@ class Configuration:
             try:
                 Configuration._invoke(module_data.instance.start)
             except Exception as e:
+                # A start method which blocks for the lifetime of the module reports its
+                # readiness itself. If it raises later on (e.g. the connection was lost),
+                # that readiness no longer holds while the module is being retried.
+                module_data.instance.started.clear()
                 logger.error("Could not start module '{0}' with the id '{1}'. Retrying in {2} seconds: {3}"
                              .format(module_data.module_name, module_data.configuration.id,
                                      config.RETRY_INTERVAL, str(e)), exc_info=config.EXC_INFO)
