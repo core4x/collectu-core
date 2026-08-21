@@ -35,6 +35,37 @@ except ImportError:
     Requirement = None
     logger.warning("Optional packaging package not installed! Some features may not be supported.")
 
+MARKDOWN_EXTENSIONS = ["tables", "fenced_code", "sane_lists"]
+"""
+The markdown extensions applied when rendering a module docstring.
+
+Python-Markdown's core dialect is the original 2004 syntax, which has neither tables nor
+fenced code blocks - both are extensions. Without them a pipe table came out as a paragraph
+of pipes and a ``` fence as one inline `<code>` span, which is how the documentation of
+every module using either rendered.
+
+Kept in step with `utils.helpers.MARKDOWN_EXTENSIONS` in hub-api, which converts the same
+docstrings when a module is published.
+"""
+
+
+def module_docstring(module) -> str:
+    """
+    The docstring of the file a module class was defined in.
+
+    Returns an empty string where there is none. That is not what
+    `getattr(module, "__doc__", "")` did, which was a second bug here: `__doc__` always
+    *exists* on a module object and is `None` when the file carries no docstring, so the
+    default never applied. The `None` was handed to `markdown.markdown`, which calls
+    `.strip()` on it - so one custom module without a docstring raised AttributeError out
+    of `get_all_modules` and took the whole module list, and with it the editor's palette,
+    down with it.
+
+    :param module: The module class whose defining file should be read.
+    :returns: The docstring, or an empty string.
+    """
+    return getattr(sys.modules[module.__module__], "__doc__", None) or ""
+
 
 def get_custom_module_folder() -> pathlib.Path | None:
     """
@@ -430,10 +461,9 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
             logger.error("Unknown module type for module '{0}'".format({module_name}))
             continue
 
-        # Use markdown only if available.
-        documentation_html = markdown.markdown(
-            getattr(sys.modules[module.__module__], "__doc__", "")) if markdown else getattr(
-            sys.modules[module.__module__], "__doc__", "")
+        # Use markdown only if available; without it the docstring is served as it is.
+        documentation = module_docstring(module)
+        documentation_html = markdown.markdown(documentation, extensions=MARKDOWN_EXTENSIONS) if markdown else documentation
 
         data = {"module_name": module_name,
                 "module_type": module_type,
@@ -443,7 +473,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
                 "author": module.author,
                 "email": module.email,
                 "description": module.description,
-                "documentation": getattr(sys.modules[module.__module__], "__doc__", ""),
+                "documentation": documentation,
                 "documentation_html": documentation_html,
                 "deprecated": module.deprecated,
                 "third_party_requirements": module.third_party_requirements,
