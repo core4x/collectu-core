@@ -768,6 +768,9 @@ class Configuration:
             logger.debug("Trying to stop module '{0}' with the id '{1}'."
                          .format(module_data.module_name, module_data.configuration.id))
             module_data.instance.active = False
+            # The module is no longer ready to process data - its stop routine releases
+            # exactly the resources the readiness flag stands for.
+            module_data.instance.started.clear()
             Configuration._invoke(module_data.instance.stop)
         except Exception as e:
             logger.error("Could not stop module '{0}' with the id '{1}': {2}"
