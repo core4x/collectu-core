@@ -2,6 +2,48 @@
 
 <!-- version list -->
 
+## v1.72.0 (2026-08-22)
+
+### Bug Fixes
+
+- Fixed documentation of modules.
+  ([`b75e611`](https://github.com/core4x/collectu-core/commit/b75e6118f7b0caa77b6e7235304e2afac3573af2))
+
+- If a module raises an exception after a successful start, the start flag is unset and awaited
+  again during run.
+  ([`d638eaa`](https://github.com/core4x/collectu-core/commit/d638eaa4fb5b0427d34fcf288998d60ad24b0f1d))
+
+- Improved stopping routine of modules.
+  ([`7401b82`](https://github.com/core4x/collectu-core/commit/7401b8238ec54bbfe58989b71e9f303212c0f88d))
+
+- Improved warning message for filling queue.
+  ([`19fb101`](https://github.com/core4x/collectu-core/commit/19fb101c39311fa65d16d685c423173df7dc0a0b))
+
+- Reset started flag if module is stopped.
+  ([`c4d8ecb`](https://github.com/core4x/collectu-core/commit/c4d8ecb7e70409e1bb6d4e1d213d018a3fea893d))
+
+- Updated interface.
+  ([`7547060`](https://github.com/core4x/collectu-core/commit/75470601d2f11ea28e41b3f5f7c3bf049e76a3de))
+
+- We now await the successful return of a start method of parent input modules as well, before
+  starting processing data of child input modules (variable or tag modules).
+  ([`3047842`](https://github.com/core4x/collectu-core/commit/304784204cec23303764666923e56db5560b66cc))
+
+- We now await the successful return of a start method, before starting processing data.
+  ([`285b2a0`](https://github.com/core4x/collectu-core/commit/285b2a02ba1a99fc9d64ccf3fefeb0acd404e4d6))
+
+### Chores
+
+- Update SBOM for v1.71.4. [skip ci]
+  ([`669b377`](https://github.com/core4x/collectu-core/commit/669b377fb7bc210e95aa7f5328a0ddf7faaf829a))
+
+### Features
+
+- Added configuration parameter metadata "secret". In addition, added check during configuration
+  validation, if a configuration parameter was reducted by the hub.
+  ([`aad43d6`](https://github.com/core4x/collectu-core/commit/aad43d63b50a3d1ddaaafb48db3fa5d52f557173))
+
+
 ## v1.71.4 (2026-08-18)
 
 ### Bug Fixes
