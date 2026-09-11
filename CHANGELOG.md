@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.72.1 (2026-09-11)
+
+### Bug Fixes
+
+- Updated interface.
+  ([`24b374b`](https://github.com/core4x/collectu-core/commit/24b374b7e49d7b7cef15b42d58eb243fa6a38aa8))
+
+### Chores
+
+- Update SBOM for v1.72.0. [skip ci]
+  ([`fcc7aee`](https://github.com/core4x/collectu-core/commit/fcc7aeea6afa8a09acaae39c0f367f11d1643462))
+
+
 ## v1.72.0 (2026-08-22)
 
 ### Bug Fixes
