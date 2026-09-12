@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.72.2 (2026-09-11)
+
+### Chores
+
+- Update SBOM for v1.72.1. [skip ci]
+  ([`64bd2c4`](https://github.com/core4x/collectu-core/commit/64bd2c4c088a0fcdc382178d66f39ffef0139a7f))
+
+
 ## v1.72.1 (2026-09-11)
 
 ### Bug Fixes
