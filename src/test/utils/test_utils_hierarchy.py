@@ -14,8 +14,7 @@ class HierarchyTestCase(unittest.TestCase):
     assert.
     """
 
-    VARIABLES = [level.variable for level in utils.hierarchy.LEVELS] + [
-        "HUB_USERNAME", "ISA95_PATH"]
+    VARIABLES = [level.variable for level in utils.hierarchy.LEVELS] + ["HUB_USERNAME", "HIERARCHY_PATH"]
 
     def setUp(self):
         self._saved = {name: os.environ.get(name) for name in self.VARIABLES}
@@ -35,7 +34,7 @@ class TestHierarchyPath(HierarchyTestCase):
     Assembling the ISA-95 path an app publishes under.
     """
 
-    def test_an_app_that_knows_nothing_about_keeps_the_path_it_always_had(self):
+    def test_an_app_that_knows_nothing_about_the_hierarchy_keeps_the_path_it_always_had(self):
         """
         The whole reason empty levels are omitted rather than filled with a placeholder:
         this is the topic every existing deployment is already publishing to, and adding
@@ -123,19 +122,19 @@ class TestRefresh(HierarchyTestCase):
         os.environ["APP_DESCRIPTION"] = "ap-xrf02"
 
         self.assertEqual(utils.hierarchy.refresh(), "acme/ap-xrf02")
-        self.assertEqual(os.environ.get("ISA95_PATH"), "acme/ap-xrf02")
+        self.assertEqual(os.environ.get("HIERARCHY_PATH"), "acme/ap-xrf02")
 
     def test_the_variable_is_removed_rather_than_emptied_when_there_is_no_path(self):
         """
-        `${env.PATH}` then fails with "could not find key", which is the same thing
+        `${env.HIERARCHY_PATH}` then fails with "could not find key", which is the same thing
         `${env.HUB_USERNAME}` has always done on an app that is not signed in - rather than
         resolving to a topic that starts with a slash and is silently rejected by the broker.
         """
-        os.environ["ISA95_PATH"] = "stale/value"
+        os.environ["HIERARCHY_PATH"] = "stale/value"
         os.environ["APP_DESCRIPTION"] = "ap-xrf02"
 
         self.assertEqual(utils.hierarchy.refresh(), "")
-        self.assertNotIn("ISA95_PATH", os.environ)
+        self.assertNotIn("HIERARCHY_PATH", os.environ)
 
     def test_the_path_follows_a_level_that_changes(self):
         os.environ["HUB_USERNAME"] = "acme"
@@ -145,7 +144,7 @@ class TestRefresh(HierarchyTestCase):
         os.environ["SITE"] = "Stuttgart"
 
         self.assertEqual(utils.hierarchy.refresh(), "acme/Stuttgart/ap-xrf02")
-        self.assertEqual(os.environ.get("ISA95_PATH"), "acme/Stuttgart/ap-xrf02")
+        self.assertEqual(os.environ.get("HIERARCHY_PATH"), "acme/Stuttgart/ap-xrf02")
 
 
 class TestReported(HierarchyTestCase):

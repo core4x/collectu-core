@@ -26,10 +26,10 @@ depth, so a subscriber cannot address a level by position ('+/+/+/#') unless eve
 covers fills the same levels in - which is a good reason to fill them all in on a site
 that wants to subscribe that way, and no reason to invent segments for one that does not.
 
-The assembled path is published back into the environment as 'ISA95_PATH', so a module
+The assembled path is published back into the environment as 'HIERARCHY_PATH', so a module
 configuration can use it as a dynamic variable, e.g. as an MQTT topic:
 
-    ${env.ISA95_PATH}/${local.measurement}
+    ${env.HIERARCHY_PATH}/${local.measurement}
 
 It is *derived*, so it is deliberately not part of 'data_layer.settings': it is not the
 operator's to edit, and writing it there would persist it into the settings file and
@@ -173,21 +173,21 @@ def path() -> str:
 
 def refresh() -> str:
     """
-    Recompute the path and publish it as 'ISA95_PATH'.
+    Recompute the path and publish it as 'HIERARCHY_PATH'.
 
     Called whenever something it is built from can have changed. The variable is removed
-    rather than set to "" when the path cannot be built, so '${env.ISA95_PATH}' fails
+    rather than set to "" when the path cannot be built, so '${env.HIERARCHY_PATH}' fails
     loudly with "could not find key" instead of quietly resolving to a topic that starts
     with a slash.
 
     :return: The path, or "" if it could not be built.
     """
     current = path()
-    previous = os.environ.get("ISA95_PATH")
+    previous = os.environ.get("HIERARCHY_PATH")
     if current:
-        os.environ["ISA95_PATH"] = current
+        os.environ["HIERARCHY_PATH"] = current
     else:
-        os.environ.pop("ISA95_PATH", None)
+        os.environ.pop("HIERARCHY_PATH", None)
 
     if current != previous:
         if current:
