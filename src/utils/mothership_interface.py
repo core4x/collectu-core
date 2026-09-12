@@ -21,6 +21,7 @@ import data_layer
 import metrics
 import models
 import utils.updater
+import utils.hierarchy
 import utils.security
 import utils.resilient_session
 
@@ -313,6 +314,11 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
         "allowed_commands": _allowed_commands()
     }
 
+    # Where this app sits in the plant. Sent on every heartbeat rather than once: it is a
+    # handful of short strings, and an operator who renames a work center expects the
+    # fleet list to follow without restarting anything.
+    mothership_data.update(utils.hierarchy.reported())
+
     # Only send the configuration if it changed since the last successful report.
     # Reported as configured, secrets included.
     configuration = json.dumps(getattr(data_layer.configuration, "configuration_dict", []), default=str)
@@ -509,11 +515,19 @@ def _request_hub_tasks():
                     logger.info("Received task '{0}' from hub '{1}'."
                                 .format(task.get("command", "-"), config.HUB_APP_ADDRESS))
                     if config.VERIFY_TASK_SIGNATURE:
-                        if utils.security.verify_task_signature(task=task):
-                            process_tasks(task)
-                        else:
+                        if not utils.security.verify_task_signature(task=task):
                             logger.critical("Task signature verification failed for task '{0}' with the command '{1}'."
                                             .format(task.get("id", "-"), task.get("command", "-")))
+                        # The id is part of the signed message, so it names one task and
+                        # cannot be changed without breaking the signature. The hub hands a
+                        # task out once - it marks it collected on the way - so a second
+                        # delivery of the same one is not the hub asking again.
+                        elif utils.security.is_replay(task_id=str(task.get("id", "-"))):
+                            logger.critical("Refused to run task '{0}' with the command '{1}' a second time. "
+                                            "The hub only ever hands a task out once."
+                                            .format(task.get("id", "-"), task.get("command", "-")))
+                        else:
+                            process_tasks(task)
                     else:
                         process_tasks(task)
             except Exception as e:

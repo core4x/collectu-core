@@ -62,6 +62,7 @@ if __name__ == "__main__":
 
         import configuration
         import utils.arg_parser
+        import utils.hierarchy
         import utils.mothership_interface
         import utils.plugin_interface
         import utils.hub_connection
@@ -145,6 +146,9 @@ if __name__ == "__main__":
                             username = response.json().get("username")
                             logger.info("Your authentication token belongs to {0}.".format(username))
                             os.environ["HUB_USERNAME"] = username
+                            # The enterprise level of the ISA-95 hierarchy is this account,
+                            # so the unified namespace path only becomes resolvable here.
+                            utils.hierarchy.refresh()
                     except Exception as e:
                         logger.error("Could not get your current username. "
                                      "Authentication with hub '{0}' failed. You may be using an invalid api access token: {1}. "

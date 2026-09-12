@@ -100,7 +100,7 @@ class MothershipData:
         metadata=dict(description="The status of the reporting app. Can be: unknown, running, or inactive.",
                       required=True))
     description: str = field(
-        metadata=dict(description="The description of the reporting app.",
+        metadata=dict(description="The control module aka app_description of the reporting app.",
                       required=True))
     version: str = field(
         metadata=dict(description="The current version of the reporting app.",
@@ -175,5 +175,29 @@ class MothershipData:
         default=None)
     module_count: int | None = field(
         metadata=dict(description="The number of modules the performance KPI was computed over.",
+                      required=False),
+        default=None)
+    # The middle levels of the ISA-95 physical model hierarchy the reporting app sits in.
+    # The enterprise is not among them - a mothership knows who reported to it - and the
+    # control module is 'description' above. See utils.hierarchy.
+    site: str | None = field(
+        metadata=dict(description="The ISA-95 site of the reporting app, e.g. the plant or location.",
+                      required=False),
+        default=None)
+    area: str | None = field(
+        metadata=dict(description="The ISA-95 area of the reporting app, within the site.",
+                      required=False),
+        default=None)
+    work_center: str | None = field(
+        metadata=dict(description="The ISA-95 work center of the reporting app, e.g. a production line.",
+                      required=False),
+        default=None)
+    work_unit: str | None = field(
+        metadata=dict(description="The ISA-95 work unit of the reporting app, e.g. the machine.",
+                      required=False),
+        default=None)
+    equipment_module: str | None = field(
+        metadata=dict(description="The ISA-95 equipment module of the reporting app, "
+                                  "e.g. a functional unit of the machine.",
                       required=False),
         default=None)

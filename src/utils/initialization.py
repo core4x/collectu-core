@@ -16,6 +16,7 @@ import base64
 # Internal imports.
 import config
 import data_layer
+import utils.hierarchy
 import utils.plugin_interface
 
 # Third party imports.
@@ -232,6 +233,11 @@ def load_and_process_settings_file() -> bool:
             with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
                 parser.write(settings_file)
 
+        # Everything the path is built from is now set, including the hub username if it
+        # could be resolved above. If it could not, main.py keeps retrying and refreshes
+        # again once it arrives.
+        utils.hierarchy.refresh()
+
         logger.info(f"Successfully initialized app using {config.SETTINGS_FILENAME}.")
         return updated
     except Exception as e:
@@ -255,6 +261,11 @@ def update_env_variables():
 
         with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
             parser.write(settings_file)
+
+        # A hierarchy level may have just been edited. The derived path is not one of the
+        # settings above - it is not the operator's to set - so it has to be rebuilt here.
+        utils.hierarchy.refresh()
+
         logger.info(f"Successfully updated environment variables and {config.SETTINGS_FILENAME}.")
     except Exception as e:
         logger.error("Could not update and write settings: {0}".format(str(e)))

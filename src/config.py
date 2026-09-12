@@ -118,6 +118,33 @@ HUB_JWKS_URL: str = os.getenv("HUB_JWKS_URL", "https://api.collectu.de/.well-kno
 VERIFY_TASK_SIGNATURE: bool = os.getenv("VERIFY_TASK_SIGNATURE", "True").lower() in ("true", "1", "yes")
 """Verify the task signature using the HUB_JWKS_URL."""
 
+MAX_REMEMBERED_TASKS: int = int(os.getenv("MAX_REMEMBERED_TASKS", 1000))
+"""
+How many task ids are remembered.
+
+The hub hands out a task once - it marks it collected the moment it is fetched - so under
+normal operation this holds a handful of ids. It is sized for the abnormal case, and a
+thousand of them is a few tens of kilobytes.
+"""
+
+TASK_MAX_AGE_HOURS: float = float(os.getenv("TASK_MAX_AGE_HOURS", 25))
+"""
+How old a task may be, measured from the moment the hub signed it.
+
+The hub holds an uncollected task for TASK_EXPIRE_HOURS (24 by default) and then drops it,
+so nothing older than that is ever handed out legitimately. An hour on top of it absorbs
+the clock difference between two machines that have no reason to agree to the minute.
+"""
+
+TASK_MAX_CLOCK_SKEW_SECONDS: int = int(os.getenv("TASK_MAX_CLOCK_SKEW_SECONDS", 300))
+"""
+How far in the future a task may claim to have been issued.
+
+Without a bound here the age check above is decorative: a timestamp far enough ahead keeps
+a captured task valid for as long as its author likes. Five minutes is the usual allowance
+for two clocks that are both roughly right.
+"""
+
 STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL: int = int(os.getenv("STATISTICS_AND_MOTHERSHIP_ERROR_LOGGING_INTERVAL", 10))
 """The interval in seconds in which error messages are logged if the sending or receiving process with the external api fails."""
 

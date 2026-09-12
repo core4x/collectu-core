@@ -84,7 +84,13 @@ services:
       - "8181:8181"   # API and user interface
     environment:  # Overwrites the settings.ini variables.
       # - RUN_AS_ROOT=1  # Run as root instead of appuser. Useful when host device access (e.g. USB ports) is required.
-      - APP_DESCRIPTION=My Machine  # The description of the app.
+      # - ENTERPRISE=  # Only needed if this app does not report to the hub.
+      # - SITE=Stuttgart
+      # - AREA=Assembly
+      # - WORK_CENTER=Line 1
+      # - WORK_UNIT=Press 3
+      # - EQUIPMENT_MODULE=Hydraulics
+      - APP_DESCRIPTION=core1  # The name of the app.
       - CONFIG=configuration.yml  # The filepath to the configuration file.
       - AUTO_START=1  # Load configuration file on start-up.
       - AUTO_INSTALL=1  # Automatically install third party requirements.
