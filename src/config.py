@@ -12,6 +12,10 @@ CONTACT: str = os.getenv("CONTACT", "info@collectu.de")
 SETTINGS_FILENAME: str = os.getenv("SETTINGS_FILENAME", "settings.ini")
 """The filename of the settings file containing the environment variables to be set."""
 
+ENCODING: str = "utf-8"
+"""The encoding of all files, stated rather than inherited.
+`open()` without one uses the locale encoding, which is cp1252 on a Windows host and UTF-8 almost everywhere else."""
+
 DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 """Debug messages are printed into the console."""
 

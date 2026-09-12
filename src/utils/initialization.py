@@ -114,7 +114,7 @@ def load_and_process_settings_file() -> bool:
     try:
         settings_path = "../" + config.SETTINGS_FILENAME
         parser = ConfigParser(comment_prefixes='/', allow_no_value=True)
-        with open(settings_path) as settings_file:
+        with open(settings_path, encoding=config.ENCODING) as settings_file:
             parser.read_file(settings_file)
 
         updated: bool = False
@@ -208,13 +208,17 @@ def load_and_process_settings_file() -> bool:
             # Third party imports.
             try:
                 import requests
-                import utils.resilient_session
+                # Bound under its own name, not as `utils.resilient_session`. An
+                # `import utils.x` here would make `utils` a local of this whole function,
+                # and every other `utils.` in it - the hierarchy refresh below among them -
+                # would raise UnboundLocalError on the path where this branch is skipped.
+                from utils import resilient_session
             except ImportError:
                 logger.error("Could not get your current username. "
                                 "Authentication with hub '{0}' failed. Requests package is not installed. Retrying later..."
                                 .format(config.HUB_TEST_TOKEN_ADDRESS))
             else:
-                session = utils.resilient_session.create_resilient_session()
+                session = resilient_session.create_resilient_session()
                 session.headers = {"Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"}
                 try:
                     response = session.get(url=config.HUB_TEST_TOKEN_ADDRESS, timeout=(5, 5))
@@ -230,7 +234,7 @@ def load_and_process_settings_file() -> bool:
 
         # Write updated settings.ini file.
         if updated:
-            with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
+            with open(settings_path, 'w', encoding=config.ENCODING) as settings_file:  # Caution: everything is automatically lowered...
                 parser.write(settings_file)
 
         # Everything the path is built from is now set, including the hub username if it
@@ -252,14 +256,14 @@ def update_env_variables():
     try:
         settings_path = "../" + config.SETTINGS_FILENAME
         parser = ConfigParser(comment_prefixes='/', allow_no_value=True)
-        with open(settings_path) as settings_file:
+        with open(settings_path, encoding=config.ENCODING) as settings_file:
             parser.read_file(settings_file)
 
         for key, value in data_layer.settings.items():
             os.environ[key] = value
             parser.set('env', key.lower(), value)
 
-        with open(settings_path, 'w') as settings_file:  # Caution: everything is automatically lowered...
+        with open(settings_path, 'w', encoding=config.ENCODING) as settings_file:  # Caution: everything is automatically lowered...
             parser.write(settings_file)
 
         # A hierarchy level may have just been edited. The derived path is not one of the

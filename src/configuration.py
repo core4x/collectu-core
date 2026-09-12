@@ -413,7 +413,7 @@ class Configuration:
             # Set the path to the file, guaranteed to be inside the configuration directory — see `configuration_path`.
             file = configuration_path(filename)
             # Read the file.
-            with open(file) as content:
+            with open(file, encoding=config.ENCODING) as content:
                 content = content.read().strip()
             logger.info(f'Loading configuration from {filename}.')
             # Load the configuration file defined in the environment variable.
@@ -1250,7 +1250,7 @@ class Configuration:
                 file.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     # Write content to file.
-                    with open(file, 'w') as stream:
+                    with open(file, 'w', encoding=config.ENCODING) as stream:
                         if yaml:
                             stream.write(f'{yaml.dump(configuration_dict)}')
                         else:
