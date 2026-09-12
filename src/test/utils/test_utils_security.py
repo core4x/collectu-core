@@ -77,11 +77,14 @@ class TestVerifyTaskSignature(unittest.TestCase):
         message = json.dumps(fields, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
         return _base64url_encode(self.private_key.sign(message, ec.ECDSA(hashes.SHA256())))
 
-    def _task(self, *, issued_at: str | None = None, **overrides) -> dict:
+    def _task(self, *, issued_at: str | None = None, field: str = "signature_v2", **overrides) -> dict:
         """
         A signed task as the hub would hand it over.
 
         :param issued_at: When the task was issued. Defaults to now.
+        :param field: Which field the hub put the signature in. 'signature_v2' while apps
+            that predate the hardened check are still being catered for, 'signature' once
+            the hub stopped doing that.
         :param overrides: Fields to change after signing, i.e. tampering.
         :return: The task.
         """
@@ -101,7 +104,13 @@ class TestVerifyTaskSignature(unittest.TestCase):
         fields["issued_at"] = issued_at
         task["issued_at"] = issued_at
 
-        task["signature"] = self._sign(fields)
+        task[field] = self._sign(fields)
+        if field == "signature_v2":
+            # What the hub puts in 'signature' during the changeover: the older, replayable
+            # message, for the apps that cannot read anything else. Nothing here reads it.
+            legacy = {k: task.get(k) for k in
+                      ["owner_id", "app_id", "command", "configuration", "git_access_token"]}
+            task["signature"] = self._sign(legacy)
         task.update(overrides)
         return task
 
@@ -172,9 +181,44 @@ class TestVerifyTaskSignature(unittest.TestCase):
 
         self.assertFalse(utils.security.verify_task_signature(task=task))
 
+    def test_the_signature_beside_the_one_for_older_apps_is_the_one_read(self):
+        """
+        While the hub caters for apps that predate this check, 'signature' carries the older
+        message they rebuild and the real one is answered as 'signature_v2'. Reading the
+        first would mean verifying a replayable message; reading the second is the point.
+        """
+        task = self._task()
+
+        self.assertTrue("signature" in task and task["signature"] != task["signature_v2"])
+        self.assertTrue(utils.security.verify_task_signature(task=task))
+
+    def test_the_older_signature_is_never_what_gets_verified(self):
+        """
+        The downgrade an attacker would try: drop the field this app prefers so it falls back
+        to the one older apps read. It does fall back - and then verifies the *same* hardened
+        message against it, which that signature was never over.
+        """
+        task = self._task()
+        task.pop("signature_v2")
+
+        self.assertFalse(utils.security.verify_task_signature(task=task))
+
+    def test_a_task_from_a_hub_that_no_longer_caters_for_older_apps_is_accepted(self):
+        """
+        The other end of the changeover: once 'SIGN_TASKS_FOR_LEGACY_APPS' is off the hub puts
+        the hardened signature back in 'signature' and stops answering the second field. This
+        app has to keep working across that switch without being touched.
+        """
+        task = self._task(field="signature")
+
+        self.assertNotIn("signature_v2", task)
+        self.assertTrue(utils.security.verify_task_signature(task=task))
+
     def test_a_task_without_a_signature_is_rejected(self):
+        """Neither field, so there is nothing to verify against."""
         task = self._task()
         task.pop("signature")
+        task.pop("signature_v2")
 
         self.assertFalse(utils.security.verify_task_signature(task=task))
 

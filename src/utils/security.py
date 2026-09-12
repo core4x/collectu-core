@@ -217,7 +217,18 @@ def verify_task_signature(task: dict) -> bool:
     addressed to *this* app; and it has to have been issued recently enough that it cannot
     be an old one being played back.
 
-    Expects 'signature' and 'kid' fields in the task dict.
+    The signature is read from 'signature_v2' where the hub offers it, and from 'signature'
+    otherwise. Both are verified against the same message - the one that covers the task id
+    and the issuing time - so this is a question of which field to read and never of which
+    rule to apply. There is no message here that an older hub could have signed, and so
+    nothing an attacker gains by removing a field.
+
+    The two fields exist because an app released before this check reads 'signature' and
+    cannot be told to read another one. While any of those are still in the field the hub
+    leaves 'signature' to them and answers the real one alongside it; once they are gone it
+    puts the real one back in 'signature' and this falls through to it.
+
+    Expects 'kid' and one of the two signature fields in the task dict.
 
     :param task: The task dict.
     :return: True if the task may be executed, False otherwise.
@@ -226,7 +237,8 @@ def verify_task_signature(task: dict) -> bool:
         if not cryptography_available:
             logger.error("The cryptography package is not installed. Can not verify task signature.")
             return False
-        if "signature" not in task or "kid" not in task:
+        signature_field = task.get("signature_v2") or task.get("signature")
+        if not signature_field or "kid" not in task:
             logger.error("Invalid task: Signature or kid is not defined in task body.")
             return False
 
@@ -251,7 +263,7 @@ def verify_task_signature(task: dict) -> bool:
 
         message = _signed_message(task=task)
 
-        signature = base64url_decode(task["signature"])
+        signature = base64url_decode(signature_field)
         public_key = get_public_key(task["kid"])
 
         if isinstance(public_key, rsa.RSAPublicKey):
