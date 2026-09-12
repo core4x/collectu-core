@@ -12,11 +12,10 @@ from typing import List, Optional
 import config
 import data_layer
 import utils.resilient_session
+import utils.plugin_interface
 
 # Third party imports.
 import requests
-
-import utils.plugin_interface
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
