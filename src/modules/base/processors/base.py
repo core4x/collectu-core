@@ -5,7 +5,6 @@ The derived child class has to be named 'ProcessorModule'.
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Optional
-import threading
 import inspect
 import queue
 import time
@@ -13,7 +12,7 @@ import time
 # Internal imports.
 import config
 import models
-from modules.base.base import AbstractModule
+from modules.base.base import AbstractModule, QueueMonitor, QueueWorker
 import utils.data_validation
 from metrics import metrics_registry, data_context_map
 
@@ -52,32 +51,39 @@ class AbstractProcessorModule(AbstractModule):
         self._thread_safe: bool = thread_safe
         """If enabled, _run is only called by one thread like for output modules. 
         This has to be set before the execution of the start method."""
-        self._first_execution: bool = True
-        """If the module was called by its first link, this is set to false."""
+        self._queue_worker = QueueWorker(module=self, target=self._process_queue)
+        """Starts the one thread working off the queue - with the first data object, and again after a restart."""
         self._metrics = metrics_registry.register(
             module_id=configuration.id,
             module_name=configuration.module_name,
             queue=self.queue if thread_safe else None,
         )
-        self.queue_size_last_warning_band: int = 0
-        """The queue size band for which the last warning message was emitted."""
+        self._queue_monitor = QueueMonitor(
+            logger=self.logger,
+            name=f"module '{configuration.id}'",
+            hint="You are probably trying to process more data than we can handle.")
+        """Logs how full the queue is, once per change instead of once per calling thread."""
 
     def _process_queue(self):
         """
         Continuously drains the data queue and processes each item by invoking _run.
 
-        Intended to be started once in a dedicated daemon thread when thread_safe mode is enabled.
-        Blocks on the queue with a timeout so the loop can exit cleanly when self.active is set to False.
+        Runs in the dedicated thread started by run() through QueueWorker when thread_safe mode is enabled.
+        Blocks on the queue with a timeout, so the loop notices within about a second that the module
+        was stopped, and returns.
 
         Errors raised during processing are caught and logged per item so that a single
         failing item does not halt the queue worker.
         """
-        while self.active:
+        while self._queue_worker.keep_running():
             # Do not process anything while the module is not ready. A module can also lose
             # its readiness again (e.g. a start method which blocks and raises on a connection
             # loss), so this is checked for every data object. The data waits in the queue
             # meanwhile, so nothing is lost and no producer is blocked.
-            self._await_started()
+            if not self._await_started() and not self._readiness_timed_out:
+                # Stopped while waiting. Should the module be restarted meanwhile, it has to report its
+                # readiness again before anything is processed.
+                continue
 
             try:
                 data = self.queue.get(block=True, timeout=1)  # This blocks until timeout.
@@ -148,10 +154,12 @@ class AbstractProcessorModule(AbstractModule):
             the result is forwarded to downstream links before returning.
           - thread_safe enabled: data is placed on the internal queue and processed
             by a dedicated queue worker thread. The queue worker is started lazily on
-            the first call. Incoming data is silently dropped if the queue has reached
-            config.STOP_LIMIT to prevent unbounded memory growth; a warning is logged
-            once per config.WARNING_LIMIT band the queue grows into, and re-armed once
-            the queue recovers below config.WARNING_LIMIT.
+            the first call, and again on the first call after the module was restarted
+            in place (see QueueWorker). Incoming data is dropped and recorded as a drop
+            if the queue has reached config.STOP_LIMIT to prevent unbounded memory growth.
+            The fill level is logged by a QueueMonitor: a warning for each
+            config.WARNING_LIMIT band the queue grows into and an error once data is
+            dropped, each with a hysteresis and only once for all threads.
 
         Data objects with no measurement set are ignored and not forwarded.
 
@@ -177,28 +185,18 @@ class AbstractProcessorModule(AbstractModule):
                 return
 
             if self._thread_safe:
-                if self._first_execution:
-                    self._first_execution = False
-                    # Start the queue processing for storing incoming data.
-                    threading.Thread(target=self._process_queue,
-                                     daemon=False,
-                                     name="Queue_Worker_{0}".format(self.configuration.id)).start()
-                queue_size = self.queue.qsize()
-                warning_band = queue_size // config.WARNING_LIMIT
-                if warning_band == 0:
-                    # Recovered below the limit: re-arm the warning.
-                    self.queue_size_last_warning_band = 0
-                elif warning_band > self.queue_size_last_warning_band:
-                    self.logger.warning("You are probably trying to process more data than we can handle. "
-                                        "We have currently '{0}' elements in our queue to process."
-                                        .format(str(queue_size)))
-                    self.queue_size_last_warning_band = warning_band
+                # Start the queue processing for incoming data, unless it is running.
+                self._queue_worker.start()
                 if self.queue.qsize() < config.STOP_LIMIT:
                     # Stamp internal-queue entry time in the context (not on the data object).
                     if ctx is not None:
                         ctx.internal_ts = time.monotonic()
                     # Queue the data to be stored.
                     self.queue.put(data)
+                    self._queue_monitor.update(size=self.queue.qsize())
+                else:
+                    self._metrics.record_drop()
+                    self._queue_monitor.record_drop()
             else:
                 # Non-thread-safe: run synchronously on the calling thread.
                 # There is no queue to hold the data, so we wait here for the module to be ready.

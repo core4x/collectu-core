@@ -157,17 +157,21 @@ class _DataContextMap:
         Store *ctx* for *data* and register a finalizer that removes the
         entry once *data* is garbage-collected.
 
+        Objects which do not support weak references (e.g. `None` returned by a
+        processor's `_run()`) are not stored: their entry could never be removed
+        again, and their id could be reused by an unrelated object later on.
+
         :param data: The data object.
         :param ctx: The data context.
         :returns: None.
         """
         key = id(data)
-        with self._lock:
-            self._map[key] = ctx
         try:
             weakref.finalize(data, self._cleanup, key)
         except TypeError:
-            pass
+            return
+        with self._lock:
+            self._map[key] = ctx
 
     def _cleanup(self, key: int) -> None:
         """
@@ -403,7 +407,7 @@ class ModuleMetrics:
         self._errors = _AtomicInt()
         """Lifetime count of processing errors."""
         self._drops = _AtomicInt()
-        """Lifetime count of data objects dropped due to a full queue."""
+        """Lifetime count of data objects meant for this module, which were discarded before it could process them."""
 
     def record_received(self) -> None:
         """
@@ -461,13 +465,17 @@ class ModuleMetrics:
         """
         self._errors.inc()
 
-    def record_drop(self) -> None:
+    def record_drop(self, count: int = 1) -> None:
         """
-        Increment drop counter (call when queue is full and data is discarded).
+        Increment drop counter. Call wherever data meant for this module is discarded before the module
+        could process it: its own queue or the queue of a link to it is full, a newer data object replaced
+        it in latest-only mode, or a link was stopped before its backlog was worked off.
 
+        :param count: The number of discarded data objects. Defaults to 1.
         :returns: None.
         """
-        self._drops.inc()
+        if count > 0:
+            self._drops.inc(count)
 
     def snapshot(self) -> dict:
         """
@@ -582,19 +590,39 @@ class MetricsRegistry:
         Returns the `ModuleMetrics` for *module_id*, creating it on first call.
         Thread-safe.
 
+        A module which is re-created under the same id (e.g. after its configuration changed) keeps
+        its counters, but `module_name` and `queue` are taken over from the new instance - otherwise
+        the queue depth would keep reporting the queue of the discarded instance.
+
         :param module_id: Unique module identifier (`configuration.id`).
         :param module_name: Human-readable name (`configuration.module_name`).
         :param queue: Pass the module's internal queue for live depth reporting.
         :returns: The `ModuleMetrics` instance for *module_id*.
         """
         with self._module_lock:
-            if module_id not in self._modules:
-                self._modules[module_id] = ModuleMetrics(
+            metrics = self._modules.get(module_id)
+            if metrics is None:
+                metrics = self._modules[module_id] = ModuleMetrics(
                     module_id=module_id,
                     module_name=module_name,
                     queue=queue,
                 )
-            return self._modules[module_id]
+            else:
+                metrics.module_name = module_name
+                metrics._queue = queue
+            return metrics
+
+    def get(self, module_id: str) -> Optional[ModuleMetrics]:
+        """
+        Returns the `ModuleMetrics` for *module_id* without creating it.
+        Used to record metrics on behalf of another module, e.g. data dropped on a link to it.
+        Thread-safe.
+
+        :param module_id: Unique module identifier (`configuration.id`).
+        :returns: The `ModuleMetrics` instance, or `None` if *module_id* is not registered.
+        """
+        with self._module_lock:
+            return self._modules.get(module_id)
 
     def reset(self) -> None:
         """
@@ -689,8 +717,11 @@ class MetricsRegistry:
             """
             return round(v * 1_000.0, 3) if v is not None else None
 
+        # Snapshot outside the lock - sorting the samples of every module takes a while, and
+        # get() is called in the data path whenever data is dropped.
         with self._module_lock:
-            modules = [m.snapshot() for m in self._modules.values()]
+            module_metrics = list(self._modules.values())
+        modules = [m.snapshot() for m in module_metrics]
 
         with self._flow_lock:
             flow_ids = list(self._flows.keys())

@@ -7,7 +7,6 @@ import inspect
 from abc import abstractmethod
 from dataclasses import dataclass
 import queue
-import threading
 from typing import Optional
 
 # Internal imports.
@@ -15,7 +14,7 @@ import config
 import data_layer
 import models
 import utils.data_validation
-from modules.base.base import AbstractModule
+from modules.base.base import AbstractModule, QueueMonitor, QueueWorker
 from metrics import metrics_registry, data_context_map
 
 
@@ -52,15 +51,18 @@ class AbstractOutputModule(AbstractModule):
         """A queue containing all the received data to be stored."""
         self.current_input_data: Optional[models.Data] = None
         """The currently received data object. Used for replacing dynamic variables with local data."""
-        self._first_execution: bool = True
-        """If the module was called by its first link, this is set to false."""
+        self._queue_worker = QueueWorker(module=self, target=self._process_queue)
+        """Starts the one thread working off the queue - with the first data object, and again after a restart."""
         self._metrics = metrics_registry.register(
             module_id=configuration.id,
             module_name=configuration.module_name,
             queue=self.queue,
         )
-        self.queue_size_last_warning_band: int = 0
-        """The queue size band for which the last warning message was emitted."""
+        self._queue_monitor = QueueMonitor(
+            logger=self.logger,
+            name=f"module '{configuration.id}'",
+            hint="You are probably trying to store more data than we can process.")
+        """Logs how full the queue is, once per change instead of once per calling thread."""
 
     def _validate_data(self, data: models.Data):
         """
@@ -89,13 +91,14 @@ class AbstractOutputModule(AbstractModule):
 
         Validates the incoming data against the module's field and tag requirements,
         updates the latest data entry in the data layer, and enqueues the data for
-        processing by the queue worker thread. The queue worker is started lazily on the first call.
+        processing by the queue worker thread. The queue worker is started lazily on the first call,
+        and again on the first call after the module was restarted in place (see QueueWorker).
 
         If the queue has reached config.STOP_LIMIT, the data is forwarded to the configured buffer module instead
-        of being dropped. If no buffer is configured, the data is lost and an error is logged.
+        of being dropped. If it can not be buffered either, the data is dropped and recorded as a drop.
 
-        A warning is logged once per config.WARNING_LIMIT band the queue grows into, and re-armed
-        once the queue recovers below config.WARNING_LIMIT.
+        The fill level of the queue is logged by a QueueMonitor: a warning for each config.WARNING_LIMIT band the
+        queue grows into and an error once data is dropped, each with a hysteresis and only once for all threads.
         Data objects with no measurement set are not enqueued or forwarded.
 
         :param data: The data object to process.
@@ -106,28 +109,13 @@ class AbstractOutputModule(AbstractModule):
             if not self.active:
                 return
 
-            if self._first_execution:
-                self._first_execution = False
-                # Start the queue processing for storing incoming data.
-                threading.Thread(target=self._process_queue,
-                                 daemon=False,
-                                 name="Queue_Worker_{0}".format(self.configuration.id)).start()
+            # Start the queue processing for storing incoming data, unless it is running.
+            self._queue_worker.start()
 
             ctx = data_context_map.get(data)
             if ctx is not None:
                 self._metrics.record_link_wait(time.monotonic() - ctx.link_ts)
             self._metrics.record_received()
-
-            queue_size = self.queue.qsize()
-            warning_band = queue_size // config.WARNING_LIMIT
-            if warning_band == 0:
-                # Recovered below the limit: re-arm the warning.
-                self.queue_size_last_warning_band = 0
-            elif warning_band > self.queue_size_last_warning_band:
-                self.logger.warning("You are probably trying to store more data than we can process. "
-                                    "We have currently '{0}' elements in our queue to store."
-                                    .format(str(queue_size)))
-                self.queue_size_last_warning_band = warning_band
 
             # Store the data in the latest data entry if a measurement is given.
             if not data.measurement:
@@ -149,14 +137,14 @@ class AbstractOutputModule(AbstractModule):
                     ctx.internal_ts = time.monotonic()
                 # Queue the data to be stored.
                 self.queue.put(data)
+                self._queue_monitor.update(size=self.queue.qsize())
             else:
                 # Attempt to forward the data to a buffer module.
                 # If no buffer is configured, the data is lost.
                 buffered = self._buffer(data=data, invalid=False)
                 if not buffered:
                     self._metrics.record_drop()
-                    self.logger.error("Could not store data because the queue size exceeded the stop limit "
-                                      "and no buffer is configured.")
+                    self._queue_monitor.record_drop()
         except Exception as e:
             self._metrics.record_error()
             self.logger.error("Could not store data in queue: {0}".format(str(e)),
@@ -166,20 +154,24 @@ class AbstractOutputModule(AbstractModule):
         """
         Continuously drains the data queue and processes each item by invoking _run.
 
-        Intended to be started once in a dedicated daemon thread on the first call to run().
+        Runs in the dedicated thread started by run() through QueueWorker.
         Before consuming from the queue, any data previously offloaded to the buffer module
         is retrieved and processed first to preserve ordering.
-        Blocks on the queue with a timeout so the loop can exit cleanly when self.active is set to False.
+        Blocks on the queue with a timeout, so the loop notices within about a second that the module
+        was stopped, and returns.
 
         Errors raised during processing are caught and logged per item so that a single
         failing item does not halt the queue worker.
         """
-        while self.active:
+        while self._queue_worker.keep_running():
             # Do not process anything while the module is not ready. A module can also lose
             # its readiness again (e.g. a start method which blocks and raises on a connection
             # loss), so this is checked for every data object. The data waits in the queue
             # meanwhile, so nothing is lost and no producer is blocked.
-            self._await_started()
+            if not self._await_started() and not self._readiness_timed_out:
+                # Stopped while waiting. Should the module be restarted meanwhile, it has to report its
+                # readiness again before anything is processed.
+                continue
 
             # Prioritize buffered data before consuming from the live queue.
             data = self._get_buffer()
