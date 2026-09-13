@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v1.73.0 (2026-09-13)
+
+### Bug Fixes
+
+- Added empty list as default.
+  ([`7e119c9`](https://github.com/core4x/collectu-core/commit/7e119c94e58a4de86edde5dfbc3919ea5381e3fc))
+
+- Added encoding.
+  ([`773b101`](https://github.com/core4x/collectu-core/commit/773b101698d26d4e9e11e4d78c5cbbd8f78fd528))
+
+- Added signature_v2.
+  ([`ceb65b4`](https://github.com/core4x/collectu-core/commit/ceb65b4f0a83a8396d738d5d60511e1b7676c4af))
+
+- Cleaned.
+  ([`3e11ab7`](https://github.com/core4x/collectu-core/commit/3e11ab75d6a216ea0da2d50dacf0a964f2ae9718))
+
+- Cleaned.
+  ([`feaf5ab`](https://github.com/core4x/collectu-core/commit/feaf5ab77e93024f9d7c77eff6f489a3ee16f8c5))
+
+- Fixed import order.
+  ([`bf59997`](https://github.com/core4x/collectu-core/commit/bf59997120972103d81d6ade53f14a79f5989b50))
+
+- Renamed path to hierarchy_path.
+  ([`52d1b0c`](https://github.com/core4x/collectu-core/commit/52d1b0c2f266a4aa8bc0fbd2a17b7a47f2bcfd12))
+
+- Updated frontend.
+  ([`f5f2203`](https://github.com/core4x/collectu-core/commit/f5f22031e24c54c19f56943a8ea0de44580b4f12))
+
+### Chores
+
+- Update SBOM for v1.72.2. [skip ci]
+  ([`6672efa`](https://github.com/core4x/collectu-core/commit/6672efab0827735a7324c75d86af480d41061489))
+
+### Features
+
+- Refactored metrics behavior. Especially the logging and drop count.
+  ([`fa46984`](https://github.com/core4x/collectu-core/commit/fa4698443e55769a7af0914317893e3c7ddaa96d))
+
+
 ## v1.72.2 (2026-09-11)
 
 ### Chores
