@@ -5,3 +5,4 @@ packaging==26.3
 PyYAML==6.0.3
 requests==2.34.2
 tinydb==4.9.0
+uv==0.12.19

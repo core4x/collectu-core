@@ -156,14 +156,51 @@ def requirement_is_installed(package: str) -> tuple[bool, str]:
     return False, "Requirement '{0}' is not satisfied (installed: {1}).".format(package, installed_version)
 
 
+def installer_commands(package: str) -> list[tuple[str, list[str]]]:
+    """
+    The commands that can install the given requirement, in the order they are tried.
+
+    uv comes first where it is installed - it is in requirements.txt - because it resolves and
+    installs in a fraction of pip's time. pip stays behind it as the fallback, for two reasons.
+    An installation that predates uv in requirements.txt gets uv through pip in the first place.
+    And uv does not share pip's configuration: it reads neither pip.conf nor PIP_INDEX_URL (its
+    own is UV_DEFAULT_INDEX), and it brings its own certificates, so behind a proxy that inspects
+    TLS it needs UV_SYSTEM_CERTS=1. A network set up for pip alone keeps installing through pip.
+
+    uv is handed the running interpreter with --python. Without it, uv installs only into an
+    activated venv or a .venv it finds and refuses otherwise - and the Docker image's venv is
+    neither, it is only put on PATH.
+
+    :param package: The requirement string. It is passed on unchanged, so extras and specifiers
+                    remain intact.
+    :returns: A list of (installer name, command) pairs.
+    """
+    commands = []
+    # Imported here rather than with the optional imports above: an existing installation gets
+    # uv at start-up, through install_plugin_requirement, and this way uses it without a restart.
+    try:
+        import uv
+        commands.append(("uv", [uv.find_uv_bin(), "pip", "install", "--python", sys.executable, package]))
+    except (ImportError, FileNotFoundError):
+        # FileNotFoundError: the package is installed, but its binary could not be found.
+        pass
+    commands.append(("pip", [sys.executable, "-m", "pip", "install", package]))
+    return commands
+
+
 def install_plugin_requirement(package: str) -> int:
     """
     Installs the given requirement if necessary.
 
-    Calls :func:`requirement_is_installed` first and skips pip when the requirement is
-    already satisfied. If `packaging` is not available it falls back to calling
-    ``pip install <package>`` directly (pip itself will report
-    "Requirement already satisfied" when appropriate).
+    Calls :func:`requirement_is_installed` first and skips the installation when the requirement
+    is already satisfied. If `packaging` is not available it runs the installer anyway, which
+    itself leaves a requirement that is already satisfied as it is.
+
+    The installers of :func:`installer_commands` are tried in turn, so a failing uv falls back to
+    pip. Neither is given --force-reinstall. This only runs for a requirement that is missing or
+    at the wrong version, which a plain install handles, and the flag reinstalled the whole
+    dependency tree at the newest versions allowed - reinstalling requests==2.31.0 took urllib3
+    from 1.26.20 to 2.8.0 - which could move a package requirements.txt pins.
 
     :param package: The requirement string (e.g. "Flask==2.0.2", "requests>=2.0",
                     "Django>=3.0,<4.0").
@@ -183,19 +220,23 @@ def install_plugin_requirement(package: str) -> int:
         logger.info("Trying to install package '{0}'...".format(package))
 
         # Either packaging isn't available, or we determined installation is needed.
-        # Use pip to install. We pass the original package string to pip so extras/specifiers remain intact.
-        try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--force-reinstall", package],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            logger.info("Successfully installed '{0}'. {1}".format(package, result.stdout.splitlines()[:1]))
+        error = ""
+        for installer, command in installer_commands(package):
+            if error:
+                logger.warning("Could not install package '{0}', falling back to {1}: {2}"
+                               .format(package, installer, error))
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, check=True)
+            except (subprocess.CalledProcessError, OSError) as e:
+                # An OSError means the installer could not be started at all.
+                error = getattr(e, "stderr", None) or str(e)
+                continue
+            # uv reports what it installed on stderr, pip on stdout.
+            logger.info("Successfully installed '{0}' with {1}. {2}"
+                        .format(package, installer, (result.stdout + result.stderr).strip()))
             return 0
-        except subprocess.CalledProcessError as e:
-            logger.error("Could not install package '{0}': {1}".format(package, e.stderr))
-            return 1
+        logger.error("Could not install package '{0}': {1}".format(package, error))
+        return 1
     except Exception as e:
         logger.error("Something went wrong while trying to install package '{0}': {1}"
                      .format(package, e), exc_info=config.EXC_INFO)
