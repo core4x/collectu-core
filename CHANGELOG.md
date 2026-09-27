@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.74.0 (2026-09-27)
+
+### Bug Fixes
+
+- Updated frontend and api.
+  ([`8f3add9`](https://github.com/core4x/collectu-core/commit/8f3add90c1e7c17a74228b130f56a559f5d81846))
+
+### Chores
+
+- Update SBOM for v1.73.1. [skip ci]
+  ([`37f9beb`](https://github.com/core4x/collectu-core/commit/37f9beb7427116df6c6d11516cb5d387bd669760))
+
+### Features
+
+- Added uv (and pip only as fallback) for package installation.
+  ([`6ac6322`](https://github.com/core4x/collectu-core/commit/6ac6322d303a5206f8cd426ea7a8b0c357b65d2e))
+
+
 ## v1.73.1 (2026-09-21)
 
 ### Bug Fixes
