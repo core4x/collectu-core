@@ -78,8 +78,8 @@ jobs:
           # put main one ahead of development after every release, so every promotion and every
           # pull afterwards needed a merge.
           commit: false
-          # The release notes go onto the GitHub release. CHANGELOG.md is the archive up to
-          # v1.75.0; keeping it current would need that commit again.
+          # The release notes go onto the GitHub release, which is the changelog. A
+          # CHANGELOG.md in the repository could only be kept current by that commit.
           changelog: false
 
   build-and-push:

@@ -162,7 +162,7 @@ The collectu interfaces (frontend and api) are licensed under the terms of the C
 |---|---|
 | Product name | Collectu Core (`collectu-core`) |
 | Product type | Software – no-code data collection, processing, analysis, visualization, and storage platform |
-| Version | See the [GitHub releases](https://github.com/core4x/collectu-core/releases) and git tags of this repository ([CHANGELOG.md](CHANGELOG.md) up to v1.75.0). |
+| Version | See the [GitHub releases](https://github.com/core4x/collectu-core/releases) and git tags of this repository. |
 | Unique identification | Repository: [github.com/core4x/collectu-core](https://github.com/core4x/collectu-core); each installation has a persistent `app_id` (UUID) stored in `settings.ini`. |
 
 ### Single Point of Contact for Vulnerabilities
@@ -272,8 +272,8 @@ documentation requirements of Annex VII:
 
 - This section and [SECURITY.md](SECURITY.md) (vulnerability handling, support, secure configuration)
 - The SBOM (see below) for the software composition of the product
-- The source code, the [release notes](https://github.com/core4x/collectu-core/releases) and, up to
-  v1.75.0, [CHANGELOG.md](CHANGELOG.md) for change tracking
+- The source code and the [release notes](https://github.com/core4x/collectu-core/releases) for
+  change tracking
 
 ### Software Bill of Materials (SBOM)
 

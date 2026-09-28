@@ -80,8 +80,7 @@ faith under this policy, provided that you:
   [github.com/core4x/collectu-core](https://github.com/core4x/collectu-core).
   Users are expected to stay on the latest version.
 - Security-relevant releases are documented in the
-  [release notes](https://github.com/core4x/collectu-core/releases) (up to v1.75.0:
-  [CHANGELOG.md](CHANGELOG.md)).
+  [release notes](https://github.com/core4x/collectu-core/releases).
 - End date of the security support period: At least 5 years from now on.
 
 ### Installing security updates
