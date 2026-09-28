@@ -21,7 +21,7 @@ This address is the single point of contact for receiving vulnerability reports 
 
 Please include, where possible:
 
-- The product and version affected (see [CHANGELOG.md](CHANGELOG.md) / git tag)
+- The product and version affected (see the [GitHub releases](https://github.com/core4x/collectu-core/releases) / git tag)
 - A description of the vulnerability and its potential impact
 - Steps to reproduce, proof-of-concept code, or configuration needed to reproduce
 
@@ -79,7 +79,9 @@ faith under this policy, provided that you:
 - Security fixes are provided for the **latest released version** on the `main` branch of
   [github.com/core4x/collectu-core](https://github.com/core4x/collectu-core).
   Users are expected to stay on the latest version.
-- Security-relevant releases are documented in [CHANGELOG.md](CHANGELOG.md).
+- Security-relevant releases are documented in the
+  [release notes](https://github.com/core4x/collectu-core/releases) (up to v1.75.0:
+  [CHANGELOG.md](CHANGELOG.md)).
 - End date of the security support period: At least 5 years from now on.
 
 ### Installing security updates
@@ -113,7 +115,7 @@ published with every release, so there is nothing to generate on an installation
 
 | Document | Where to find it | What it covers |
 |---|---|---|
-| `sbom.cdx.json` | Committed in this repository, so it ships with the source and inside the container image | What Collectu Core declares: the requirements in `src/requirements.txt` |
+| `sbom.cdx.json` | Attached to each [GitHub release](https://github.com/core4x/collectu-core/releases) | What Collectu Core declares: the requirements in `src/requirements.txt` |
 | `src/interface/sbom.cdx.json` | Committed in the `src/interface` submodule, which is its own repository | What the API and user interface declare |
 | `sbom.container.cdx.json` | Attached to each [GitHub release](https://github.com/core4x/collectu-core/releases) | The published container image as built, including its operating system packages (openssl, glibc, …) |
 
@@ -128,9 +130,9 @@ The documents list dependencies, not vulnerabilities, and deliberately so: a sca
 into a released file is out of date as soon as the next advisory is published. Match them
 against an advisory database of your choice — `grype sbom:sbom.cdx.json`, for example.
 
-The committed document covers the packages Collectu Core itself declares. Modules install their
-own third-party requirements at runtime, so what is *actually* installed on a given device can
-differ — a module requirement without a pinned version resolves to whatever was current at
+The declared documents cover the packages Collectu Core and its interface declare. Modules
+install their own third-party requirements at runtime, so what is *actually* installed on a given
+device can differ — a module requirement without a pinned version resolves to whatever was current at
 install time. A Core that reports to the Collectu Hub therefore also sends the list of
 distributions installed in its Python environment. 
 Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.

@@ -43,6 +43,3 @@ compose*.yml text eol=lf
 *.zip binary
 *.gz binary
 *.tar binary
-
-sbom.cdx.json linguist-generated=true
-sbom.cdx.json -diff

@@ -162,7 +162,7 @@ The collectu interfaces (frontend and api) are licensed under the terms of the C
 |---|---|
 | Product name | Collectu Core (`collectu-core`) |
 | Product type | Software – no-code data collection, processing, analysis, visualization, and storage platform |
-| Version | See [CHANGELOG.md](CHANGELOG.md) and git tags of this repository. |
+| Version | See the [GitHub releases](https://github.com/core4x/collectu-core/releases) and git tags of this repository ([CHANGELOG.md](CHANGELOG.md) up to v1.75.0). |
 | Unique identification | Repository: [github.com/core4x/collectu-core](https://github.com/core4x/collectu-core); each installation has a persistent `app_id` (UUID) stored in `settings.ini`. |
 
 ### Single Point of Contact for Vulnerabilities
@@ -272,15 +272,17 @@ documentation requirements of Annex VII:
 
 - This section and [SECURITY.md](SECURITY.md) (vulnerability handling, support, secure configuration)
 - The SBOM (see below) for the software composition of the product
-- The source code and [CHANGELOG.md](CHANGELOG.md) in this repository for change tracking
+- The source code, the [release notes](https://github.com/core4x/collectu-core/releases) and, up to
+  v1.75.0, [CHANGELOG.md](CHANGELOG.md) for change tracking
 
 ### Software Bill of Materials (SBOM)
 
 SBOMs in CycloneDX (JSON) format are produced by the release workflow and published with every
 release, so nothing has to be generated on an installation:
 
-- `sbom.cdx.json`, committed in this repository and in the `src/interface` submodule: what the
-  product declares, shipped with the source and inside the container image.
+- `sbom.cdx.json`, attached to each GitHub release: what Collectu Core declares. The
+  `src/interface` submodule has no releases of its own and commits its equivalent instead, as
+  `src/interface/sbom.cdx.json`.
 - `sbom.container.cdx.json`, attached to each GitHub release: the published container image as
   built, including its operating system packages.
 

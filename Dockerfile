@@ -26,8 +26,12 @@ ENV RUN_AS_ROOT=0
 # One port: the api serves the frontend itself.
 EXPOSE 8181
 
-# Clone project and mark as safe repo.
-RUN git clone --depth 1 https://github.com/core4x/collectu-core.git \
+# Clone project at the commit the release workflow passes in (a plain build takes main) and mark as
+# safe repo. A full clone rather than --depth 1: it keeps the tags, so the version a container
+# reports (git describe) is the release rather than a bare commit hash. The repository is small.
+ARG GIT_SHA=main
+RUN git clone https://github.com/core4x/collectu-core.git \
+ && git -C /collectu-core checkout -B main "$GIT_SHA" \
  && git config --system --add safe.directory /collectu-core
 
 # Add non-root user.
