@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.75.0 (2026-09-28)
+
+### Chores
+
+- Update SBOM for v1.74.0. [skip ci]
+  ([`ae2c22d`](https://github.com/core4x/collectu-core/commit/ae2c22d3b59b7802e30de1240ce3bae767be6b15))
+
+### Features
+
+- Refactored cores permission and authentication system.
+  ([`97c4920`](https://github.com/core4x/collectu-core/commit/97c49205337dc07e51c232f2f6e23e66039d97fb))
+
+
 ## v1.74.0 (2026-09-27)
 
 ### Bug Fixes
