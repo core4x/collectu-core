@@ -177,8 +177,6 @@ jobs:
       packages: read
     env:
       TAG: ${{ needs.create-release.outputs.tag }}
-      HUB_API_TOKEN: ${{ secrets.HUB_API_TOKEN }}
-      HUB_API_URL: ${{ vars.HUB_API_URL || 'https://api.collectu.de/api/v1' }}
 
     steps:
       - name: Checkout repository
@@ -225,26 +223,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # --clobber so that re-running this job replaces the files rather than failing on them.
         run: gh release upload "$TAG" sbom.cdx.json sbom.container.cdx.json --clobber --repo "$GITHUB_REPOSITORY"
-
-      - name: Publish the container SBOM to the Hub
-        # So a customer fetches every SBOM from one place, and so the Hub can resolve the product
-        # SBOM of the version a device reports it is running. Skipped rather than failed when the
-        # secret is absent, so a fork does not break here.
-        if: ${{ env.HUB_API_TOKEN != '' }}
-        run: |
-          python - <<'PY'
-          import json, os, urllib.request
-
-          with open("sbom.container.cdx.json", encoding="utf-8") as handle:
-              sbom = json.load(handle)
-
-          payload = {"version": os.environ["TAG"], "as_built_sbom_json": sbom}
-          request = urllib.request.Request(
-              os.environ["HUB_API_URL"].rstrip("/") + "/security/core_release",
-              data=json.dumps(payload).encode(),
-              headers={"Content-Type": "application/json",
-                       "Authorization": "Bearer " + os.environ["HUB_API_TOKEN"]},
-              method="POST")
-          with urllib.request.urlopen(request, timeout=60) as response:
-              print("Hub responded", response.status)
-          PY
