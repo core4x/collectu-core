@@ -105,6 +105,10 @@ instead of a token, and the code is posted here to finish signing in."""
 HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_REFRESH_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
 """The endpoint of the api for refreshing token."""
 
+HUB_ROLE_EFFECTIVE_ADDRESS: str = os.getenv("HUB_ROLE_EFFECTIVE_ADDRESS", f"{HUB_ADDRESS}/role/effective")
+"""The endpoint of the api answering what a caller may do on an owner. Used for api authentication: what a hub account
+may do on this app is what it may do on the app's owner."""
+
 HUB_LLM_DOCS_ADDRESS: str = os.getenv("HUB_LLM_DOCS_ADDRESS", "https://collectu.de/docs/llms.txt")
 """Sitemap for LLM friendly docs from Collectu."""
 

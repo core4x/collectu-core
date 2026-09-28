@@ -189,6 +189,8 @@ protection (TLS termination, network-level access control, enabled authenticatio
 **Security properties:**
 
 - Optional API/frontend authentication with local user management (`api_authentication` in `settings.ini`)
+- Hub accounts act on the local API/frontend with the permissions they hold at the hub: the roles of their
+  organization membership, or the scopes of their api access token
 - Configurable allowlist of remotely executable commands (`allowed_commands` in `settings.ini`)
 - Updates are only applied from the official git repository and are user-triggered (see below)
 - A Software Bill of Materials (SBOM) is published with every release (see below)
