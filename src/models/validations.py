@@ -37,6 +37,8 @@ def normalize_union(t):
 def validate_module(module):
     """
     Module level validations. Here, the module configuration data (e.g. data type) is checked.
+    Afterward, the field validation class (`validate` in the field metadata) is executed,
+    if the value has the correct type, is not None and is not a dynamic variable.
 
     Technical debts:  We can currently only type check str, int, bool, float,
     Dict[str, str/int/bool/float], and List[str/int/bool/float].
@@ -47,167 +49,180 @@ def validate_module(module):
     """
     errors = []
 
-    basic_types = (str, int, float, bool)
-
     for field in fields(module):
         value = getattr(module, field.name)
-        ftype = field.type
 
         # -------------------------
         # Dynamic variable case
         # -------------------------
         if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-            setattr(module, field.name, value)
             continue
 
-        # -------------------------
-        # BASIC TYPES
-        # -------------------------
-        if ftype in basic_types:
-            if not isinstance(value, ftype):
-                if value is None and field.metadata.get('required', False):
-                    errors.append(
-                        f'Missing value for field {field.name} '
-                        f'({field.metadata.get("description", "no description")}).'
-                    )
-                else:
-                    try:
-                        setattr(module, field.name, ftype(value))
-                    except Exception:
-                        errors.append(
-                            f'Expected field {field.name} to be of type {ftype}. '
-                            f'Got {value} of type {type(value)} instead.'
-                        )
+        number_of_errors = len(errors)
+        _validate_field_type(module=module, field=field, value=value, errors=errors)
+        if len(errors) > number_of_errors:
+            # The type is wrong, so the validation class could not handle the value.
             continue
-
-        # -------------------------
-        # Datetime
-        # -------------------------
-        if ftype is datetime:
-            if isinstance(value, datetime):
-                continue
-            try:
-                parsed = datetime.fromisoformat(value)
-                setattr(module, field.name, parsed)
-            except Exception:
-                errors.append(
-                    f'Expected field {field.name} to be a datetime (ISO 8601). '
-                    f'Got {value} of type {type(value)} instead.'
-                )
-            continue
-
-        # -------------------------
-        # LIST[T]
-        # -------------------------
-        origin = get_origin(ftype)
-        if origin is list:
-            elem_types = get_args(ftype)
-
-            if not isinstance(value, list):
-                try:
-                    value = ast.literal_eval(value)
-                except Exception:
-                    value = [value]
-
-            for allowed in elem_types:
-                if allowed not in basic_types:
-                    continue
-
-                for i, item in enumerate(value):
-                    if not isinstance(item, allowed):
-                        try:
-                            item = allowed(item)
-                            value[i] = item
-                        except Exception:
-                            errors.append(
-                                f'Expected all values of field {field.name} to be of type {allowed}. '
-                                f'Got {item} of type {type(item)} instead.'
-                            )
-
-            setattr(module, field.name, value)
-            continue
-
-        # -------------------------
-        # DICT[K, V]
-        # -------------------------
-        if origin is dict or ftype is dict:
-            try:
-                key_t, val_t = get_args(ftype)
-                newdict = ast.literal_eval(value) if isinstance(value, str) else value
-            except Exception:
-                newdict = value
-
-            if isinstance(newdict, dict):
-                for k, v in newdict.items():
-                    if key_t in basic_types and not isinstance(k, key_t):
-                        errors.append(
-                            f'Expected key of field {field.name} to be {key_t}, got {type(k)}.'
-                        )
-                    if val_t in (*basic_types, list) and not isinstance(v, val_t):
-                        errors.append(
-                            f'Expected value of field {field.name} to be {val_t}, got {type(v)}.'
-                        )
-            setattr(module, field.name, newdict)
-            continue
-
-        # -------------------------
-        # ANY
-        # -------------------------
-        if ftype is Any:
-            continue
-
-        # -------------------------
-        # UNION / OPTIONAL
-        # Works for:
-        #   - typing.Union
-        #   - Optional[X]
-        #   - PEP 604: X | Y | None
-        # -------------------------
-        is_union, union_types = normalize_union(ftype)
-        if is_union:
-            allow_none = any(t is type(None) for t in union_types)
-            known = [t for t in union_types if t not in (type(None),) and t in basic_types]
-
-            if value is None and allow_none:
-                pass
-            elif any(isinstance(value, t) for t in known):
-                pass
-            else:
-                if value is None and field.metadata.get('required', False):
-                    errors.append(
-                        f'Missing value for field {field.name} '
-                        f'({field.metadata.get("description", "no description")}).'
-                    )
-                else:
-                    try:
-                        setattr(module, field.name, known[0](value))
-                    except Exception:
-                        errors.append(
-                            f'Expected field {field.name} to be one of {known}. '
-                            f'Got {value} of type {type(value)} instead.'
-                        )
-            continue
-
-        # -------------------------
-        # UNKNOWN TYPE
-        # -------------------------
-        errors.append(
-            f'Unknown field type {ftype} for field {field.name}. '
-            f'This data type is not supported and cannot be checked.'
-        )
 
         # -------------------------
         # VALIDATION CLASS
         # -------------------------
         validation_class = field.metadata.get('validate')
-        if validation_class:
+        value = getattr(module, field.name)  # The value may have been converted.
+        if validation_class and value is not None:
             try:
                 validation_class.validate(field_name=field.name, value=value)
             except ValidationError as e:
                 errors.extend(e.args[0])
+            except Exception as e:
+                errors.append(f'Could not validate field {field.name} with value {value}: {str(e)}')
 
     if errors:
         raise ValidationError(errors)
+
+
+def _validate_field_type(module, field, value: Any, errors: list[str]):
+    """
+    Checks the type of the given field value and converts it if possible.
+
+    :param module: The module configuration (instantiated data class) to be validated.
+    :param field: The data class field.
+    :param value: The current value of the field.
+    :param errors: The list of errors, where new errors are appended.
+    """
+    basic_types = (str, int, float, bool)
+    ftype = field.type
+
+    # -------------------------
+    # Missing value
+    # -------------------------
+    if value is None:
+        if field.metadata.get('required', False):
+            errors.append(
+                f'Missing value for field {field.name} '
+                f'({field.metadata.get("description", "no description")}).'
+            )
+        # An optional field without value stays None (e.g. `str` with default None does not become "None").
+        return
+
+    # -------------------------
+    # BASIC TYPES
+    # -------------------------
+    if ftype in basic_types:
+        if not isinstance(value, ftype):
+            try:
+                setattr(module, field.name, ftype(value))
+            except Exception:
+                errors.append(
+                    f'Expected field {field.name} to be of type {ftype}. '
+                    f'Got {value} of type {type(value)} instead.'
+                )
+        return
+
+    # -------------------------
+    # Datetime
+    # -------------------------
+    if ftype is datetime:
+        if isinstance(value, datetime):
+            return
+        try:
+            parsed = datetime.fromisoformat(value)
+            setattr(module, field.name, parsed)
+        except Exception:
+            errors.append(
+                f'Expected field {field.name} to be a datetime (ISO 8601). '
+                f'Got {value} of type {type(value)} instead.'
+            )
+        return
+
+    # -------------------------
+    # LIST[T]
+    # -------------------------
+    origin = get_origin(ftype)
+    if origin is list:
+        elem_types = get_args(ftype)
+
+        if not isinstance(value, list):
+            try:
+                value = ast.literal_eval(value)
+            except Exception:
+                value = [value]
+
+        for allowed in elem_types:
+            if allowed not in basic_types:
+                continue
+
+            for i, item in enumerate(value):
+                if not isinstance(item, allowed):
+                    try:
+                        item = allowed(item)
+                        value[i] = item
+                    except Exception:
+                        errors.append(
+                            f'Expected all values of field {field.name} to be of type {allowed}. '
+                            f'Got {item} of type {type(item)} instead.'
+                        )
+
+        setattr(module, field.name, value)
+        return
+
+    # -------------------------
+    # DICT[K, V]
+    # -------------------------
+    if origin is dict or ftype is dict:
+        try:
+            key_t, val_t = get_args(ftype)
+            newdict = ast.literal_eval(value) if isinstance(value, str) else value
+        except Exception:
+            newdict = value
+
+        if isinstance(newdict, dict):
+            for k, v in newdict.items():
+                if key_t in basic_types and not isinstance(k, key_t):
+                    errors.append(
+                        f'Expected key of field {field.name} to be {key_t}, got {type(k)}.'
+                    )
+                if val_t in (*basic_types, list) and not isinstance(v, val_t):
+                    errors.append(
+                        f'Expected value of field {field.name} to be {val_t}, got {type(v)}.'
+                    )
+        setattr(module, field.name, newdict)
+        return
+
+    # -------------------------
+    # ANY
+    # -------------------------
+    if ftype is Any:
+        return
+
+    # -------------------------
+    # UNION / OPTIONAL
+    # Works for:
+    #   - typing.Union
+    #   - Optional[X]
+    #   - PEP 604: X | Y | None
+    # -------------------------
+    is_union, union_types = normalize_union(ftype)
+    if is_union:
+        known = [t for t in union_types if t in basic_types]
+
+        if not any(isinstance(value, t) for t in known):
+            try:
+                setattr(module, field.name, known[0](value))
+            except Exception:
+                errors.append(
+                    f'Expected field {field.name} to be one of {known}. '
+                    f'Got {value} of type {type(value)} instead.'
+                )
+        return
+
+    # -------------------------
+    # UNKNOWN TYPE
+    # -------------------------
+    errors.append(
+        f'Unknown field type {ftype} for field {field.name}. '
+        f'This data type is not supported and cannot be checked.'
+    )
 
 
 def validate_configuration(configuration: list[Any]) -> dict[str, list[str]]:

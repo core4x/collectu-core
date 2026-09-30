@@ -165,6 +165,79 @@ class TestConfiguration(unittest.TestCase):
         except Exception as e:
             self.fail("An Union raised an exception but shouldn't.")
 
+    def test_validate_module_optional_none(self):
+        """
+        Test that optional fields without value stay None instead of being converted (e.g. to "None").
+        """
+
+        @dataclass
+        class Module:
+            """
+            A test module.
+            """
+            string: str = field(
+                metadata=dict(description="Some not required string.",
+                              required=False),
+                default=None)
+            integer: int = field(
+                metadata=dict(description="Some not required integer.",
+                              required=False),
+                default=None)
+            an_union: Union[str, int] = field(
+                metadata=dict(description="Some not required union.",
+                              required=False),
+                default=None)
+
+        module = Module()
+        models.validations.validate_module(module=module)
+        self.assertIsNone(module.string)
+        self.assertIsNone(module.integer)
+        self.assertIsNone(module.an_union)
+
+    def test_validate_module_validation_class(self):
+        """
+        Test that the validation classes of the fields are executed.
+        """
+
+        @dataclass
+        class Module:
+            """
+            A test module.
+            """
+            integer: int = field(
+                metadata=dict(description="Some integer.",
+                              required=False,
+                              dynamic=True,
+                              validate=models.validations.Range(max=10)),
+                default=1)
+            string: str = field(
+                metadata=dict(description="Some string.",
+                              required=False,
+                              validate=models.validations.OneOf(["a", "b"])),
+                default=None)
+
+        # Out of range.
+        with self.assertRaises(ValidationError):
+            models.validations.validate_module(module=Module(integer=999))
+        # Out of range after conversion.
+        with self.assertRaises(ValidationError):
+            models.validations.validate_module(module=Module(integer="999"))
+        # Not one of the possibilities.
+        with self.assertRaises(ValidationError):
+            models.validations.validate_module(module=Module(string="c"))
+        # Wrong type is reported once as type error, the validation class is not executed.
+        with self.assertRaises(ValidationError) as cm:
+            models.validations.validate_module(module=Module(integer="wrong"))
+        self.assertEqual(len(cm.exception.args[0]), 1)
+
+        # Valid values, None and dynamic variables are not validated.
+        try:
+            models.validations.validate_module(module=Module(integer=5, string="a"))
+            models.validations.validate_module(module=Module())
+            models.validations.validate_module(module=Module(integer="${is.dynamic}"))
+        except Exception as e:
+            self.fail(f"A valid value raised an exception: {e}")
+
 
 if __name__ == '__main__':
     unittest.main()
