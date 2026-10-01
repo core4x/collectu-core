@@ -10,9 +10,11 @@ import config
 import utils.security
 
 # Third party imports.
+import requests
+
 try:
     from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 
     cryptography_available = True
 except ImportError:
@@ -263,6 +265,188 @@ class TestIsReplay(unittest.TestCase):
         # The oldest ones were dropped; the newest are still remembered.
         self.assertFalse(utils.security.is_replay(task_id="0"))
         self.assertTrue(utils.security.is_replay(task_id=str(config.MAX_REMEMBERED_TASKS + 9)))
+
+
+def _base64url_int(value: int) -> str:
+    """
+    Encode an integer as a jwks does.
+
+    :param value: The integer.
+    :return: Its big-endian bytes, base64url encoded without padding.
+    """
+    return _base64url_encode(value.to_bytes((value.bit_length() + 7) // 8, "big"))
+
+
+@unittest.skipUnless(cryptography_available, "The optional cryptography package is not installed.")
+class TestPublicKeys(unittest.TestCase):
+    """
+    The keys the hub signs tasks with are read from its jwks endpoint - fetched once per key, not once per task.
+    """
+
+    CURVES = {"P-256": "SECP256R1", "P-384": "SECP384R1", "P-521": "SECP521R1"}
+    """The curves a key of the hub may be on, with the class cryptography names it by."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.rsa_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        cls.ec_keys = {curve: ec.generate_private_key(getattr(ec, name)()) for curve, name in cls.CURVES.items()}
+
+    def setUp(self):
+        self._forget_keys()
+        self.addCleanup(self._forget_keys)
+
+    @staticmethod
+    def _forget_keys():
+        with utils.security._public_keys_lock:
+            utils.security._public_keys.clear()
+
+    def _jwks(self) -> dict:
+        numbers = self.rsa_key.public_key().public_numbers()
+        keys = [{"kid": "rsa", "kty": "RSA", "n": _base64url_int(numbers.n), "e": _base64url_int(numbers.e)}]
+        for curve, key in self.ec_keys.items():
+            numbers = key.public_key().public_numbers()
+            keys.append({"kid": curve, "kty": "EC", "crv": curve,
+                         "x": _base64url_int(numbers.x), "y": _base64url_int(numbers.y)})
+        return {"keys": keys}
+
+    def _serve(self, jwks: dict) -> mock.Mock:
+        response = mock.Mock(**{"json.return_value": jwks})
+        patcher = mock.patch.object(utils.security.requests, "get", return_value=response)
+        get = patcher.start()
+        self.addCleanup(patcher.stop)
+        return get
+
+    def test_an_rsa_key_is_read(self):
+        self._serve(self._jwks())
+        self.assertEqual(utils.security.get_public_key("rsa").public_numbers(),
+                         self.rsa_key.public_key().public_numbers())
+
+    def test_the_keys_of_every_curve_are_read(self):
+        self._serve(self._jwks())
+        for curve, key in self.ec_keys.items():
+            with self.subTest(curve=curve):
+                self.assertEqual(utils.security.get_public_key(curve).public_numbers(),
+                                 key.public_key().public_numbers())
+
+    def test_a_key_is_fetched_once(self):
+        get = self._serve(self._jwks())
+        first = utils.security.get_public_key("rsa")
+        self.assertIs(utils.security.get_public_key("rsa"), first)
+        get.assert_called_once_with(config.HUB_JWKS_URL,
+                                    timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
+
+    def test_an_unknown_key_is_refused(self):
+        self._serve(self._jwks())
+        with self.assertRaisesRegex(ValueError, "No key found for kid=missing."):
+            utils.security.get_public_key("missing")
+
+    def test_an_unsupported_key_is_refused(self):
+        self._serve({"keys": [{"kid": "symmetric", "kty": "oct", "k": "c2VjcmV0"},
+                              {"kid": "small", "kty": "EC", "crv": "P-192", "x": "AQ", "y": "AQ"}]})
+        for kid in ("symmetric", "small"):
+            with self.subTest(kid=kid):
+                with self.assertRaises(ValueError):
+                    utils.security.get_public_key(kid)
+
+    def test_an_endpoint_which_answers_with_an_error_raises(self):
+        get = self._serve({})
+        get.return_value.raise_for_status.side_effect = requests.HTTPError("503 Error")
+        with self.assertRaises(requests.HTTPError):
+            utils.security.get_public_key("rsa")
+
+
+@unittest.skipUnless(cryptography_available, "The optional cryptography package is not installed.")
+class TestRsaSignedTasks(unittest.TestCase):
+    """
+    The hub may sign with an RSA key as well, which is verified with PSS padding.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"APP_ID": APP_ID})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch.object(utils.security, "get_public_key", return_value=self.private_key.public_key())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _task(self) -> dict:
+        task = {"id": TASK_ID, "owner_id": "33333333-3333-3333-3333-333333333333", "app_id": APP_ID,
+                "command": "restart", "configuration": None, "git_access_token": None,
+                "issued_at": datetime.now(timezone.utc).isoformat(), "kid": "rsa"}
+        signature = self.private_key.sign(utils.security._signed_message(task=task),
+                                          padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
+                                                      salt_length=padding.PSS.MAX_LENGTH),
+                                          hashes.SHA256())
+        task["signature"] = _base64url_encode(signature)
+        return task
+
+    def test_a_task_signed_with_rsa_is_accepted(self):
+        self.assertTrue(utils.security.verify_task_signature(task=self._task()))
+
+    def test_a_changed_task_signed_with_rsa_is_rejected(self):
+        task = self._task()
+        task["command"] = "update"
+        with self.assertLogs(utils.security.logger, level="ERROR"):
+            self.assertFalse(utils.security.verify_task_signature(task=task))
+
+
+class TestTaskBody(unittest.TestCase):
+    """
+    What is signed, and what a task needs to carry before its signature is even looked at.
+    """
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"APP_ID": APP_ID})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _task(**changes) -> dict:
+        task = {"id": TASK_ID, "app_id": APP_ID, "command": "restart", "kid": "key", "signature": "c2lnbmF0dXJl",
+                "issued_at": datetime.now(timezone.utc).isoformat()}
+        task.update(changes)
+        return {key: value for key, value in task.items() if value is not None}
+
+    def test_the_signed_message_is_the_compact_json_of_the_signed_fields_as_text(self):
+        task = {"id": "t", "owner_id": "o", "app_id": "a", "command": "load", "configuration": [{"id": "x"}],
+                "git_access_token": None, "issued_at": "2026-10-01T00:00:00+00:00", "kid": "k", "signature": "s"}
+        expected = ('{"app_id":"a","command":"load","configuration":"[{\'id\': \'x\'}]","git_access_token":"None",'
+                    '"id":"t","issued_at":"2026-10-01T00:00:00+00:00","owner_id":"o"}')
+        self.assertEqual(utils.security._signed_message(task=task), expected.encode("utf-8"))
+
+    def test_base64url_is_decoded_with_and_without_padding(self):
+        for raw in (b"", b"a", b"ab", b"abc", b"\xff\xfe\xfd"):
+            with self.subTest(raw=raw):
+                encoded = base64.urlsafe_b64encode(raw).decode("utf-8")
+                self.assertEqual(utils.security.base64url_decode(encoded), raw)
+                self.assertEqual(utils.security.base64url_decode(encoded.rstrip("=")), raw)
+
+    @unittest.skipUnless(cryptography_available, "The optional cryptography package is not installed.")
+    def test_a_task_without_an_issuing_time_is_rejected(self):
+        with self.assertLogs(utils.security.logger, level="ERROR") as logs:
+            self.assertFalse(utils.security.verify_task_signature(task=self._task(issued_at=None)))
+        self.assertIn("It carries no issuing time.", logs.output[0])
+
+    @unittest.skipUnless(cryptography_available, "The optional cryptography package is not installed.")
+    def test_a_task_without_a_key_id_is_rejected(self):
+        with self.assertLogs(utils.security.logger, level="ERROR"):
+            self.assertFalse(utils.security.verify_task_signature(task=self._task(kid=None)))
+
+    def test_without_cryptography_no_task_is_accepted(self):
+        with mock.patch.object(utils.security, "cryptography_available", False), \
+                self.assertLogs(utils.security.logger, level="ERROR"):
+            self.assertFalse(utils.security.verify_task_signature(task=self._task()))
+
+    @unittest.skipUnless(cryptography_available, "The optional cryptography package is not installed.")
+    def test_a_task_whose_key_can_not_be_fetched_is_rejected(self):
+        with mock.patch.object(utils.security, "get_public_key", side_effect=requests.ConnectionError("Down.")), \
+                self.assertLogs(utils.security.logger, level="ERROR") as logs:
+            self.assertFalse(utils.security.verify_task_signature(task=self._task()))
+        self.assertIn("Could not verify the signature of task", logs.output[0])
 
 
 if __name__ == '__main__':

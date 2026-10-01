@@ -32,6 +32,11 @@ __pycache__/
 *.py[cod]
 *.pyc
 
+# The coverage of the tests (see src/test/.coveragerc).
+.coverage
+.coverage.*
+htmlcov/
+
 # User-specific stuff
 .idea/
 

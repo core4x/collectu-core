@@ -33,6 +33,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # The tests start threads and processes. One that hangs fails the job here, rather than after
+    # the six hours GitHub waits by default.
+    timeout-minutes: 15
+    strategy:
+      # Each version is tested to the end, so a failure on one does not hide how the other fares.
+      fail-fast: false
+      matrix:
+        # 3.13 is the line the image ships (the Dockerfile's python:3.13), so what passes here is
+        # what runs there - not whichever Python the runner image happens to carry. 3.11 is the
+        # oldest the README supports for running the app without the image.
+        python-version: ['3.11', '3.13']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,16 +52,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          # The line the image ships (the Dockerfile's python:3.13), so what passes here is what
-          # runs there - not whichever Python the runner image happens to carry.
-          python-version: '3.13'
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: src/requirements.txt
       - name: Install dependencies
-        run: pip install -r src/requirements.txt
+        # coverage measures the tests and is no requirement of the app, so it is pinned here rather
+        # than in src/requirements.txt, which is what the declared SBOM is made from.
+        run: pip install -r src/requirements.txt coverage==7.16.2
       - name: Run tests
         working-directory: src/test
-        run: python test.py
+        # Configured by src/test/.coveragerc, so a local run measures the same.
+        run: python -m coverage run test.py
+      - name: Report coverage
+        # Failed tests are reported too, since their coverage tells where to look.
+        if: ${{ !cancelled() }}
+        # From src, so the files are named relative to it rather than by the path of the runner.
+        working-directory: src
+        run: |
+          echo "### Test coverage (Python ${{ matrix.python-version }})" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --rcfile=test/.coveragerc --data-file=test/.coverage --format=markdown >> "$GITHUB_STEP_SUMMARY"
 
   create-release:
     needs: execute-tests

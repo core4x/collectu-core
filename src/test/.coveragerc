@@ -1,0 +1,17 @@
+# How the coverage of the tests is measured, in CI and locally. Run from src/test:
+#
+#   python -m coverage run test.py
+#   python -m coverage report
+#
+# coverage is no requirement of the app, so it is not in src/requirements.txt. main.py reads as hardly covered:
+# test/others/test_main.py starts it in a process of its own, which is not measured.
+[run]
+branch = True
+# The app - without its tests, and without the interface submodule, which is a repository of its own.
+source = ..
+omit =
+    ../test/*
+    ../interface/*
+
+[report]
+sort = Cover

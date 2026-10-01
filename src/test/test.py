@@ -1,5 +1,5 @@
 """
-Execute all tests.
+Execute all tests, or the ones named, e.g. 'python test.py test.utils.test_utils_hierarchy'.
 """
 import unittest
 import os
@@ -12,7 +12,10 @@ if __name__ == '__main__':
 
     # Test initialization.
     loader = unittest.TestLoader()
-    suite = loader.discover(start_dir="test")
+    if len(sys.argv) > 1:
+        suite = loader.loadTestsFromNames(sys.argv[1:])
+    else:
+        suite = loader.discover(start_dir="test")
     runner = unittest.TextTestRunner(verbosity=2)
 
     # Execute the single tests.
