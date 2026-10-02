@@ -29,6 +29,10 @@ class _Configuration(models.ProcessorModule):
         metadata=dict(description="The timeout in seconds.",
                       required=False),
         default=1.0)
+    secure: bool = field(
+        metadata=dict(description="Connect securely.",
+                      required=False),
+        default=False)
     nodes: list[str] = field(
         metadata=dict(description="The nodes.",
                       required=False),
@@ -79,6 +83,15 @@ class TestDefaults(unittest.TestCase):
         first.nodes.append("ns=2;i=1")
         self.assertEqual((second.links, second.nodes), ([], []))
 
+    def test_each_module_gets_an_id_of_its_own(self):
+        """
+        The default id was drawn once, as the models were imported, so all modules without an id shared it and the
+        configuration reported their ids as not unique.
+        """
+        first, second = (models.Module(module_name="inputs.test.client_1") for _ in range(2))
+        self.assertNotEqual(first.id, second.id)
+        self.assertRegex(first.id, "^[a-z0-9]{19}$")
+
 
 class TestValidation(unittest.TestCase):
     """
@@ -125,6 +138,48 @@ class TestValidation(unittest.TestCase):
             Required(id="output", module_name="outputs.test.collector_1")
         self.assertEqual(raised.exception.args[0], ["Missing value for field port (The port.)."])
 
+    def test_a_missing_required_text_is_reported(self):
+        """
+        Read as its type, a missing text became 'None', which passed the validation, and the module started with the
+        host 'None'.
+        """
+        @dataclass
+        class Required(models.InputModule):
+            host: str = field(
+                metadata=dict(description="The host.",
+                              required=True),
+                default=None)
+
+        with self.assertRaises(ValidationError) as raised:
+            Required(id="input", module_name="inputs.test.client_1")
+        self.assertEqual(raised.exception.args[0], ["Missing value for field host (The host.)."])
+
+    def test_the_module_name_is_required(self):
+        with self.assertRaises(ValidationError) as raised:
+            models.Module(id="module")
+        self.assertEqual(raised.exception.args[0], ["Missing value for field module_name (The name of the module.)."])
+
+    def test_an_optional_text_without_a_value_stays_none(self):
+        self.assertIsNone(_module(host=None).host)
+
+    def test_a_text_becomes_a_boolean_by_what_it_says(self):
+        """
+        bool() makes every text but the empty one True, 'false' included. A parameter of the module itself is
+        converted as it is read, an inherited one (active) by the validation.
+        """
+        for text, expected in (("true", True), ("Yes", True), ("1", True), ("on", True),
+                               ("false", False), ("No", False), ("0", False), ("OFF", False), ("", False)):
+            with self.subTest(text=text):
+                self.assertIs(_module(secure=text).secure, expected)
+                self.assertIs(_module(active=text).active, expected)
+
+    def test_a_text_which_is_no_boolean_is_reported(self):
+        for parameter in ("secure", "active"):
+            with self.subTest(parameter=parameter):
+                with self.assertRaises(ValidationError) as raised:
+                    _module(**{parameter: "maybe"})
+                self.assertIn(f"Expected field {parameter} to be of type <class 'bool'>", raised.exception.args[0][0])
+
 
 class TestEnvironmentVariables(unittest.TestCase):
     """
@@ -142,6 +197,16 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_the_value_takes_the_type_of_the_parameter(self):
         self.assertEqual(_module(port="${env.COLLECTU_TEST_PORT}").port, 502)
+
+    def test_a_boolean_takes_what_the_variable_says(self):
+        """
+        bool() made 'false' and '0' True, so a module could not be switched off with an environment variable.
+        """
+        for text, expected in (("false", False), ("0", False), ("true", True), ("1", True)):
+            with self.subTest(text=text):
+                os.environ["COLLECTU_TEST_ENABLED"] = text
+                self.assertIs(_module(secure="${env.COLLECTU_TEST_ENABLED}").secure, expected)
+                self.assertIs(_module(active="${env.COLLECTU_TEST_ENABLED}").active, expected)
 
     def test_variables_inside_a_text_are_replaced(self):
         module = _module(host="opc.tcp://${env.COLLECTU_TEST_HOST}:${env.COLLECTU_TEST_PORT}")

@@ -22,7 +22,8 @@ class Module:
         metadata=dict(description="The unique id of the module.",
                       category="general",
                       required=False),
-        default=''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(19)))
+        # A factory, so each module gets an id of its own rather than the one drawn when this file is imported.
+        default_factory=lambda: ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(19)))
     module_name: str = field(
         metadata=dict(description="The name of the module.",
                       category="general",
@@ -82,6 +83,10 @@ class Module:
         Replace all environment variables if attribute is accessed for non-dynamic attributes.
         """
         input_value = super().__getattribute__(name)
+        if input_value is None:
+            # A parameter without value stays None. Converted to its type, a text parameter became 'None', so a missing
+            # required one was never reported.
+            return input_value
         # Get the field metadata.
         try:
             dataclass_fields = super().__getattribute__('__dataclass_fields__')
@@ -150,7 +155,7 @@ class Module:
             # Try to convert to the given data type.
             if data_type in [str, int, float, bool, list]:
                 try:
-                    input_value = data_type(processed_input_string)
+                    input_value = models.validations.convert(data_type, processed_input_string)
                 except Exception as e:
                     pass
             else:

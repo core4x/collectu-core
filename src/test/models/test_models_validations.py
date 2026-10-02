@@ -413,6 +413,23 @@ class TestFieldTypes(unittest.TestCase):
         moment = datetime(2026, 1, 1)
         self.assertEqual(self._validate(datetime, moment), (moment, []))
 
+    def test_a_boolean_is_read_from_what_its_text_says(self):
+        """
+        bool() makes every text but the empty one True, 'false' included.
+        """
+        for text, expected in (("true", True), ("TRUE", True), ("yes", True), ("on", True), ("1", True),
+                               ("false", False), ("False", False), ("no", False), ("off", False), ("0", False),
+                               ("", False)):
+            with self.subTest(text=text):
+                value, messages = self._validate(bool, text)
+                self.assertIs(value, expected)
+                self.assertEqual(messages, [])
+        self.assertEqual(len(self._validate(bool, "maybe")[1]), 1)
+
+    def test_booleans_in_a_list_or_an_optional_are_read_the_same(self):
+        self.assertEqual(self._validate(list[bool], ["false", "true"]), ([False, True], []))
+        self.assertEqual(self._validate(Optional[bool], "false"), (False, []))
+
     def test_a_list_is_read_from_its_text(self):
         self.assertEqual(self._validate(list[int], "[1, 2]"), ([1, 2], []))
 

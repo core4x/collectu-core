@@ -34,6 +34,27 @@ def normalize_union(t):
     return False, ()
 
 
+def convert(data_type: type, value: Any) -> Any:
+    """
+    Convert a value to a basic data type. Text becomes a bool by what it says rather than with bool(), which makes
+    every text but the empty one True - 'false' and '0' (e.g. from ${env.NAME}) included.
+
+    :param data_type: The data type, e.g. int or bool.
+    :param value: The value to convert.
+
+    :returns: The converted value.
+    :raises ValueError: If a text says neither true nor false.
+    """
+    if data_type is bool and isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("true", "1", "yes", "on"):
+            return True
+        if text in ("false", "0", "no", "off", ""):
+            return False
+        raise ValueError(f"'{value}' is neither true nor false.")
+    return data_type(value)
+
+
 def validate_module(module):
     """
     Module level validations. Here, the module configuration data (e.g. data type) is checked.
@@ -111,7 +132,7 @@ def _validate_field_type(module, field, value: Any, errors: list[str]):
     if ftype in basic_types:
         if not isinstance(value, ftype):
             try:
-                setattr(module, field.name, ftype(value))
+                setattr(module, field.name, convert(ftype, value))
             except Exception:
                 errors.append(
                     f'Expected field {field.name} to be of type {ftype}. '
@@ -155,7 +176,7 @@ def _validate_field_type(module, field, value: Any, errors: list[str]):
             for i, item in enumerate(value):
                 if not isinstance(item, allowed):
                     try:
-                        item = allowed(item)
+                        item = convert(allowed, item)
                         value[i] = item
                     except Exception:
                         errors.append(
@@ -208,7 +229,7 @@ def _validate_field_type(module, field, value: Any, errors: list[str]):
 
         if not any(isinstance(value, t) for t in known):
             try:
-                setattr(module, field.name, known[0](value))
+                setattr(module, field.name, convert(known[0], value))
             except Exception:
                 errors.append(
                     f'Expected field {field.name} to be one of {known}. '
