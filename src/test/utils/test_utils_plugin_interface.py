@@ -433,7 +433,8 @@ class TagModule(AbstractTagModule):
 class _ModuleFolderTestCase(helpers.GlobalStateTestCase):
     """
     Runs each test with a module folder of its own: src/modules of a directory laid out like a checkout, whose
-    packages are found as part of the modules package. What the test imports is forgotten afterwards.
+    packages are found as the modules package's, in place of the checkout's. What the test imports is forgotten
+    afterwards.
     """
 
     def setUp(self):
@@ -452,8 +453,10 @@ class _ModuleFolderTestCase(helpers.GlobalStateTestCase):
         saved_path, saved_modules_path = list(sys.path), list(modules.__path__)
         self.addCleanup(lambda: sys.path.__setitem__(slice(None), saved_path))
         self.addCleanup(lambda: modules.__path__.__setitem__(slice(None), saved_modules_path))
-        # First, so modules installed in the checkout's own module folder do not shadow the ones of the test.
-        modules.__path__.insert(0, self.folder)
+        # The test's folder alone: the checkout's own module folder holds whatever modules are installed there (it is
+        # git-ignored), which would be loaded and listed along with the ones of the test. The base classes the test
+        # modules subclass stay importable, as helpers imported them already and they are found in sys.modules.
+        modules.__path__[:] = [self.folder]
         os.environ.pop("CUSTOM_MODULE_FOLDER", None)
 
     def write(self, path: str, code: str) -> str:

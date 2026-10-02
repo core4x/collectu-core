@@ -691,6 +691,62 @@
         "(length !event equal)"
       ],
       "assertion": false
+    },
+    {
+      "data": {
+        "test1": 1
+      },
+      "requirement": [
+        "(key !test2)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": 2
+      },
+      "requirement": [
+        "(key !test2)"
+      ],
+      "assertion": false
+    },
+    {
+      "data": {},
+      "requirement": [
+        "(key !test2)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "str"
+      },
+      "requirement": [
+        "((key test1 with int) and (key !test3))"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": 1,
+        "test2": "str"
+      },
+      "requirement": [
+        "(key !test2 with int)"
+      ],
+      "assertion": true
+    },
+    {
+      "data": {
+        "test1": "str",
+        "test2": 1
+      },
+      "requirement": [
+        "(key !test2 with int)"
+      ],
+      "assertion": false
     }
   ]
 }
