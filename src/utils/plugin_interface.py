@@ -262,6 +262,12 @@ def get_plugin_requirement_status() -> list[dict]:
             module_class.import_third_party_requirements()
         except ImportError:
             installed = False
+        except Exception as e:
+            # A package can fail to load for other reasons.
+            # Such a module can not be used either, but must not take the whole listing down.
+            logger.warning("Could not import the requirements of module '{0}': {1}".format(module_name, str(e)),
+                           exc_info=config.EXC_INFO)
+            installed = False
         requirements.append({"name": module_name,
                              "description": module_class.description,
                              "requirements": module_class.third_party_requirements,

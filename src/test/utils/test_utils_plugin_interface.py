@@ -389,6 +389,27 @@ class TestModuleDescriptions(helpers.GlobalStateTestCase):
         self.assertEqual(utils.plugin_interface.get_list_of_all_module_requirements(),
                          ["collectu-test-missing==1.0", "requests"])
 
+    def test_a_module_whose_requirements_fail_to_load_otherwise_is_not_installed(self):
+        """
+        pyads, for one, raises an OSError on import where the TwinCAT ADS library it wraps is missing. Such a module
+        used to take the whole listing down, which is why it comes first here.
+        """
+        class Broken(helpers.Collector):
+            third_party_requirements = ["pyads"]
+
+            @classmethod
+            def import_third_party_requirements(cls) -> bool:
+                raise FileNotFoundError("Could not find module 'TcAdsDll.dll'.")
+
+        data_layer.registered_modules = {"outputs.test.broken_1": Broken,
+                                         "outputs.test.collector_1": helpers.Collector}
+
+        with self.assertLogs(utils.plugin_interface.logger, level="WARNING") as logs:
+            status = utils.plugin_interface.get_plugin_requirement_status()
+        self.assertEqual([(module["name"], module["installed"]) for module in status],
+                         [("outputs.test.broken_1", False), ("outputs.test.collector_1", True)])
+        self.assertIn("TcAdsDll.dll", "\n".join(logs.output), "Why the requirements failed is missing from the log.")
+
     def test_the_requirements_of_all_modules_are_listed_once_and_sorted(self):
         data_layer.registered_modules = {
             "outputs.a_1": types.SimpleNamespace(third_party_requirements=["b==1", "A>=2"]),
