@@ -137,6 +137,18 @@ class TestRequirementLanguage(unittest.TestCase):
         self.assertTrue(_valid({"a": 1}, "(key a)"))
         self.assertFalse(_valid({"b": 1}, "(key a)"))
 
+    def test_a_negated_key_must_not_exist(self):
+        self.assertTrue(_valid({"value": 1}, "(key !secret)"))
+        valid, _, messages = utils.data_validation.validate(data={"value": 1, "secret": 2},
+                                                            requirements=["(key !secret)"])
+        self.assertFalse(valid)
+        self.assertEqual(messages[0]["messages"], ["The key 'secret' should not be in the data object but was."])
+
+    def test_a_negated_key_with_a_type_checks_every_other_key(self):
+        self.assertTrue(_valid({"value": 1, "secret": "x"}, "(key !secret with int)"))
+        self.assertTrue(_valid({"value": 1}, "(key !secret with int)"), "The excluded key does not have to exist.")
+        self.assertFalse(_valid({"value": "x", "secret": 1}, "(key !secret with int)"))
+
     def test_the_number_of_keys_is_compared_with_every_operator(self):
         data = {"a": 1, "b": 2}
         for requirement, expected in (("(keys != 1)", True), ("(keys < 3)", True), ("(keys <= 1)", False),

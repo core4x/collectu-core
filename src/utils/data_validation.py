@@ -144,7 +144,7 @@ def _evaluate_expression(expression: str, data: dict) -> Tuple[bool, List[str]]:
                                                 f"but was {type(value).__name__}.")
             # Always check if the key exists or not.
             if variables[1][0] == '!':  # Key should not be in dict.
-                if variables[2] == "with":
+                if len(variables) >= 3 and variables[2] == "with":
                     # If followed by with, the '!' has the meaning, that every key except this one.
                     # This means, we do not check here, if the key exists.
                     pass
