@@ -32,7 +32,7 @@ def _ignore(directory: str, names: list[str]) -> list[str]:
 class TestMain(unittest.TestCase):
     """
     What the app does before it gets to its command line: setting up the logging, completing the settings file,
-    checking its requirements and loading its modules.
+    checking its requirements and loading its modules - and the exit code it leaves with.
     """
 
     @classmethod
@@ -89,6 +89,18 @@ class TestMain(unittest.TestCase):
         self.assertNotIn(password, result.stdout + result.stderr)
         with open(os.path.join(self.root, "logs", "Logs.log"), encoding="utf-8") as log:
             self.assertNotIn(password, log.read())
+
+    def test_a_configuration_file_which_does_not_exist_fails_the_start(self):
+        result = self._main("--run", "missing.yml")
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("'missing.yml' could not be found in the configuration directory", result.stderr)
+
+    def test_an_invalid_command_line_fails_the_start(self):
+        result = self._main("--unknown")
+
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("unrecognized arguments: --unknown", result.stderr)
 
 
 if __name__ == '__main__':

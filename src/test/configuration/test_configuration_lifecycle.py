@@ -271,6 +271,30 @@ class TestStartAndStopModule(AppTestCase):
                                              "Please try again."]})
         self.assertEqual(instance("client").start_calls, 1)
 
+    def test_a_module_is_restarted_while_one_whose_id_begins_with_its_id_still_starts(self):
+        release = threading.Event()
+
+        class Slow(Client):
+            def start(self):
+                super().start()
+                if self.configuration.id == "client_10":
+                    release.wait(TIMEOUT)
+
+        data_layer.registered_modules["inputs.test.client_1"] = Slow
+        self._load([module_config("client_1", "inputs.test.client_1"),
+                    module_config("client_10", "inputs.test.client_1")])
+        self.addCleanup(release.set)
+        client = instance("client_1")
+        # The start routine of client_1 has ended, the one of client_10 still runs.
+        self.assertTrue(wait_for(lambda: client.started.is_set() and instance("client_10").start_calls == 1 and
+                                 "Start_client_1" not in [thread.name for thread in threading.enumerate()]))
+        with self.assertNoLogs("collectu.configuration", level="WARNING"):
+            self.assertEqual(self.configuration.stop_module("client_1"), {})
+
+        self.assertEqual(self.configuration.start_module(module_id="client_1"), {})
+
+        self.assertTrue(wait_for(lambda: client.started.is_set() and client.start_calls == 2))
+
     def test_a_module_is_restarted_with_a_new_configuration(self):
         self._load()
         collector = instance("collector")
@@ -609,6 +633,13 @@ class TestLeakedThreads(GlobalStateTestCase):
 
         self.assertCountEqual(Configuration._alive_module_threads(["m1"]), threads)
         self.assertEqual(Configuration._alive_module_threads([]), [])
+
+    def test_the_threads_of_a_module_whose_id_begins_with_the_id_are_not_found(self):
+        for name in ("Start_m10", "Stop_m10", "Link_m10_to_m1"):
+            self._thread(name)
+
+        self.assertEqual(Configuration._alive_module_threads(["m1"]), [])
+        self.assertEqual(Configuration._report_leaked_threads(module_ids=["m1"], timeout=3), [])
 
     def test_a_leaked_thread_is_reported(self):
         self.patch_config(EXC_INFO=False)

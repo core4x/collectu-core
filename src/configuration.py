@@ -805,16 +805,18 @@ class Configuration:
 
         Threads are matched by the naming convention used when they are created:
         'Start_<id>', 'Stop_<id>' and 'Link_<id>_to_<id of the linked module>'.
+        The first two end with the id, so they are compared as a whole - as a prefix,
+        'Start_sensor_1' would also match 'Start_sensor_10', a thread of another module.
 
         :param module_ids: The ids of the modules whose threads are searched.
         :returns: The threads which are still alive.
         """
-        prefixes = tuple(prefix.format(module_id)
-                         for module_id in module_ids
-                         for prefix in ("Start_{0}", "Stop_{0}", "Link_{0}_to_"))
-        if not prefixes:
+        if not module_ids:
             return []
-        return [thread for thread in threading.enumerate() if (thread.name or "").startswith(prefixes)]
+        names = {name.format(module_id) for module_id in module_ids for name in ("Start_{0}", "Stop_{0}")}
+        link_prefixes = tuple("Link_{0}_to_".format(module_id) for module_id in module_ids)
+        return [thread for thread in threading.enumerate()
+                if (thread.name or "") in names or (thread.name or "").startswith(link_prefixes)]
 
     @staticmethod
     def _report_leaked_threads(module_ids: list[str], timeout: float) -> list[str]:

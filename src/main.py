@@ -167,4 +167,6 @@ if __name__ == "__main__":
         if data_layer.configuration is not None:
             data_layer.configuration.stop()
         data_layer.running = False
-        sys.exit(exit_code)
+    # Not part of finally, where it would replace a SystemExit passing through - such as the one of the command line,
+    # with 1 for an unknown configuration file or 2 for an invalid option - and with it its exit code.
+    sys.exit(exit_code)
