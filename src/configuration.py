@@ -10,8 +10,6 @@ import time
 import pathlib
 import traceback
 import uuid
-import asyncio
-import inspect
 import threading
 from collections import defaultdict
 from typing import Any, Union, Optional
@@ -72,17 +70,6 @@ def configuration_path(filename: str) -> pathlib.Path:
         raise ValueError("'{0}' is the configuration directory, not a file.".format(filename))
 
     return path
-
-_thread_local = threading.local()
-"""
-Thread-local storage for persistent async event loops.
-
-Each thread that calls _invoke with an async method gets its own event loop created
-on first use and reused for all subsequent calls on that thread. This avoids the
-overhead of creating and tearing down a new event loop on every call.
-
-The loop is stored under _thread_local.event_loop and is never shared between threads.
-"""
 
 
 class Configuration:
@@ -186,65 +173,6 @@ class Configuration:
         The deleter for the configuration_dict.
         """
         self.stop()
-
-    @staticmethod
-    def _invoke(method, *args, **kwargs):
-        """
-        Calls a method while transparently supporting both synchronous and asynchronous implementations.
-
-        Synchronous methods are called directly with no overhead. For asynchronous
-        methods, one of two execution strategies is chosen based on whether an event
-        loop is already running on the current thread:
-
-          - No running loop: a persistent event loop is reused for the lifetime of
-            the calling thread via a thread-local variable. This avoids the cost of
-            creating and tearing down a new event loop on every call.
-          - Running loop detected: to avoid a 'This event loop is already running'
-            deadlock, the coroutine is dispatched to a dedicated daemon thread that
-            owns its own event loop via asyncio.run(). The calling thread blocks on
-            join() until the call completes.
-
-        Used to invoke start() and stop() on module instances, both of which may be
-        implemented as either regular or async methods.
-
-        :param method: The bound method to invoke.
-        :param args: Positional arguments forwarded to the method.
-        :param kwargs: Keyword arguments forwarded to the method.
-        :returns: The return value of the method, if any.
-        :raises Exception: Re-raises any exception thrown inside an async method dispatched to a worker thread.
-        """
-        if not inspect.iscoroutinefunction(method):
-            return method(*args, **kwargs)
-
-        try:
-            asyncio.get_running_loop()
-            # A loop is running on this thread — dispatch to a separate thread to avoid a deadlock.
-            result, exc = [None], [None]
-
-            def _run_in_thread():
-                try:
-                    result[0] = asyncio.run(method(*args, **kwargs))
-                except Exception as e:
-                    exc[0] = e
-
-            t = threading.Thread(target=_run_in_thread, daemon=True)
-            t.start()
-            # Deliberately without a timeout. This also carries the start method of a module, which
-            # legitimately runs for the lifetime of that module, and returning early would let
-            # _start_module call start a second time. An async stop which never returns is caught
-            # one level up, by the bounded wait in stop and stop_module, and reported there.
-            t.join()
-            if exc[0]:
-                raise exc[0]
-            return result[0]
-
-        except RuntimeError:
-            # No running loop — reuse a persistent thread-local event loop.
-            loop = getattr(_thread_local, "event_loop", None)
-            if loop is None or loop.is_closed():
-                loop = asyncio.new_event_loop()
-                _thread_local.event_loop = loop
-            return loop.run_until_complete(method(*args, **kwargs))
 
     def _database_worker(self):
         """
@@ -771,7 +699,9 @@ class Configuration:
             # The module is no longer ready to process data - its stop routine releases
             # exactly the resources the readiness flag stands for.
             module_data.instance.started.clear()
-            Configuration._invoke(module_data.instance.stop)
+            # Always synchronous, see AbstractModule.__init_subclass__ - an async stop method
+            # is awaited on the event loop of the module, which its start and _run use as well.
+            module_data.instance.stop()
         except Exception as e:
             logger.error("Could not stop module '{0}' with the id '{1}': {2}"
                          .format(module_data.module_name, module_data.configuration.id,
@@ -1037,6 +967,8 @@ class Configuration:
         Retries on failure using config.RETRY_INTERVAL until the module is no longer
         active. If start completes without raising an exception, the loop exits — the
         module is expected to handle its own internal error recovery after that point.
+        An exception raised after the module was stopped is the consequence of stopping
+        it (e.g. its connection was closed), so it is neither logged as an error nor retried.
         Should be called in a separate thread, as it blocks for the lifetime of the
         module's start method.
 
@@ -1053,12 +985,21 @@ class Configuration:
         module_data.instance._await_input_module()
         while getattr(module_data.instance, "active", False):
             try:
-                Configuration._invoke(module_data.instance.start)
+                # An async start is awaited on the event loop of the module, which its stop and _run use as well.
+                module_data.instance._invoke(module_data.instance.start)
             except Exception as e:
                 # A start method which blocks for the lifetime of the module reports its
                 # readiness itself. If it raises later on (e.g. the connection was lost),
                 # that readiness no longer holds while the module is being retried.
                 module_data.instance.started.clear()
+                if not getattr(module_data.instance, "active", False):
+                    # The module was stopped while its start method was running, and the start method raised
+                    # because of that - its connection was closed by the stop method, or it was cancelled when
+                    # the event loop of the module was closed. Neither is a failure, and nothing is retried.
+                    logger.debug("The start method of module '{0}' with the id '{1}' ended with an error after the "
+                                 "module was stopped: {2}"
+                                 .format(module_data.module_name, module_data.configuration.id, repr(e)))
+                    break
                 logger.error("Could not start module '{0}' with the id '{1}'. Retrying in {2} seconds: {3}"
                              .format(module_data.module_name, module_data.configuration.id,
                                      config.RETRY_INTERVAL, str(e)), exc_info=config.EXC_INFO)

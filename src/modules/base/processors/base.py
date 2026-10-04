@@ -5,7 +5,6 @@ The derived child class has to be named 'ProcessorModule'.
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Optional
-import inspect
 import queue
 import time
 
@@ -103,10 +102,7 @@ class AbstractProcessorModule(AbstractModule):
                 t0 = time.monotonic()
                 original_data = data  # Keep old data object - required if _run() returns a new data object.
 
-                if not inspect.iscoroutinefunction(self._run):
-                    data = self._run(data)
-                else:
-                    data = AbstractModule._invoke_async(self._run, data)
+                data = self._invoke(self._run, data)
 
                 self._metrics.record_processing_time(time.monotonic() - t0)
                 self._metrics.record_processed()
@@ -203,10 +199,7 @@ class AbstractProcessorModule(AbstractModule):
                 self._await_started()
                 t0 = time.monotonic()
                 original_data = data
-                if not inspect.iscoroutinefunction(self._run):
-                    data = self._run(data)
-                else:
-                    data = AbstractModule._invoke_async(self._run, data)
+                data = self._invoke(self._run, data)
                 self._metrics.record_processing_time(time.monotonic() - t0)
                 self._metrics.record_processed()
 

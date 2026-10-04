@@ -3,7 +3,6 @@ This is the base class of all output modules. All implemented output modules hav
 The derived child class has to be named 'OutputModule'.
 """
 import time
-import inspect
 from abc import abstractmethod
 from dataclasses import dataclass
 import queue
@@ -193,10 +192,7 @@ class AbstractOutputModule(AbstractModule):
             self.current_input_data = data
             try:
                 t0 = time.monotonic()
-                if not inspect.iscoroutinefunction(self._run):
-                    data = self._run(data)
-                else:
-                    data = AbstractModule._invoke_async(self._run, data)
+                data = self._invoke(self._run, data)
                 elapsed = time.monotonic() - t0
                 self._metrics.record_processing_time(elapsed)
                 self._metrics.record_processed()

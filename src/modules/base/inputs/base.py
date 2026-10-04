@@ -3,7 +3,6 @@ This is the base class of all input modules. All implemented input modules have 
 The derived child class has to be named 'InputModule', 'TagModule', or 'VariableModule'.
 """
 import time
-import inspect
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -177,10 +176,7 @@ class AbstractTagModule(AbstractModule):
             # so we wait here for the module to be ready.
             self._await_started()
             t0 = time.monotonic()
-            if not inspect.iscoroutinefunction(self._run):
-                key_values = self._run() or {}
-            else:
-                key_values = AbstractModule._invoke_async(method=self._run) or {}
+            key_values = self._invoke(self._run) or {}
             self._metrics.record_processing_time(time.monotonic() - t0)
             self._metrics.record_processed()
 

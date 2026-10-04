@@ -5,16 +5,17 @@ stopping single modules, and changing the configuration while it runs.
 import asyncio
 import json
 import threading
+import time
 import unittest
+from typing import Any, Optional
 from unittest import mock
 
 # Internal imports.
-import configuration as configuration_module
 import data_layer
 from configuration import Configuration
 from metrics import metrics_registry
-from test.helpers import (TIMEOUT, AppTestCase, Client, Collector, GlobalStateTestCase, instance, module_config,
-                          wait_for)
+from test.helpers import (TIMEOUT, AppTestCase, Client, ClientTag, Collector, GlobalStateTestCase, instance,
+                          module_config, wait_for)
 
 PIPELINE: list[dict] = [
     module_config("client", "inputs.test.client_1", host="plc-7"),
@@ -552,6 +553,27 @@ class TestStartRoutine(AppTestCase):
         self.assertTrue(wait_for(tag.started.is_set))
         self.assertIsNotNone(instance("client").connection)
 
+    def test_a_start_which_raises_because_its_module_was_stopped_is_not_retried(self):
+        class Blocking(Client):
+            def start(self):
+                super().start()
+                self.started.set()
+                while self.active:
+                    time.sleep(0.01)
+                # As a start method does whose connection was closed by its stop method.
+                raise ConnectionError("The connection was closed.")
+
+        data_layer.registered_modules["inputs.test.client_1"] = Blocking
+        self._load([module_config("client", "inputs.test.client_1")])
+        client = instance("client")
+        self.assertTrue(wait_for(client.started.is_set))
+
+        with self.assertNoLogs("collectu.configuration", level="ERROR"):
+            self.configuration.stop()
+            self.assertTrue(wait_for(lambda: Configuration._alive_module_threads(["client"]) == []))
+
+        self.assertEqual(client.start_calls, 1)
+
     def test_a_tag_module_starts_anyway_when_its_input_module_never_gets_ready(self):
         self.patch_config(START_TIMEOUT=1)
         release = threading.Event()
@@ -569,48 +591,100 @@ class TestStartRoutine(AppTestCase):
         self.assertIn("did not report to be ready", logs.output[0])
 
 
-class TestInvoke(unittest.TestCase):
+class _AsyncClient(Client):
     """
-    Configuration._invoke calls the start and stop methods of modules, which may be async.
+    The client with an async connection, which only works on the event loop that created it - like an aiohttp session
+    or an asyncpg connection. Its tag module reads the host through it.
+    """
+    loop: Optional[asyncio.AbstractEventLoop] = None
+    """The event loop the connection was created on."""
+
+    async def start(self):
+        self.start_calls += 1
+        self.loop = asyncio.get_running_loop()
+        self.connection = {"host": self.configuration.host}
+
+    async def read_host(self) -> str:
+        self._check_event_loop()
+        await asyncio.sleep(0)
+        return self.connection["host"]
+
+    async def stop(self):
+        self._check_event_loop()
+        self.connection = None
+
+    def _check_event_loop(self):
+        if asyncio.get_running_loop() is not self.loop:
+            raise RuntimeError("The connection is attached to a different event loop.")
+
+
+class _AsyncClientTag(ClientTag):
+    """
+    The tag module of the client, reading the host through its async connection.
+    """
+
+    async def _run(self) -> dict[str, Any]:
+        return {self._dyn(self.configuration.key, "str"): await self.input_module_instance.read_host()}
+
+
+class TestAsyncModules(AppTestCase):
+    """
+    The async methods of an input module and its tag module run on one event loop, whichever thread calls them - so
+    a connection the start method of the input module creates works in the tag module and in its stop method.
     """
 
     def setUp(self):
-        # The event loop _invoke keeps for this thread, which the app never closes.
-        self.addCleanup(lambda: getattr(configuration_module._thread_local, "event_loop", None) and
-                        configuration_module._thread_local.event_loop.close())
+        super().setUp()
+        data_layer.registered_modules["inputs.test.client_1"] = _AsyncClient
+        data_layer.registered_modules["inputs.test.client_1.tag"] = _AsyncClientTag
+        self.configuration = self.create_configuration()
 
-    def test_a_method_is_called(self):
-        self.assertEqual(Configuration._invoke(lambda value: value * 2, 21), 42)
+    def _load(self, content: list[dict]):
+        self.assertEqual(self.configuration.load_configuration_from_stream(json.dumps(content)), {})
 
-    def test_an_async_method_is_awaited(self):
-        async def double(value):
-            await asyncio.sleep(0)
-            return value * 2
+    def test_the_tag_module_uses_the_async_connection_of_its_input_module(self):
+        self._load(PIPELINE)
+        self.assertTrue(wait_for(instance("tag").started.is_set))
 
-        self.assertEqual(Configuration._invoke(double, 21), 42)
-        self.assertEqual(Configuration._invoke(double, value=2), 4, "The event loop of the thread is reused.")
+        instance("source").emit(value=21)
 
-    def test_an_async_method_is_awaited_from_inside_a_running_event_loop(self):
-        async def double(value):
-            await asyncio.sleep(0)
-            return value * 2
+        collector = instance("collector")
+        self.assertTrue(collector.inbox.wait_for(1), "Nothing arrived at the output.")
+        (data,) = collector.inbox.items
+        self.assertEqual((data.fields, data.tags), ({"value": 42}, {"host": "plc-7"}))
 
-        async def caller():
-            return Configuration._invoke(double, 21)
+    def test_the_async_connection_is_closed_by_the_stop_method_and_the_event_loop_with_the_configuration(self):
+        self._load(PIPELINE)
+        client = instance("client")
+        self.assertTrue(wait_for(client.started.is_set))
 
-        self.assertEqual(asyncio.run(caller()), 42)
+        with self.assertNoLogs("collectu.configuration", level="ERROR"):
+            self.configuration.stop()
 
-    def test_an_exception_of_an_async_method_is_raised_to_the_caller(self):
-        async def fail():
-            raise ValueError("Failed.")
+        self.assertIsNone(client.connection)
+        self.assertTrue(wait_for(lambda: not [thread for thread in threading.enumerate()
+                                              if thread.name.startswith("Loop_")]))
 
-        async def caller():
-            return Configuration._invoke(fail)
+    def test_an_async_start_method_cancelled_since_its_module_was_stopped_is_not_retried(self):
+        self.patch_config(STOP_TIMEOUT=0.3)
 
-        with self.assertRaises(ValueError):
-            Configuration._invoke(fail)
-        with self.assertRaises(ValueError):
-            asyncio.run(caller())
+        class Stuck(_AsyncClient):
+            async def start(self):
+                await super().start()
+                self.started.set()
+                # Ignores that the module is stopped, so the event loop cancels it once it is closed.
+                await asyncio.sleep(TIMEOUT * 10)
+
+        data_layer.registered_modules["inputs.test.client_1"] = Stuck
+        self._load([module_config("client", "inputs.test.client_1")])
+        client = instance("client")
+        self.assertTrue(wait_for(client.started.is_set))
+
+        with self.assertNoLogs("collectu.configuration", level="ERROR"):
+            self.configuration.stop()
+            self.assertTrue(wait_for(lambda: Configuration._alive_module_threads(["client"]) == []))
+
+        self.assertEqual(client.start_calls, 1)
 
 
 class TestLeakedThreads(GlobalStateTestCase):

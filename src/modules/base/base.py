@@ -7,11 +7,12 @@ from abc import ABC
 import logging
 import os
 import asyncio
+import concurrent.futures
 import inspect
 import threading
 from queue import Queue, Full, Empty
 from typing import Any, Optional
-from collections.abc import Callable, Hashable
+from collections.abc import Awaitable, Callable, Coroutine, Hashable
 import copy
 import ast
 import time
@@ -468,14 +469,167 @@ class QueueWorker:
             return False
 
 
-_thread_local = threading.local()
-"""
-Thread-local storage for persistent async event loops.
+class ModuleEventLoop:
+    """
+    The event loop all async methods of a module run on - start, stop and _run alike.
 
-Each thread that calls _invoke_async gets its own event loop created on first use
-and reused for all subsequent calls on that thread. The loop is stored under
-_thread_local.event_loop and is never shared between threads.
-"""
+    Async libraries tie their objects to the event loop which created them (an aiohttp session, an asyncpg
+    connection, an asyncua client). start, stop and _run are called by different threads, so if each of them ran
+    on an event loop of its calling thread, a client created in start could neither be used in _run nor be closed
+    in stop. Instead, this event loop runs on a thread of its own ('Loop_<module id>'), and the calling threads
+    hand their coroutines over to it and wait for the result. It keeps running between the calls, so tasks a start
+    method leaves running in the background keep running as well.
+
+    Tag and variable modules use the event loop of their input module, since they normally use its client.
+
+    The event loop is opened by the first async call and stays open as long as one of the modules which used it is
+    active. Once the last of them was stopped, the running calls get up to config.STOP_TIMEOUT to end by themselves.
+    Whatever is still left after that - background tasks included - is cancelled, and the event loop is closed.
+    A module which is restarted in place opens a new one with its next async call.
+
+    :param name: The id of the module owning the event loop.
+    :param logger: The logger of that module.
+    """
+
+    def __init__(self, name: str, logger: logging.Logger):
+        self.name = name
+        self.logger = logger
+        self._lock = threading.Lock()
+        """Guards everything below. Held while a coroutine is handed over, so the event loop can not be released
+        between a caller getting it and the coroutine arriving there."""
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        """The open event loop. None before the first async call, and again once it was released."""
+        self._thread: Optional[threading.Thread] = None
+        """The thread running the open event loop."""
+        self._calls: set[concurrent.futures.Future] = set()
+        """The running calls on the open event loop, which get the chance to end before it is closed."""
+        self._users: set = set()
+        """The modules which used the open event loop. It is released once all of them were stopped."""
+
+    def run(self, module: "AbstractModule", coroutine: Coroutine) -> Any:
+        """
+        Awaits a coroutine on the event loop, opening the event loop if necessary.
+        Blocks the calling thread until the coroutine returned.
+
+        :param module: The module the coroutine belongs to.
+        :param coroutine: The coroutine.
+        :returns: The return value of the coroutine.
+        :raises RuntimeError: If called by the thread of the event loop itself, which would wait for itself forever.
+        :raises Exception: Re-raises any exception raised by the coroutine.
+        """
+        with self._lock:
+            if self._thread is threading.current_thread():
+                coroutine.close()
+                raise RuntimeError("The event loop of module '{0}' can not wait for a coroutine it has to run itself. "
+                                   "Please await the method instead of calling it synchronously.".format(self.name))
+            if self._loop is None:
+                self._open()
+            self._users.add(module)
+            calls = self._calls
+            call = asyncio.run_coroutine_threadsafe(coroutine, self._loop)
+            calls.add(call)
+        try:
+            # Deliberately without a timeout. This also carries start methods which run for the lifetime of the
+            # module, and returning early would hand the caller a result the coroutine has not produced yet.
+            return call.result()
+        finally:
+            with self._lock:
+                calls.discard(call)
+            # A module which is no longer active does not keep the event loop open - e.g. an output module whose
+            # queue worker picked up one last data object while the module was being stopped.
+            self.release(module=module, only_if_inactive=True)
+
+    def release(self, module: "AbstractModule", only_if_inactive: bool = False):
+        """
+        Releases the event loop for the given module, which was stopped.
+        The event loop is closed once none of the modules which used it is left. Returns without waiting for that.
+
+        :param module: The stopped module.
+        :param only_if_inactive: If True, an active module is not released. Checked under the lock, so a module
+            which is restarted in place meanwhile is not released by mistake.
+        """
+        with self._lock:
+            if only_if_inactive and module.active:
+                return
+            self._users.discard(module)
+            if self._users or self._loop is None:
+                return
+            loop = self._loop
+            self._loop, self._thread = None, None
+            # Ends run_forever in _serve, which then closes the event loop. Calls handed over before were queued
+            # before this, so they all arrive and get their chance to end.
+            loop.call_soon_threadsafe(loop.stop)
+
+    def _open(self):
+        """
+        Opens a new event loop on a thread of its own. Called with the lock held.
+        """
+        loop = asyncio.new_event_loop()
+        self._calls = set()
+        self._thread = threading.Thread(target=self._serve, args=(loop, self._calls),
+                                        daemon=True, name="Loop_{0}".format(self.name))
+        self._loop = loop
+        self._thread.start()
+
+    def _serve(self, loop: asyncio.AbstractEventLoop, calls: set[concurrent.futures.Future]):
+        """
+        Runs the event loop until it is released, then closes it.
+
+        Closing is done here and not by a task on the event loop, since a module may cancel all other tasks of its
+        event loop by itself (e.g. once its start method ends), which would include such a task.
+
+        :param loop: The event loop.
+        :param calls: The running calls on the event loop.
+        """
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_forever()
+            with self._lock:
+                if self._loop is loop:
+                    # Not released, but stopped by a module itself. The next async call opens a new one.
+                    self._loop, self._thread = None, None
+            # The running calls get the chance to end by themselves first.
+            self._complete(loop, self._wait_for_calls(calls))
+            # Whatever is left now, background tasks included, is cancelled.
+            tasks = asyncio.all_tasks(loop)
+            if tasks:
+                self.logger.debug("Cancelling {0} task(s) still running on the event loop of module '{1}'."
+                                  .format(len(tasks), self.name))
+                for task in tasks:
+                    task.cancel()
+                self._complete(loop, asyncio.wait(tasks, timeout=config.STOP_TIMEOUT))
+            self._complete(loop, loop.shutdown_asyncgens())
+        finally:
+            loop.close()
+
+    async def _wait_for_calls(self, calls: set[concurrent.futures.Future]):
+        """
+        Waits at most config.STOP_TIMEOUT seconds for the given calls to end.
+
+        :param calls: The running calls.
+        """
+        deadline = time.monotonic() + config.STOP_TIMEOUT
+        while time.monotonic() < deadline:
+            with self._lock:
+                if all(call.done() for call in calls):
+                    return
+            await asyncio.sleep(0.05)
+
+    def _complete(self, loop: asyncio.AbstractEventLoop, awaitable: Awaitable):
+        """
+        Runs the event loop until the given awaitable is done. Never raises, since closing the event loop must go on.
+
+        :param loop: The event loop.
+        :param awaitable: The awaitable.
+        """
+        try:
+            loop.run_until_complete(awaitable)
+        except asyncio.CancelledError:
+            # A task of the module cancelled all other tasks, the one running the awaitable included.
+            pass
+        except Exception as e:
+            self.logger.warning("Something went wrong while closing the event loop of module '{0}': {1}"
+                                .format(self.name, str(e)), exc_info=config.EXC_INFO)
 
 
 class AbstractModule(ABC):
@@ -534,6 +688,9 @@ class AbstractModule(ABC):
         means the workers do not exist yet or were stopped - _call_links creates them when there is data to forward."""
         self._worker_index: dict[str, int] = {}
         """Round-robin worker index for each linked module."""
+        self._event_loop: ModuleEventLoop = ModuleEventLoop(name=configuration.id, logger=self.logger)
+        """The event loop the async methods of this module run on. Tag and variable modules use the one of their
+        input module instead, see _get_event_loop."""
 
         for module_id in getattr(self.configuration, "links", []):
             # Registers the link. Its workers, if any, are created by _call_links with the first data object.
@@ -569,6 +726,9 @@ class AbstractModule(ABC):
         Method for starting the module. Is called by a separate thread.
         InputModules and OutputModules normally connect to a data source.
         VariableModules start a subscription. May be implemented as either a regular or an async method.
+        All async methods of a module run on the same event loop (see ModuleEventLoop), so an async client
+        created here can be used by an async _run and closed by an async stop. Tasks created here keep running
+        after start returned, until the module is stopped.
         The start method is only called if the module is active (self.configuration.active).
         """
         ...
@@ -641,51 +801,42 @@ class AbstractModule(ABC):
                 return False
         return started.is_set()
 
-    @staticmethod
-    def _invoke_async(method, *args, **kwargs):
+    def _get_event_loop(self) -> ModuleEventLoop:
         """
-        Executes an async method from a synchronous context.
+        The event loop the async methods of this module run on.
 
-        Used internally by __init_subclass__ to safely call async stop()
-        implementations. Follows the same two-branch strategy used across all
-        module base classes:
+        Tag and variable modules use the event loop of their input module, since they normally use its client,
+        and an async client only works on the event loop which created it.
 
-          - No running loop: a persistent thread-local event loop is reused.
-          - Running loop detected: the coroutine is dispatched to a dedicated
-            daemon thread to avoid a deadlock.
+        :returns: The event loop.
+        """
+        input_module_instance = getattr(self, "input_module_instance", None)
+        if isinstance(input_module_instance, AbstractModule):
+            return input_module_instance._get_event_loop()
+        return self._event_loop
 
-        :param method: The async method to invoke.
+    def _invoke(self, method, *args, **kwargs):
+        """
+        Calls a method of this module, which may be implemented as either a regular or an async method.
+
+        A regular method is simply called. An async method is awaited on the event loop of the module, which
+        blocks the calling thread until it returned - see ModuleEventLoop.
+
+        :param method: The method to call.
         :param args: Positional arguments forwarded to the method.
         :param kwargs: Keyword arguments forwarded to the method.
+        :returns: The return value of the method.
+        :raises Exception: Re-raises any exception raised by the method.
         """
-        try:
-            asyncio.get_running_loop()
-            result, exc = [None], [None]
+        if not inspect.iscoroutinefunction(method):
+            return method(*args, **kwargs)
+        return self._get_event_loop().run(module=self, coroutine=method(*args, **kwargs))
 
-            def _run_in_thread():
-                try:
-                    result[0] = asyncio.run(method(*args, **kwargs))
-                except Exception as e:
-                    exc[0] = e
-
-            t = threading.Thread(target=_run_in_thread, daemon=True)
-            t.start()
-            # Deliberately without a timeout. This also carries _run of the input, output and
-            # processor base classes, which may legitimately run for a long time, and returning
-            # early would hand the caller a result the coroutine has not produced yet. An async
-            # stop which never returns is caught one level up, by the bounded wait in
-            # Configuration.stop, and reported there.
-            t.join()
-            if exc[0]:
-                raise exc[0]
-            return result[0]
-
-        except RuntimeError:
-            loop = getattr(_thread_local, "event_loop", None)
-            if loop is None or loop.is_closed():
-                loop = asyncio.new_event_loop()
-                _thread_local.event_loop = loop
-            return loop.run_until_complete(method(*args, **kwargs))
+    def _release_event_loop(self):
+        """
+        Releases the event loop of the module once it was stopped. See ModuleEventLoop.release.
+        """
+        self._get_event_loop().release(module=self)
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -693,8 +844,8 @@ class AbstractModule(ABC):
         runs, without touching child implementations.
 
         Supports both synchronous and asynchronous stop() implementations.
-        If the child defines async def stop(), the wrapper invokes it via _invoke_async so
-        the coroutine is actually awaited rather than silently discarded.
+        If the child defines async def stop(), the wrapper awaits it on the event loop of the
+        module via _invoke, the same one its start and _run run on.
         """
         super().__init_subclass__(**kwargs)
         if "stop" in cls.__dict__:
@@ -702,12 +853,10 @@ class AbstractModule(ABC):
 
             def _wrapped_stop(self, *args, **kwargs):
                 try:
-                    if inspect.iscoroutinefunction(original_stop):
-                        AbstractModule._invoke_async(original_stop, self, *args, **kwargs)
-                    else:
-                        original_stop(self, *args, **kwargs)
+                    AbstractModule._invoke(self, original_stop, self, *args, **kwargs)
                 finally:
                     AbstractModule._stop_workers(self)
+                    AbstractModule._release_event_loop(self)
 
             cls.stop = _wrapped_stop
 
@@ -778,8 +927,10 @@ class AbstractModule(ABC):
         TagModules and ProcessorModules do (normally) not need to implement a stop routine.
         May be implemented as either a regular or an async method — both are supported.
         Worker cleanup always runs after stop() completes, regardless of implementation type.
+        Afterward, the event loop of the module is released, which cancels the tasks still running on it.
         """
         self._stop_workers()
+        self._release_event_loop()
 
     def _call_links(self, data: models.Data):
         """

@@ -4,10 +4,13 @@ module stores it - each only once it is ready, and counting what happened in its
 in common: waiting for readiness, stopping their link workers, and installing their third-party requirements.
 """
 import asyncio
+import concurrent.futures
 import threading
 import time
 import unittest
+from collections.abc import Callable
 from types import SimpleNamespace
+from typing import Any, Optional
 from unittest import mock
 
 # Internal imports.
@@ -20,7 +23,7 @@ from modules.base.base import AbstractModule
 from modules.base.inputs.base import AbstractInputModule, AbstractTagModule, AbstractVariableModule
 from modules.base.outputs.base import AbstractOutputModule
 from modules.base.processors.base import AbstractProcessorModule
-from test.helpers import Buffer, GlobalStateTestCase, Inbox, wait_for
+from test.helpers import TIMEOUT, Buffer, GlobalStateTestCase, Inbox, wait_for
 
 
 def _data(value=1, measurement: str = "test", **tags) -> models.Data:
@@ -39,13 +42,6 @@ def _totals(module_id: str) -> dict[str, int]:
             "processed": snapshot["throughput"]["processed_total"],
             "errors": snapshot["errors"]["error_total"],
             "drops": snapshot["errors"]["drop_total"]}
-
-
-def _close_event_loop():
-    """Closes the event loop _invoke_async keeps for the calling thread, which the app never closes."""
-    loop = getattr(modules.base.base._thread_local, "event_loop", None)
-    if loop is not None:
-        loop.close()
 
 
 class _Tag(AbstractTagModule):
@@ -67,6 +63,7 @@ class TestTagModule(GlobalStateTestCase):
     def _tag(self, cls=_Tag, **parameters):
         tag = cls(models.TagModule(id="tag", module_name="inputs.test.client_1.tag", **parameters))
         tag.started.set()
+        self.addCleanup(tag._release_event_loop)
         patcher = mock.patch.object(tag, "_call_links")
         self.forwarded = patcher.start()
         self.addCleanup(patcher.stop)
@@ -105,8 +102,6 @@ class TestTagModule(GlobalStateTestCase):
         self.assertIsNone(tag.current_input_data)
 
     def test_an_async_run_is_awaited(self):
-        self.addCleanup(_close_event_loop)
-
         class AsyncTag(_Tag):
             async def _run(self) -> dict:
                 await asyncio.sleep(0)
@@ -165,6 +160,7 @@ class TestProcessorModule(GlobalStateTestCase):
     def _processor(self, cls=_Processor, **kwargs):
         processor = cls(models.ProcessorModule(id="processor", module_name="processors.test.module_1"), **kwargs)
         processor.started.set()
+        self.addCleanup(processor._release_event_loop)
         patcher = mock.patch.object(processor, "_call_links")
         self.forwarded = patcher.start()
         self.addCleanup(patcher.stop)
@@ -211,8 +207,6 @@ class TestProcessorModule(GlobalStateTestCase):
         self.forwarded.assert_not_called()
 
     def test_an_async_run_is_awaited(self):
-        self.addCleanup(_close_event_loop)
-
         class AsyncProcessor(_Processor):
             async def _run(self, data: models.Data) -> models.Data:
                 await asyncio.sleep(0)
@@ -325,6 +319,7 @@ class TestOutputModule(GlobalStateTestCase):
                 self.inbox.append(data.fields["value"] * 10)
 
         output = AsyncOutput(models.OutputModule(id="output", module_name="outputs.test.collector_1"))
+        self.addCleanup(output._release_event_loop)
         self.addCleanup(_deactivate, output)
         output.started.set()
         output.run(_data(1))
@@ -593,7 +588,6 @@ class TestStop(GlobalStateTestCase):
         self._assert_workers_stopped(module)
 
     def test_an_async_stop_is_awaited(self):
-        self.addCleanup(_close_event_loop)
         stopped = []
 
         class AsyncStopping(AbstractModule):
@@ -630,6 +624,279 @@ class TestStop(GlobalStateTestCase):
         module = self._start_forwarding(_Module)
         module.stop()
         self._assert_workers_stopped(module)
+
+
+def _in_the_background(call: Callable[[], Any]) -> concurrent.futures.Future:
+    """
+    Calls on a thread of its own, as the runtime calls start, stop and _run on different threads.
+
+    :param call: A callable without arguments.
+    :returns: The future of its result.
+    """
+    future = concurrent.futures.Future()
+
+    def target():
+        try:
+            future.set_result(call())
+        except BaseException as e:
+            future.set_exception(e)
+
+    threading.Thread(target=target, daemon=True).start()
+    return future
+
+
+def _on_another_thread(call: Callable[[], Any]) -> Any:
+    """
+    Calls on a thread of its own and waits for it.
+
+    :param call: A callable without arguments.
+    :returns: Its return value. Its exception is raised.
+    """
+    return _in_the_background(call).result(timeout=TIMEOUT)
+
+
+def _event_loop_threads(module_id: str) -> list[threading.Thread]:
+    """
+    :param module_id: The id of the module owning the event loop.
+    :returns: The running threads of its event loop.
+    """
+    return [thread for thread in threading.enumerate() if thread.name == "Loop_{0}".format(module_id)]
+
+
+class _AsyncClient(_Module):
+    """
+    A module with an async client, which start creates, _run uses and stop closes - each called by another thread.
+    """
+
+    def __init__(self, configuration):
+        super().__init__(configuration=configuration)
+        self.client: Optional[dict] = None
+        self.calls: list[tuple[str, asyncio.AbstractEventLoop, str]] = []
+        """The method, the event loop and the thread of each call."""
+
+    def _record(self, method: str):
+        self.calls.append((method, asyncio.get_running_loop(), threading.current_thread().name))
+
+    async def start(self):
+        self._record("start")
+        self.client = {"value": 42}
+
+    async def _run(self, key: str) -> Any:
+        self._record("_run")
+        await asyncio.sleep(0)
+        return self.client[key]
+
+    async def stop(self):
+        self._record("stop")
+        self.client = None
+
+
+class TestEventLoop(GlobalStateTestCase):
+    """
+    All async methods of a module run on one event loop of its own - start, stop and _run alike, whichever thread calls
+    them - so a client created by start can be used by _run and closed by stop. The event loop keeps running between
+    the calls, and is closed once the module was stopped. A tag or variable module uses the one of its input module.
+    """
+
+    def _module(self, cls, module_id: str = "module"):
+        module = cls(SimpleNamespace(id=module_id, module_name="processors.test.module_1", active=True))
+        # The event loop is closed in the background, so the next test waits for it.
+        self.addCleanup(lambda: wait_for(lambda: not _event_loop_threads(module_id)))
+        self.addCleanup(module._release_event_loop)
+        return module
+
+    def _stop(self, module: AbstractModule):
+        """
+        Stops the module as the runtime does: it is deactivated before its stop method is called.
+        """
+        module.active = False
+        _on_another_thread(module.stop)
+
+    def test_start_run_and_stop_run_on_one_event_loop_of_the_module(self):
+        module = self._module(_AsyncClient)
+
+        _on_another_thread(lambda: module._invoke(module.start))
+        self.assertEqual(_on_another_thread(lambda: module._invoke(module._run, "value")), 42)
+        self._stop(module)
+
+        self.assertEqual([method for method, _, _ in module.calls], ["start", "_run", "stop"])
+        self.assertEqual(len({loop for _, loop, _ in module.calls}), 1, "The methods ran on different event loops.")
+        self.assertEqual({thread for _, _, thread in module.calls}, {"Loop_module"})
+        self.assertIsNone(module.client)
+
+    def test_a_regular_method_is_called_on_the_calling_thread(self):
+        class Regular(_Module):
+            def _run(self) -> threading.Thread:
+                return threading.current_thread()
+
+        module = self._module(Regular)
+        self.assertIs(module._invoke(module._run), threading.current_thread())
+        self.assertEqual(_event_loop_threads("module"), [], "An event loop was opened for a regular method.")
+
+    def test_an_exception_of_an_async_method_is_raised_to_the_caller(self):
+        class Failing(_Module):
+            async def start(self):
+                raise ConnectionError("Connection refused.")
+
+        module = self._module(Failing)
+        with self.assertRaisesRegex(ConnectionError, "Connection refused."):
+            _on_another_thread(lambda: module._invoke(module.start))
+
+    def test_a_task_created_by_start_keeps_running_after_start_returned(self):
+        ticks = []
+
+        class Polling(_Module):
+            async def start(self):
+                async def poll():
+                    while True:
+                        ticks.append(None)
+                        await asyncio.sleep(0.01)
+
+                self.poller = asyncio.create_task(poll())
+
+        module = self._module(Polling)
+        _on_another_thread(lambda: module._invoke(module.start))
+
+        self.assertTrue(wait_for(lambda: len(ticks) >= 3), "The task stopped running when start returned.")
+
+    def test_the_tasks_left_running_are_cancelled_and_the_event_loop_is_closed_once_the_module_was_stopped(self):
+        cancelled = threading.Event()
+
+        class Polling(_Module):
+            async def start(self):
+                async def poll():
+                    try:
+                        await asyncio.sleep(TIMEOUT * 10)
+                    except asyncio.CancelledError:
+                        cancelled.set()
+                        raise
+
+                self.poller = asyncio.create_task(poll())
+
+        module = self._module(Polling)
+        _on_another_thread(lambda: module._invoke(module.start))
+        self.assertEqual(len(_event_loop_threads("module")), 1)
+
+        self._stop(module)
+
+        self.assertTrue(cancelled.wait(TIMEOUT), "The task was not cancelled.")
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")), "The event loop was not closed.")
+
+    def test_a_start_method_still_running_when_the_module_is_stopped_may_end_by_itself(self):
+        class Blocking(_Module):
+            async def start(self):
+                self.started.set()
+                while self.active:
+                    await asyncio.sleep(0.01)
+                # Still cleaning up when its stop method already returned.
+                await asyncio.sleep(0.1)
+                return "ended"
+
+        module = self._module(Blocking)
+        start = _in_the_background(lambda: module._invoke(module.start))
+        self.assertTrue(module.started.wait(TIMEOUT))
+
+        self._stop(module)
+
+        self.assertEqual(start.result(timeout=TIMEOUT), "ended")
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")))
+
+    def test_a_start_method_which_ignores_the_stop_is_cancelled_after_the_stop_timeout(self):
+        self.patch_config(STOP_TIMEOUT=0.2)
+
+        class Stuck(_Module):
+            async def start(self):
+                self.started.set()
+                await asyncio.sleep(TIMEOUT * 10)
+
+        module = self._module(Stuck)
+        start = _in_the_background(lambda: module._invoke(module.start))
+        self.assertTrue(module.started.wait(TIMEOUT))
+
+        self._stop(module)
+
+        with self.assertRaises(concurrent.futures.CancelledError):
+            start.result(timeout=TIMEOUT)
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")))
+
+    def test_a_module_restarted_in_place_gets_a_new_event_loop(self):
+        module = self._module(_AsyncClient)
+        _on_another_thread(lambda: module._invoke(module.start))
+        self._stop(module)
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")))
+
+        module.active = True
+        _on_another_thread(lambda: module._invoke(module.start))
+        self.assertEqual(_on_another_thread(lambda: module._invoke(module._run, "value")), 42)
+
+        first_start, stop, second_start, run = (loop for _, loop, _ in module.calls)
+        self.assertIs(first_start, stop)
+        self.assertIs(second_start, run)
+        self.assertIsNot(first_start, second_start)
+
+    def test_a_call_of_a_stopped_module_does_not_keep_its_event_loop_open(self):
+        module = self._module(_AsyncClient)
+        _on_another_thread(lambda: module._invoke(module.start))
+        client = module.client
+        self._stop(module)
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")))
+
+        # As the queue worker of an output module does, which picked up one last data object meanwhile.
+        module.client = client
+        self.assertEqual(module._invoke(module._run, "value"), 42)
+
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("module")), "The event loop was left open.")
+
+    def test_an_async_method_can_not_be_waited_for_on_its_own_event_loop(self):
+        class Waiting(_Module):
+            async def start(self):
+                # Would block the event loop which has to run the coroutine it waits for.
+                self._invoke(self._connect)
+
+            async def _connect(self):
+                pass
+
+        module = self._module(Waiting)
+        with self.assertRaisesRegex(RuntimeError, "Please await the method instead"):
+            _on_another_thread(lambda: module._invoke(module.start))
+
+    def test_a_tag_module_uses_the_event_loop_of_its_input_module(self):
+        class Input(_Module):
+            async def start(self):
+                self.loop = asyncio.get_running_loop()
+
+        class Tag(_Module):
+            async def _run(self) -> asyncio.AbstractEventLoop:
+                return asyncio.get_running_loop()
+
+        input_module, tag = self._module(Input, "input"), self._module(Tag, "tag")
+        tag.input_module_instance = input_module
+        _on_another_thread(lambda: input_module._invoke(input_module.start))
+
+        self.assertIs(_on_another_thread(lambda: tag._invoke(tag._run)), input_module.loop)
+        self.assertEqual(_event_loop_threads("tag"), [])
+
+    def test_a_shared_event_loop_is_closed_once_the_input_module_and_its_tag_module_were_stopped(self):
+        class Input(_Module):
+            async def start(self):
+                self.loop = asyncio.get_running_loop()
+
+        class Tag(_Module):
+            async def _run(self) -> asyncio.AbstractEventLoop:
+                return asyncio.get_running_loop()
+
+        input_module, tag = self._module(Input, "input"), self._module(Tag, "tag")
+        tag.input_module_instance = input_module
+        _on_another_thread(lambda: input_module._invoke(input_module.start))
+        _on_another_thread(lambda: tag._invoke(tag._run))
+
+        self._stop(input_module)
+        self.assertIs(_on_another_thread(lambda: tag._invoke(tag._run)), input_module.loop,
+                      "The event loop was closed while the tag module still used it.")
+        self.assertEqual(len(_event_loop_threads("input")), 1)
+
+        self._stop(tag)
+        self.assertTrue(wait_for(lambda: not _event_loop_threads("input")))
 
 
 class TestThirdPartyRequirements(GlobalStateTestCase):
