@@ -1203,9 +1203,10 @@ class AbstractModule(ABC):
                                                            .format(input_string, module_id))
 
                     # Replace the input with the value.
-                    if len(extracted_variables) == 1 and input_string.startswith(
-                            "${") and input_string.endswith("}"):
-                        # If it was only one dynamic variable, we keep the data type of the input.
+                    if input_string == "${" + variable_text + "}":
+                        # If the input is only the dynamic variable, we keep the data type of the value.
+                        # Starting with '${' and ending with '}' is not enough: e.g. a template like
+                        # '${local.prompt} ... {% endfor %}' would be replaced by the value alone.
                         processed_input_string = value
                     else:
                         # We have to convert it to a string.

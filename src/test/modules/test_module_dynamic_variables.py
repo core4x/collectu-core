@@ -87,6 +87,11 @@ class TestDynamicVariables(GlobalStateTestCase):
         self.assertEqual(self._dyn("${source.value}"), 7)
         self.assertEqual(self._dyn("v${source.value}"), "v7")
 
+    def test_a_text_starting_with_a_variable_and_ending_with_a_brace_is_kept(self):
+        self.assertEqual(self._dyn("${source.site}\n{% for key in data %}{{ key }}{% endfor %}"),
+                         "Stuttgart\n{% for key in data %}{{ key }}{% endfor %}")
+        self.assertEqual(self._dyn("${source.site} {'a': 1}"), "Stuttgart {'a': 1}")
+
     def test_the_value_is_converted_to_the_given_type(self):
         self.assertEqual(self._dyn("${source.value}", "str"), "7")
         self.assertEqual(self._dyn("${source.value}", "float"), 7.0)
