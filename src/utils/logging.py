@@ -169,3 +169,26 @@ def start(logger: logging.Logger):
         logger.critical("Failed to set up the logging system: {0}".format(str(e)),
                         exc_info=config.EXC_INFO)
         sys.exit(1)
+
+
+def adopt(*names: str, level: int = logging.WARNING):
+    """
+    Have the loggers of a package the app runs on - uvicorn's, fastmcp's - log through the handlers of the app, from the
+    given level on: into the log file, the reports and the console, like the app's own records.
+
+    Those are the handlers of the root logger (see start), and a record reaches them by propagating. These loggers used
+    to be handed the handlers of a logger of the app instead, and not to propagate - but no logger of the app has
+    handlers of its own, so their records only reached Python's last resort on stderr: the traceback of a route that
+    raised showed on the console of the machine, and nowhere else.
+
+    A handler the package brought along is removed - fastmcp prints to stderr with rich - or each of its records would
+    be written twice.
+
+    :param names: The names of the loggers.
+    :param level: The level from which on their records are logged.
+    """
+    for name in names:
+        package_logger = logging.getLogger(name)
+        package_logger.handlers.clear()
+        package_logger.setLevel(level)
+        package_logger.propagate = True

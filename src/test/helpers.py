@@ -11,6 +11,7 @@ modules use, a variable module produces data, a tag module enriches it, a proces
 is where it ends. Their data is produced by the test, through `emit`, rather than on a schedule of their own.
 """
 import collections
+import logging.handlers
 import os
 import queue
 import tempfile
@@ -59,6 +60,23 @@ def wait_for(predicate, timeout: float = TIMEOUT) -> bool:
             return False
         time.sleep(0.01)
     return True
+
+
+def records_reaching_the_app(test: unittest.TestCase, name: str) -> list[logging.LogRecord]:
+    """
+    The records of a logger, and of the loggers below it, that reach the handlers of the app - those of the root
+    logger, which utils.logging.start sets up - until the end of the test.
+
+    :param test: The test, which removes the handler again when it ends.
+    :param name: The name of the logger.
+    :returns: The records, filled as they arrive.
+    """
+    handler = logging.handlers.BufferingHandler(capacity=1000)
+    handler.addFilter(logging.Filter(name))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    test.addCleanup(root.removeHandler, handler)
+    return handler.buffer
 
 
 class Inbox:

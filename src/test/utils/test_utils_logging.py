@@ -2,6 +2,7 @@
 The logging of the app (utils.logging): where log records go, and what of them is kept for the reports.
 """
 import logging
+import logging.handlers
 import socket
 import sys
 import unittest
@@ -12,7 +13,7 @@ from unittest import mock
 import config
 import data_layer
 import utils.logging
-from test.helpers import GlobalStateTestCase
+from test.helpers import GlobalStateTestCase, records_reaching_the_app
 
 
 def _record(name: str = "collectu.outputs.test.collector_1.collector", level: int = logging.ERROR,
@@ -144,6 +145,45 @@ class TestStart(GlobalStateTestCase):
             with self.assertRaises(SystemExit) as raised:
                 utils.logging.start(self.logger)
         self.assertEqual(raised.exception.code, 1)
+
+
+class TestAdopt(unittest.TestCase):
+    """
+    The loggers of a package the app runs on - uvicorn's, fastmcp's - log through the handlers of the app.
+    """
+
+    def setUp(self):
+        self.package = logging.getLogger("collectu-test-package")
+        self.addCleanup(self._reset)
+        # What fastmcp sets up on import: a handler of its own, and no propagation.
+        self.own_handler = logging.handlers.BufferingHandler(capacity=100)
+        self.package.addHandler(self.own_handler)
+        self.package.propagate = False
+
+    def _reset(self):
+        self.package.handlers.clear()
+        self.package.setLevel(logging.NOTSET)
+        self.package.propagate = True
+
+    def test_a_record_reaches_the_handlers_of_the_app_once(self):
+        utils.logging.adopt(self.package.name)
+        reached = records_reaching_the_app(self, self.package.name)
+
+        logging.getLogger("collectu-test-package.server").warning("Invalid HTTP request received.")
+
+        self.assertEqual([record.getMessage() for record in reached], ["Invalid HTTP request received."])
+        self.assertEqual(self.own_handler.buffer, [], "Removed, or the record would be written a second time.")
+
+    def test_below_its_level_nothing_is_logged(self):
+        """
+        uvicorn logs every request it answers, at INFO.
+        """
+        utils.logging.adopt(self.package.name)
+        reached = records_reaching_the_app(self, self.package.name)
+
+        logging.getLogger("collectu-test-package.access").info('127.0.0.1:50000 - "GET /api/v1/log HTTP/1.1" 200')
+
+        self.assertEqual(reached, [])
 
 
 if __name__ == '__main__':
