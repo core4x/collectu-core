@@ -191,8 +191,9 @@ def _validate_field_type(module, field, value: Any, errors: list[str]):
     # DICT[K, V]
     # -------------------------
     if origin is dict or ftype is dict:
+        # A bare dict has no type arguments, so neither its keys nor its values are checked.
+        key_t, val_t = get_args(ftype) or (Any, Any)
         try:
-            key_t, val_t = get_args(ftype)
             newdict = ast.literal_eval(value) if isinstance(value, str) else value
         except Exception:
             newdict = value

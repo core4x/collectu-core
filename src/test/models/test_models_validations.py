@@ -448,6 +448,12 @@ class TestFieldTypes(unittest.TestCase):
         self.assertEqual(len(self._validate(dict[str, int], {"a": "one"})[1]), 1)
         self.assertEqual(self._validate(dict[str, list], {"a": [1]}), ({"a": [1]}, []))
 
+    def test_a_dict_without_type_arguments_takes_any_keys_and_values(self):
+        for annotation in (dict, Dict):
+            with self.subTest(annotation=annotation):
+                self.assertEqual(self._validate(annotation, {"a": 1, 2: [3]}), ({"a": 1, 2: [3]}, []))
+                self.assertEqual(self._validate(annotation, "{'a': 1}"), ({"a": 1}, []))
+
     def test_an_optional_value_is_converted_to_its_type(self):
         for annotation in (Optional[int], int | None, Union[int, None]):
             with self.subTest(annotation=annotation):

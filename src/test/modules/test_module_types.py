@@ -185,6 +185,25 @@ class TestProcessorModule(GlobalStateTestCase):
         self.assertEqual(replacement.measurement, "replaced")
         self.assertIs(data_context_map.get(replacement), context)
 
+    def _assert_returning_none_drops_the_data_object(self, thread_safe: bool):
+        class Dropping(_Processor):
+            def _run(self, data: models.Data) -> Optional[models.Data]:
+                return None
+
+        processor = self._processor(Dropping, thread_safe=thread_safe)
+        self.addCleanup(_deactivate, processor)
+        with self.assertNoLogs(processor.logger, level="ERROR"):
+            processor.run(_data(1))
+            self.assertTrue(wait_for(lambda: _totals("processor")["processed"] == 1))
+        self.forwarded.assert_not_called()
+        self.assertEqual(_totals("processor"), {"received": 1, "processed": 1, "errors": 0, "drops": 0})
+
+    def test_returning_none_drops_the_data_object(self):
+        self._assert_returning_none_drops_the_data_object(thread_safe=False)
+
+    def test_returning_none_drops_the_data_object_of_a_thread_safe_processor(self):
+        self._assert_returning_none_drops_the_data_object(thread_safe=True)
+
     def test_data_not_meeting_the_field_requirements_is_not_processed(self):
         processor = self._processor()
         with self.assertLogs(processor.logger, level="ERROR") as logs:

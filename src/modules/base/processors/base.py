@@ -107,6 +107,10 @@ class AbstractProcessorModule(AbstractModule):
                 self._metrics.record_processing_time(time.monotonic() - t0)
                 self._metrics.record_processed()
 
+                if data is None:
+                    # _run dropped the data object, so there is nothing to forward.
+                    continue
+
                 # Propagate context if _run() returned a new data object.
                 data_context_map.propagate(original_data, data)
 
@@ -203,6 +207,10 @@ class AbstractProcessorModule(AbstractModule):
                 self._metrics.record_processing_time(time.monotonic() - t0)
                 self._metrics.record_processed()
 
+                if data is None:
+                    # _run dropped the data object, so there is nothing to forward.
+                    return
+
                 # Propagate context if _run() returned a new data object.
                 data_context_map.propagate(original_data, data)
 
@@ -235,9 +243,10 @@ class AbstractProcessorModule(AbstractModule):
         enrichment the module is responsible for, and returns the (possibly modified)
         data object. The returned object is then forwarded to all downstream links by
         the calling infrastructure — _run itself should not call _call_links.
+        Returning None drops the data object, so nothing is forwarded.
 
         :param data: The data object.
-        :returns: The data object after processing.
+        :returns: The data object after processing, or None to drop it.
         """
         # Implement the custom processor module logic here.
         ...
