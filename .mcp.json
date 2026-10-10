@@ -6,7 +6,7 @@
     },
     "collectu-hub-mcp": {
       "type": "http",
-      "url": "https://api.collectu.de/mcp/v1",
+      "url": "https://api.collectu.de/mcp/v1"
     }
   }
 }
