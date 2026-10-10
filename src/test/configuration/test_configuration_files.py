@@ -12,7 +12,7 @@ from unittest import mock
 import config
 import data_layer
 import utils.hub_connection
-from configuration import Configuration, configuration_path
+from configuration import Configuration, configuration_files, configuration_path
 from test.helpers import AppTestCase, Collector, Source, instance, module_config, wait_for
 
 # Third party imports.
@@ -60,6 +60,28 @@ class TestConfigurationPath(AppTestCase):
             configuration_path("link/stolen.yml")
 
 
+class TestConfigurationFiles(AppTestCase):
+    """
+    configuration_files: the files of the configuration directory, as load_configuration_from_file takes them.
+    """
+
+    def test_the_configuration_files_are_listed(self):
+        self.write_configuration_file("press.yml", "[]")
+        self.write_configuration_file("line_3/robot.json", "[]")
+        self.write_configuration_file("notes.txt", "")
+        self.assertEqual(configuration_files(), ["line_3/robot.json", "press.yml"])
+
+    def test_a_link_leading_out_of_the_directory_is_not_listed(self):
+        outside = os.path.join(self.root, "data", "stolen.yml")
+        with open(outside, "w", encoding="utf-8") as file:
+            file.write("[]")
+        try:
+            os.symlink(outside, os.path.join(self.root, "configuration", "stolen.yml"))
+        except (OSError, NotImplementedError):
+            self.skipTest("Symbolic links can not be created here.")
+        self.assertEqual(configuration_files(), [])
+
+
 class TestValidateConfiguration(AppTestCase):
     """
     Configuration.validate_configuration_from_stream: what a configuration has to be to be started.
@@ -81,6 +103,25 @@ class TestValidateConfiguration(AppTestCase):
         self.assertEqual(source.worker_count_per_link, 1, "A parameter not given takes its default.")
         self.assertEqual(source.measurement, "test")
         self.assertEqual(configuration_dict, PIPELINE, "The configuration is kept as written, without the defaults.")
+
+    def test_a_module_without_a_panel_is_placed_on_the_first_one(self):
+        """
+        Unlike the other defaults, the panel is written into the configuration: the editor shows a module only on
+        the panel named there, so a hand-written configuration without panels would run, but show nothing.
+        """
+        for panel in (None, ""):
+            with self.subTest(panel=panel):
+                content = [{key: value for key, value in PIPELINE[0].items() if key != "panel"},
+                           dict(PIPELINE[1], panel=panel)]
+                configuration, configuration_dict, errors = self._validate(content)
+                self.assertEqual(errors, {})
+                self.assertEqual(configuration_dict, PIPELINE)
+                self.assertEqual([module.panel for module in configuration], ["panel-1", "panel-1"])
+
+    def test_a_given_panel_is_kept(self):
+        _, configuration_dict, errors = self._validate([dict(PIPELINE[0], panel="panel-3"), PIPELINE[1]])
+        self.assertEqual(errors, {})
+        self.assertEqual([module["panel"] for module in configuration_dict], ["panel-3", "panel-1"])
 
     def test_yaml_is_read(self):
         content = ("- id: source\n"
@@ -126,7 +167,7 @@ class TestValidateConfiguration(AppTestCase):
         """
         The invalid module is left out, so a link to it leads nowhere.
         """
-        configuration, _, errors = self._validate([PIPELINE[0], dict(PIPELINE[1], panel="panel-9")])
+        configuration, _, errors = self._validate([PIPELINE[0], dict(PIPELINE[1], start_priority=-1)])
         self.assertEqual(errors["source"], ["A linked module with the id 'collector' does not exist."])
         self.assertEqual(configuration, [])
 
@@ -144,6 +185,35 @@ class TestValidateConfiguration(AppTestCase):
         download_module.assert_called_once_with(module_name="outputs.test.collector_1", version=1)
         self.assertIsInstance(configuration[1], Collector.Configuration)
 
+    def test_validating_only_downloads_nothing(self):
+        """
+        With a list for them, a module in another version than the installed one is reported there instead of being
+        downloaded - which would replace the installed version - and validated with the installed one.
+        """
+        os.environ["AUTO_DOWNLOAD"] = "1"
+        downloads = []
+        with mock.patch.object(utils.hub_connection, "download_module") as download_module:
+            configuration, _, errors = Configuration.validate_configuration_from_stream(
+                json.dumps([PIPELINE[0], dict(PIPELINE[1], version=2)]), downloads=downloads)
+
+        download_module.assert_not_called()
+        self.assertEqual(errors, {})
+        self.assertIsInstance(configuration[1], Collector.Configuration)
+        self.assertEqual(downloads, [{"id": "collector", "module_name": "outputs.test.collector_1",
+                                      "version": 2, "installed_version": 1}])
+
+    def test_validating_only_reports_a_module_which_is_not_installed(self):
+        os.environ["AUTO_DOWNLOAD"] = "1"
+        del data_layer.registered_modules["outputs.test.collector_1"]
+        downloads = []
+        with mock.patch.object(utils.hub_connection, "download_module") as download_module:
+            _, _, errors = Configuration.validate_configuration_from_stream(json.dumps(PIPELINE), downloads=downloads)
+
+        download_module.assert_not_called()
+        self.assertIn("is not installed, so its parameters can not be validated", errors["collector"][0])
+        self.assertEqual(downloads, [{"id": "collector", "module_name": "outputs.test.collector_1",
+                                      "version": 1, "installed_version": None}])
+
     def test_a_failed_download_is_reported(self):
         os.environ["AUTO_DOWNLOAD"] = "1"
         del data_layer.registered_modules["outputs.test.collector_1"]
@@ -152,9 +222,9 @@ class TestValidateConfiguration(AppTestCase):
         self.assertIn("communication with the hub has failed", errors["collector"][0])
 
     def test_an_invalid_parameter_is_reported_under_the_id_of_its_module(self):
-        _, _, errors = self._validate([dict(PIPELINE[1], panel="panel-9")])
+        _, _, errors = self._validate([dict(PIPELINE[1], start_priority=-1)])
         self.assertEqual(list(errors), ["collector"])
-        self.assertIn("'panel'", errors["collector"][0])
+        self.assertIn("'start_priority'", errors["collector"][0])
 
     def test_unknown_parameters_are_ignored(self):
         with self.assertLogs("collectu.configuration", level="WARNING") as logs:

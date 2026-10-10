@@ -70,6 +70,7 @@ EXPECTED: dict[tuple[str, str], list[str]] = {
     ("GET", "/api/v1/module/{module_name}/code"): ["module:read"],
     ("GET", "/api/v1/processor"): ["module:read"],
     ("GET", "/api/v1/configuration/options"): ["module:read"],
+    ("POST", "/api/v1/configuration/validate"): ["module:read"],
     ("POST", "/api/v1/module"): ["module:create", "module:update"],
     ("POST", "/api/v1/module/publish"): ["module:create", "module:update"],
     ("POST", "/api/v1/module/download"): ["module:create", "module:update"],
@@ -102,6 +103,7 @@ EXPECTED: dict[tuple[str, str], list[str]] = {
     ("POST", "/api/v1/user_input"): ["app:read"],
     # The configurations saved here.
     ("GET", "/api/v1/configuration"): ["configuration:read"],
+    ("GET", "/api/v1/configuration/files"): ["configuration:read"],
     ("GET", "/api/v1/configuration/{id}"): ["configuration:read"],
     ("POST", "/api/v1/configuration"): ["configuration:create"],
     ("PUT", "/api/v1/configuration/{id}"): ["configuration:update"],

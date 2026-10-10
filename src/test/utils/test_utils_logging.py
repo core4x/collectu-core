@@ -17,12 +17,12 @@ from test.helpers import GlobalStateTestCase, records_reaching_the_app
 
 
 def _record(name: str = "collectu.outputs.test.collector_1.collector", level: int = logging.ERROR,
-            message: str = "Disk full.", exc_info=None) -> logging.LogRecord:
+            message: str = "Disk full.", exc_info=None, args=None) -> logging.LogRecord:
     """
     A log record, as the logger of the output module 'collector' (outputs/test/collector_1.py) writes it.
     """
     return logging.LogRecord(name=name, level=level, pathname="/collectu/src/modules/outputs/test/collector_1.py",
-                             lineno=1, msg=message, args=None, exc_info=exc_info)
+                             lineno=1, msg=message, args=args, exc_info=exc_info)
 
 
 class TestLoggingTrigger(GlobalStateTestCase):
@@ -44,6 +44,18 @@ class TestLoggingTrigger(GlobalStateTestCase):
                                       "module": "outputs.test.collector_1"})
         self.assertEqual(log.tags, {"level": "ERROR", "hostname": socket.gethostname(), "name": "collector",
                                     "module": "outputs.test.collector_1"})
+
+    def test_the_arguments_of_a_record_are_filled_in(self):
+        """
+        Third party loggers pass the arguments of a message separately, so the template alone reads
+        'HTTP Request: %s %s'.
+        """
+        self.trigger.emit(_record(message="HTTP Request: %s %s", args=("GET", "https://api.collectu.de")))
+        self.assertEqual(data_layer.latest_logs[-1].fields["message"], "HTTP Request: GET https://api.collectu.de")
+
+    def test_a_record_whose_arguments_do_not_fit_is_kept_unformatted(self):
+        self.trigger.emit(_record(message="%s and %s", args=("one",)))
+        self.assertEqual(data_layer.latest_logs[-1].fields["message"], "%s and %s")
 
     def test_the_record_is_the_latest_log_of_its_module(self):
         data_layer.module_data["collector"] = SimpleNamespace(latest_log=None)

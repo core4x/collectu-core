@@ -98,12 +98,9 @@ class TestValidation(unittest.TestCase):
     A module configuration is validated as it is created.
     """
 
-    def test_the_panel_is_one_of_five(self):
-        for panel in ("panel-1", "panel-5"):
+    def test_the_panel_is_any_name(self):
+        for panel in ("panel-1", "panel-6", "Presse"):
             self.assertEqual(_module(panel=panel).panel, panel)
-        with self.assertRaises(ValidationError) as raised:
-            _module(panel="panel-6")
-        self.assertIn("'panel'", raised.exception.args[0][0])
 
     def test_the_start_priority_is_not_negative(self):
         self.assertEqual(_module(start_priority=0).start_priority, 0)
@@ -123,8 +120,8 @@ class TestValidation(unittest.TestCase):
 
     def test_all_errors_are_reported_at_once(self):
         with self.assertRaises(ValidationError) as raised:
-            _module(port="five hundred", panel="panel-9", start_priority=-1)
-        self.assertEqual(len(raised.exception.args[0]), 3)
+            _module(port="five hundred", start_priority=-1)
+        self.assertEqual(len(raised.exception.args[0]), 2)
 
     def test_a_missing_required_number_is_reported(self):
         @dataclass

@@ -334,9 +334,9 @@ class TestStartAndStopModule(AppTestCase):
         collector = instance("collector")
 
         errors = self.configuration.start_module(
-            module_config=module_config("collector", "outputs.test.collector_1", panel="panel-9"))
+            module_config=module_config("collector", "outputs.test.collector_1", start_priority=-1))
 
-        self.assertIn("'panel'", errors["collector"][0])
+        self.assertIn("'start_priority'", errors["collector"][0])
         self.assertIs(instance("collector"), collector)
         self.assertTrue(collector.active)
 
@@ -525,6 +525,36 @@ class TestStartRoutine(AppTestCase):
 
         self.assertEqual(instance("client").start_calls, 3)
         self.assertIn("Connection refused.", logs.output[0])
+
+    def _state(self, module_id: str) -> tuple[str, Optional[str]]:
+        state = next(state for state in self.configuration.module_states() if state["id"] == module_id)
+        return state["state"], state["start_error"]
+
+    def test_the_state_of_a_module_tells_why_its_start_is_retried(self):
+        reachable = threading.Event()
+        self.addCleanup(reachable.set)
+
+        class Refused(Client):
+            def start(self):
+                super().start()
+                if not reachable.is_set():
+                    raise ConnectionError("Connection refused.")
+
+        data_layer.registered_modules["inputs.test.client_1"] = Refused
+        with self.assertLogs("collectu.configuration", level="ERROR"):
+            self._load([module_config("client", "inputs.test.client_1"),
+                        module_config("collector", "outputs.test.collector_1"),
+                        module_config("idle", "outputs.test.collector_1", active=False)])
+            self.assertTrue(wait_for(lambda: self._state("client") == ("retrying", "Connection refused.")))
+            self.assertEqual(self._state("collector"), ("running", None))
+            self.assertEqual(self._state("idle"), ("stopped", None))
+            self.assertEqual(self.configuration.module_states()[1],
+                             {"id": "collector", "module_name": "outputs.test.collector_1", "version": 1,
+                              "state": "running", "start_error": None})
+
+            reachable.set()
+            self.assertTrue(wait_for(instance("client").started.is_set))
+        self.assertEqual(self._state("client"), ("running", None))
 
     def test_an_inactive_module_is_not_started(self):
         self._load([module_config("client", "inputs.test.client_1", active=False)])
