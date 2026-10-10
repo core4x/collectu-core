@@ -3,6 +3,10 @@
     "collectu-core-mcp": {
       "type": "http",
       "url": "http://localhost:8181/mcp/v1/"
+    },
+    "collectu-hub-mcp": {
+      "type": "http",
+      "url": "https://api.collectu.de/mcp/v1",
     }
   }
 }
