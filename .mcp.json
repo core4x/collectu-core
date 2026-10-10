@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "collectu-core-mcp": {
+      "type": "http",
+      "url": "http://localhost:8181/mcp/v1/"
+    }
+  }
+}
