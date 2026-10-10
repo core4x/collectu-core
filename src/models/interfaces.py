@@ -51,6 +51,11 @@ class ModuleData:
         metadata=dict(description="The latest recorded log in form of a data object.",
                       required=False),
         default=None)
+    start_error: Optional[str] = field(
+        metadata=dict(description="Why the last start attempt failed, while the module waits to be retried. "
+                                  "None while an attempt is running and once one succeeded.",
+                      required=False),
+        default=None)
 
 
 @dataclass

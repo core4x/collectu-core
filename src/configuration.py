@@ -72,6 +72,29 @@ def configuration_path(filename: str) -> pathlib.Path:
     return path
 
 
+def configuration_files() -> list[str]:
+    """
+    The configuration files (yaml or json) in the configuration directory, including its subdirectories.
+
+    :returns: Their filenames relative to the directory, as `load_configuration_from_file` takes them, sorted.
+    """
+    root = CONFIGURATION_DIR.resolve()
+    if not root.is_dir():
+        return []
+    filenames = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in (".yml", ".yaml", ".json"):
+            continue
+        filename = path.relative_to(root).as_posix()
+        try:
+            # A link leading out of the directory is listed as little as it can be loaded.
+            configuration_path(filename)
+        except ValueError:
+            continue
+        filenames.append(filename)
+    return sorted(filenames)
+
+
 class Configuration:
     """
     The configuration class.
@@ -173,6 +196,32 @@ class Configuration:
         The deleter for the configuration_dict.
         """
         self.stop()
+
+    def module_states(self) -> list[dict[str, Any]]:
+        """
+        The state of each module of the current configuration.
+
+        :returns: For each module its id, module_name, version, state and start_error. The state is 'running',
+                  'retrying' (its last start attempt failed - start_error says why - and it is tried again)
+                  or 'stopped'.
+        """
+        states = []
+        for module_config in self._configuration:
+            module_entry = data_layer.module_data.get(module_config.id)
+            instance = getattr(module_entry, "instance", None)
+            start_error = getattr(module_entry, "start_error", None)
+            if instance is None or not getattr(instance, "active", False):
+                state = "stopped"
+            elif start_error is not None:
+                state = "retrying"
+            else:
+                state = "running"
+            states.append({"id": module_config.id,
+                           "module_name": module_config.module_name,
+                           "version": module_config.version,
+                           "state": state,
+                           "start_error": start_error})
+        return states
 
     def _database_worker(self):
         """
@@ -397,16 +446,24 @@ class Configuration:
         return cls(**{k: v for k, v in data.items() if k in valid_keys})
 
     @staticmethod
-    def validate_configuration_from_stream(content: str) -> tuple[list, list, dict[str, list[str]]]:
+    def validate_configuration_from_stream(content: str,
+                                           downloads: list[dict] | None = None) -> tuple[list, list, dict[str, list[str]]]:
         """
         Deserializes the given stream using the configuration model.
         Possible validation errors are included in the returned error dictionary.
         The deserialized configuration will not be executed!
 
+        A module which is not installed in the requested version is downloaded from the hub (if auto_download is
+        enabled) - replacing the installed version of it. Unless a list is given as downloads: then nothing is
+        downloaded, and what would be is appended to it ({id, module_name, version, installed_version}).
+        A module installed in another version is then validated with that version, and one which is not installed
+        at all is reported as an error, since its parameters can not be validated.
+
         :param content: The content of the configuration as yaml or json.
+        :param downloads: If given, nothing is downloaded, and the modules which would be are appended to it.
 
         :returns: The configuration as deserialized configuration,
-                  as list of dicts, where the default attributes are not included,
+                  as list of dicts, where the default attributes are not included (except the panel),
                   and a dict of error messages with the module id (if it exists, otherwise '-') as key.
         """
         configuration = []
@@ -436,6 +493,11 @@ class Configuration:
 
             for module_configuration in configuration_dict:
                 try:
+                    # The editor only shows a module on the panel named in its configuration, so a module
+                    # without one (or with an empty one) would run, but be invisible. Unlike the other defaults,
+                    # the panel is therefore written into the configuration as well (the default of models.Module).
+                    if not module_configuration.get("panel"):
+                        module_configuration["panel"] = models.Module.panel
                     # Get the correct dataclass in accordance to the module_name.
                     module_name = module_configuration.get("module_name").lower()
                     version = module_configuration.get("version", None)
@@ -457,6 +519,18 @@ class Configuration:
                             errors[module_configuration.get("id", "-")].append(f"Unknown module_name '{module_name}' "
                                                                                f"or version '{version}'.")
                             continue
+                        elif downloads is not None:
+                            # Only validating: what starting would download is reported instead.
+                            downloads.append({"id": module_configuration.get("id", "-"),
+                                              "module_name": module_name,
+                                              "version": version,
+                                              "installed_version": getattr(module, "version", None)})
+                            if module is None:
+                                errors[module_configuration.get("id", "-")].append(
+                                    f"The module '{module_name}' is not installed, so its parameters can not be "
+                                    f"validated. Starting the configuration downloads version '{version}' of it "
+                                    f"from the hub.")
+                                continue
                         # Try to fetch the module from hub.
                         elif not utils.hub_connection.download_module(module_name=module_name, version=version):
                             errors[module_configuration.get("id", "-")].append(
@@ -984,6 +1058,9 @@ class Configuration:
         # Wait for the input module this module depends on (if any) to be ready.
         module_data.instance._await_input_module()
         while getattr(module_data.instance, "active", False):
+            # The error of the previous attempt holds until the next one. A start method which blocks for
+            # the lifetime of the module never returns, so this is the only place it can be cleared.
+            module_data.start_error = None
             try:
                 # An async start is awaited on the event loop of the module, which its stop and _run use as well.
                 module_data.instance._invoke(module_data.instance.start)
@@ -1000,6 +1077,8 @@ class Configuration:
                                  "module was stopped: {2}"
                                  .format(module_data.module_name, module_data.configuration.id, repr(e)))
                     break
+                # Kept for the api, which reports it when a configuration is started.
+                module_data.start_error = str(e)
                 logger.error("Could not start module '{0}' with the id '{1}'. Retrying in {2} seconds: {3}"
                              .format(module_data.module_name, module_data.configuration.id,
                                      config.RETRY_INTERVAL, str(e)), exc_info=config.EXC_INFO)
