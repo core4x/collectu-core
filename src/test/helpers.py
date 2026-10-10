@@ -286,14 +286,15 @@ MODULES: dict[str, type] = {
 
 def module_config(module_id: str, module_name: str, **parameters) -> dict[str, Any]:
     """
-    The configuration of one module, as the editor writes it.
+    The configuration of one module, as the editor writes it - always with the panel it is placed on.
 
     :param module_id: The id of the module.
     :param module_name: The name of a registered module, usually one of MODULES.
-    :param parameters: The other parameters. The version is the one of the fake modules unless given.
+    :param parameters: The other parameters. The version is the one of the fake modules and the panel is the
+                       first one unless given.
     :returns: The module configuration.
     """
-    return {"id": module_id, "module_name": module_name, "version": 1, **parameters}
+    return {"id": module_id, "module_name": module_name, "version": 1, "panel": "panel-1", **parameters}
 
 
 def instance(module_id: str):
