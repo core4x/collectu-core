@@ -52,8 +52,7 @@ class Module:
     panel: str = field(
         metadata=dict(description="The panel where the module is placed.",
                       category="general",
-                      required=False,
-                      validate=models.validations.OneOf(["panel-1", "panel-2", "panel-3", "panel-4", "panel-5"])),
+                      required=False),
         default="panel-1")
     x: int = field(
         metadata=dict(description="The x position of the module on the canvas.",
