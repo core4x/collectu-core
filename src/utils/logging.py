@@ -61,10 +61,17 @@ class LoggingTrigger(logging.Handler):
         """
         # Store messages of given levels.
         if record.levelname in self.levels:
+            # The message with its arguments filled in - third party loggers pass them separately
+            # (logger.info("%s %s", a, b)), so record.msg alone is only the template.
+            try:
+                message = record.getMessage()
+            except Exception:
+                # Arguments that do not fit the template: the record is still stored, unformatted.
+                message = str(record.msg)
             log_object = models.Data(measurement="Logs",
                                      fields={
                                          "level": str(record.levelname),
-                                         "message": str(record.msg),
+                                         "message": message,
                                          "name": str(record.name.rsplit('.')[-1]),
                                          "module": ".".join(
                                              (record.name.split("." + record.module, 1)[0],
