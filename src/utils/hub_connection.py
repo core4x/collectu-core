@@ -4,7 +4,6 @@ Functions to interact with the hub.
 import os
 import logging
 import re
-import json
 import pathlib
 from typing import List, Optional
 
@@ -285,10 +284,10 @@ def send_modules(module_names: List[str] | None):
                     local_content_without_version = pattern.sub('', data.get("code"))
 
                     if local_content_without_version != server_content_without_version:
-                        # Update the module in the hub. The body is sent as a raw json string,
-                        # which is what json.loads(json.dumps(json.dumps(x))) also produced.
+                        # Update the module in the hub. Sent as json=, which sets the Content-Type: the hub
+                        # reads a body without one as bytes and answers 422 (fastapi's strict_content_type).
                         response = s.put(url=f"{config.HUB_MODULES_ADDRESS}/{module.get('id')}",
-                                         data=json.dumps(data),
+                                         json=data,
                                          allow_redirects=True,
                                          timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                         response.raise_for_status()
@@ -303,7 +302,7 @@ def send_modules(module_names: List[str] | None):
                                 .format(module_name))
                     # Create the module in the hub.
                     response = s.post(url=config.HUB_MODULES_ADDRESS,
-                                      data=json.dumps(data | {"module_name": module_name}),
+                                      json=data | {"module_name": module_name},
                                       allow_redirects=True,
                                       timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
                     response.raise_for_status()

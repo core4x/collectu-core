@@ -2,7 +2,6 @@
 Downloading, updating and publishing modules through the hub (utils.hub_connection). Nothing here talks to the hub:
 it is stood in for by a session answering from a table.
 """
-import json
 import os
 import unittest
 from types import SimpleNamespace
@@ -81,16 +80,16 @@ class _Hub:
             return _Response({"username": "acme"})
         return _Response(self.lists.get(url.rsplit("/", 1)[-1], []))
 
-    def _store(self, method: str, url: str, data: str):
-        sent = json.loads(data)
+    def _store(self, method: str, url: str, sent: dict):
         self.requests.append((method, url, sent))
         return _Response({"id": "module-id", "version": {"code": sent["code"]}})
 
-    def put(self, url: str, data: str = None, allow_redirects=None, timeout=None):
-        return self._store("PUT", url, data)
+    # Only json=: the hub answers a body sent as data= with 422, since it carries no Content-Type.
+    def put(self, url: str, json: dict, allow_redirects=None, timeout=None):
+        return self._store("PUT", url, json)
 
-    def post(self, url: str, data: str = None, allow_redirects=None, timeout=None):
-        return self._store("POST", url, data)
+    def post(self, url: str, json: dict, allow_redirects=None, timeout=None):
+        return self._store("POST", url, json)
 
     def sent(self, method: str) -> list:
         return [(url, body) for request_method, url, body in self.requests if request_method == method]
