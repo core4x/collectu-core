@@ -290,24 +290,50 @@ class _Output(AbstractOutputModule):
         self.inbox.append(data.fields["value"])
 
 
+class _AsyncBuffer(Buffer):
+    """
+    A buffer module whose buffer methods are async, as those of a buffer with an async client are.
+    """
+
+    def __init__(self, configuration):
+        super().__init__(configuration=configuration)
+        self.threads: set[str] = set()
+        """The names of the threads the buffer methods ran on."""
+
+    async def store_buffer_data(self, module_id: str, data: models.Data) -> bool:
+        self.threads.add(threading.current_thread().name)
+        await asyncio.sleep(0)
+        return Buffer.store_buffer_data(self, module_id, data)
+
+    async def get_buffer_data(self, module_id: str) -> Optional[models.Data]:
+        self.threads.add(threading.current_thread().name)
+        await asyncio.sleep(0)
+        return Buffer.get_buffer_data(self, module_id)
+
+
 class TestOutputModule(GlobalStateTestCase):
     """
     An output module queues the data objects meeting its requirements and stores them on a thread of its own. What
-    can not be stored is handed to the buffer module, if there is one.
+    can not be stored is handed to the buffer module, if the output module is buffered and there is one.
     """
 
-    def _output(self, ready: bool = True) -> _Output:
-        output = _Output(models.OutputModule(id="output", module_name="outputs.test.collector_1"))
+    def _output(self, ready: bool = True, cls: type[_Output] = _Output, buffered: bool = True) -> _Output:
+        output = cls(models.OutputModule(id="output", module_name="outputs.test.collector_1", buffered=buffered))
         data_layer.module_data["output"] = SimpleNamespace(instance=output, latest_data=None,
                                                            configuration=output.configuration)
+        self.addCleanup(output._release_event_loop)
         self.addCleanup(_deactivate, output)
         if ready:
             output.started.set()
         return output
 
-    def _buffer(self) -> Buffer:
-        buffer = Buffer(models.OutputModule(id="buffer", module_name="outputs.test.buffer_1", is_buffer=True))
+    def _buffer(self, cls: type[Buffer] = Buffer) -> Buffer:
+        buffer = cls(models.OutputModule(id="buffer", module_name="outputs.test.buffer_1", is_buffer=True))
         data_layer.buffer_instance = buffer
+        # An async buffer opens an event loop of its own, which is closed in the background.
+        self.addCleanup(lambda: wait_for(lambda: not _event_loop_threads("buffer")))
+        self.addCleanup(buffer._release_event_loop)
+        self.addCleanup(_deactivate, buffer)
         return buffer
 
     def test_data_is_stored_once_the_module_is_ready(self):
@@ -402,13 +428,76 @@ class TestOutputModule(GlobalStateTestCase):
         self.assertIsNone(output._get_buffer())
 
     def test_a_failing_buffer_is_reported(self):
+        class Failing(Buffer):
+            def store_buffer_data(self, module_id: str, data: models.Data) -> bool:
+                raise OSError("Disk full.")
+
+            def get_buffer_data(self, module_id: str) -> Optional[models.Data]:
+                raise OSError("Disk gone.")
+
+        class AsyncFailing(Buffer):
+            async def store_buffer_data(self, module_id: str, data: models.Data) -> bool:
+                raise OSError("Disk full.")
+
+            async def get_buffer_data(self, module_id: str) -> Optional[models.Data]:
+                raise OSError("Disk gone.")
+
         output = self._output()
-        data_layer.buffer_instance = mock.Mock(**{"store_buffer_data.side_effect": OSError("Disk full."),
-                                                  "get_buffer_data.side_effect": OSError("Disk gone.")})
-        with self.assertLogs(output.logger, level="ERROR") as logs:
-            self.assertFalse(output._buffer(_data(1)))
-            self.assertIsNone(output._get_buffer())
-        self.assertEqual(len(logs.output), 2)
+        for cls in (Failing, AsyncFailing):
+            with self.subTest(cls.__name__):
+                self._buffer(cls)
+                with self.assertLogs(output.logger, level="ERROR") as logs:
+                    self.assertFalse(output._buffer(_data(1)))
+                    self.assertIsNone(output._get_buffer())
+                self.assertEqual(len(logs.output), 2)
+                self.assertIn("Disk full.", logs.output[0])
+                self.assertIn("Disk gone.", logs.output[1])
+
+    def test_an_async_buffer_is_awaited_on_its_own_event_loop(self):
+        buffer, output = self._buffer(_AsyncBuffer), self._output()
+        first, second = _data(1), _data(2)
+
+        self.assertTrue(output._buffer(first))
+        self.assertTrue(output._buffer(second, invalid=True))
+
+        self.assertEqual(dict(buffer.stored), {"output_buffer": [first], "output_bin": [second]})
+        self.assertIs(output._get_buffer(), first)
+        self.assertIsNone(output._get_buffer(), "Invalid data is never handed back.")
+        self.assertEqual(buffer.threads, {"Loop_buffer"})
+
+    def test_buffered_data_of_an_async_buffer_is_stored_before_new_data(self):
+        buffer, output = self._buffer(_AsyncBuffer), self._output()
+        buffer.stored["output_buffer"] = [_data(1), _data(2)]
+
+        output.run(_data(3))
+
+        self.assertTrue(output.inbox.wait_for(3))
+        self.assertEqual(output.inbox.items, [1, 2, 3])
+
+    def test_an_async_run_awaits_the_buffer(self):
+        class AsyncOutput(_Output):
+            async def _run(self, data: models.Data):
+                if not await self._buffer_async(data=data, invalid=True):
+                    raise ConnectionError("Could not buffer the data.")
+                self.inbox.append(data.fields["value"])
+
+        buffer, output = self._buffer(_AsyncBuffer), self._output(cls=AsyncOutput)
+        output.run(_data(1))
+
+        self.assertTrue(output.inbox.wait_for(1))
+        self.assertEqual([data.fields["value"] for data in buffer.stored["output_bin"]], [1])
+        self.assertEqual(buffer.threads, {"Loop_buffer"})
+
+    def test_a_module_which_is_not_buffered_leaves_the_buffer_alone(self):
+        buffer, output = self._buffer(), self._output(buffered=False)
+        buffer.stored["output_buffer"] = [_data(1)]
+
+        self.assertFalse(output._buffer(_data(2)))
+        self.assertFalse(output._buffer(_data(3), invalid=True))
+        self.assertIsNone(output._get_buffer())
+
+        self.assertEqual([data.fields["value"] for data in buffer.stored["output_buffer"]], [1])
+        self.assertNotIn("output_bin", buffer.stored)
 
     def test_buffered_data_is_stored_before_new_data(self):
         output, buffer = self._output(), self._buffer()
@@ -440,6 +529,17 @@ class TestOutputModule(GlobalStateTestCase):
                 output.run(_data(value))
 
         self.assertEqual(output.queue.qsize(), 2)
+        self.assertEqual(_totals("output")["drops"], 2)
+
+    def test_data_is_dropped_when_the_queue_is_full_and_the_module_is_not_buffered(self):
+        self.patch_config(STOP_LIMIT=2)
+        buffer, output = self._buffer(), self._output(buffered=False)
+
+        with mock.patch.object(output._queue_worker, "start"), self.assertLogs(output.logger, level="ERROR"):
+            for value in (1, 2, 3, 4):
+                output.run(_data(value))
+
+        self.assertEqual(dict(buffer.stored), {})
         self.assertEqual(_totals("output")["drops"], 2)
 
 

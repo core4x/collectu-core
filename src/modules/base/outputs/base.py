@@ -2,6 +2,7 @@
 This is the base class of all output modules. All implemented output modules have to be derived from this class.
 The derived child class has to be named 'OutputModule'.
 """
+import asyncio
 import time
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -35,7 +36,7 @@ class AbstractOutputModule(AbstractModule):
     tag_requirements: list[str] = []
     """Data validation requirements for the tags dict."""
     can_be_buffer: bool = False
-    """If True, the child has to implement 'store_buffer_data' and 'get_buffer_data'."""
+    """If True, the child has to implement 'store_buffer_data' and 'get_buffer_data', as regular or async methods."""
 
     @dataclass
     class Configuration(models.OutputModule):
@@ -94,7 +95,8 @@ class AbstractOutputModule(AbstractModule):
         and again on the first call after the module was restarted in place (see QueueWorker).
 
         If the queue has reached config.STOP_LIMIT, the data is forwarded to the configured buffer module instead
-        of being dropped. If it can not be buffered either, the data is dropped and recorded as a drop.
+        of being dropped, if the module is buffered. If it can not be buffered, the data is dropped and recorded as a
+        drop.
 
         The fill level of the queue is logged by a QueueMonitor: a warning for each config.WARNING_LIMIT band the
         queue grows into and an error once data is dropped, each with a hysteresis and only once for all threads.
@@ -228,6 +230,7 @@ class AbstractOutputModule(AbstractModule):
         with invalid=False so the data is retried once the destination is reachable again.
         If the failure is caused by the data itself (e.g. invalid format), call self._buffer with invalid=True —
         the data is then written to the _bin table and not retried.
+        An async _run awaits self._buffer_async instead, which takes the same arguments.
 
         :param data: The data object to be processed.
         """
@@ -244,6 +247,7 @@ class AbstractOutputModule(AbstractModule):
     def _buffer(self, data: models.Data, invalid: bool = False) -> bool:
         """
         Forwards data that could not be stored to a configured buffer module.
+        Only done if the module is buffered (configuration.buffered) - which the buffer module itself never is.
 
         If invalid is False, the data is stored under the module's buffer key and will
         be retried by _process_queue once the destination becomes reachable again.
@@ -251,21 +255,38 @@ class AbstractOutputModule(AbstractModule):
         be retried, since the failure is assumed to be caused by the data itself rather
         than a connectivity problem.
 
+        An async store_buffer_data is awaited on the event loop of the buffer module (see ModuleEventLoop),
+        which blocks the calling thread until it returned. An async _run therefore awaits _buffer_async instead.
+
         :param data: The data object to be buffered.
         :param invalid: If True, the data is written to the _bin table and not retried.
         :returns: True if the data was successfully forwarded to the buffer, False otherwise.
         """
         success = False
         try:
-            if data_layer.buffer_instance:
+            buffer = data_layer.buffer_instance
+            if buffer and getattr(self.configuration, "buffered", False):
                 if invalid:
-                    success = data_layer.buffer_instance.store_buffer_data(self.configuration.id + "_bin", data)
+                    success = buffer._invoke(buffer.store_buffer_data, self.configuration.id + "_bin", data)
                 else:
-                    success = data_layer.buffer_instance.store_buffer_data(self.configuration.id + "_buffer", data)
+                    success = buffer._invoke(buffer.store_buffer_data, self.configuration.id + "_buffer", data)
         except Exception as e:
             self.logger.error("Could not store data in buffer: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
         return success
+
+    async def _buffer_async(self, data: models.Data, invalid: bool = False) -> bool:
+        """
+        The counterpart of _buffer for an async _run. See _buffer.
+
+        Calls _buffer on a thread of its own, so the event loop of this module keeps running while the buffer
+        module stores the data. Calling _buffer from an async _run blocks the event loop meanwhile instead.
+
+        :param data: The data object to be buffered.
+        :param invalid: If True, the data is written to the _bin table and not retried.
+        :returns: True if the data was successfully forwarded to the buffer, False otherwise.
+        """
+        return await asyncio.to_thread(self._buffer, data=data, invalid=invalid)
 
     def _get_buffer(self) -> Optional[models.Data]:
         """
@@ -273,14 +294,17 @@ class AbstractOutputModule(AbstractModule):
 
         Called by _process_queue before consuming from the live queue so that previously
         buffered data is replayed in order before new data is processed.
+        An async get_buffer_data is awaited on the event loop of the buffer module, see _buffer.
 
-        :returns: The oldest buffered data object, or None if no buffer is configured or
-                  the buffer is empty.
+        :returns: The oldest buffered data object, or None if no buffer is configured, the module is not
+                  buffered or the buffer is empty.
         """
         data = None
         try:
-            if data_layer.buffer_instance:
-                data = data_layer.buffer_instance.get_buffer_data(self.configuration.id + "_buffer")
+            buffer = data_layer.buffer_instance
+            # A module which is not buffered does not ask the buffer module for data with every data object.
+            if buffer and getattr(self.configuration, "buffered", False):
+                data = buffer._invoke(buffer.get_buffer_data, self.configuration.id + "_buffer")
         except Exception as e:
             self.logger.error("Could not get data from buffer: {0}".format(str(e)),
                               exc_info=config.EXC_INFO)
@@ -293,6 +317,10 @@ class AbstractOutputModule(AbstractModule):
         Must be implemented by output modules that set can_be_buffer = True.
         The implementation must be thread-safe, as this method may be called concurrently
         from multiple output module queue workers.
+
+        May be implemented as either a regular or an async method — both are supported. An async method is awaited
+        on the event loop of this module (see ModuleEventLoop), the same one its start, _run and stop run on, so it
+        can use an async client created by start. The concurrent calls then interleave at every await instead.
 
         :param module_id: The id of the output module for which the data is being buffered.
                           Used as the storage key to keep data from different modules separate.
@@ -314,6 +342,9 @@ class AbstractOutputModule(AbstractModule):
         Must be implemented by output modules that set can_be_buffer = True.
         The implementation must be thread-safe, as this method may be called concurrently
         from multiple output module queue workers.
+
+        May be implemented as either a regular or an async method, see store_buffer_data.
+        It must not wait for data to arrive: the calling queue worker would hang on an empty buffer.
 
         :param module_id: The id of the output module whose buffered data is requested.
         :returns: The oldest buffered data object for the given module id, or None if the buffer is empty.

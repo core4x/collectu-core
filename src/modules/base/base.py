@@ -471,7 +471,7 @@ class QueueWorker:
 
 class ModuleEventLoop:
     """
-    The event loop all async methods of a module run on - start, stop and _run alike.
+    The event loop all async methods of a module run on - start, stop, _run and the buffer methods alike.
 
     Async libraries tie their objects to the event loop which created them (an aiohttp session, an asyncpg
     connection, an asyncua client). start, stop and _run are called by different threads, so if each of them ran
