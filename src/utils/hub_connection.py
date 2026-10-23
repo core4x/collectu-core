@@ -2,10 +2,11 @@
 Functions to interact with the hub.
 """
 import os
+import http.cookiejar
 import logging
 import re
 import pathlib
-from typing import List, Optional
+from typing import Any, List, Optional
 
 # Internal imports.
 import config
@@ -193,6 +194,108 @@ def download_module(module_name: str, version: int = 0, session: requests.Sessio
         logger.error("Could not download module ('{0}'): {1}.".format(module_name, str(e)),
                      exc_info=config.EXC_INFO)
         return False
+
+
+search_session: requests.Session = utils.resilient_session.create_resilient_session()
+"""
+The session search_modules asks the hub with.
+
+Kept rather than built per search: the editor searches as an operator types, and a new session would open a new
+connection, TLS handshake included, for every word. Shared by every request, so nothing on it names a caller: the
+token goes into each request's own headers, and no cookie an answer sets is kept for the next one.
+"""
+search_session.cookies.set_policy(http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
+
+
+def search_modules(search_keywords: str) -> list[dict[str, Any]]:
+    """
+    Search the hub for modules this app does not have installed and could download.
+
+    Asked with this app's own HUB_API_ACCESS_TOKEN rather than a caller's, because that is the token which downloads
+    them: a module a configuration names and this app lacks is downloaded with it when the configuration starts
+    (auto_download). So what is found is what starting a configuration with it would download - the modules of the
+    owner of this app, the public and official ones and the ones shared with it, as far as the owner's module policy
+    allows them to run (`only_allowed`, as download_modules asks). A module somebody signed in here could see at the hub
+    with their own account, but this app could not download, would only fail when the configuration starts.
+
+    Left out are a module installed here already, in whichever version - it is offered as installed - a deprecated one,
+    and one whose latest version the hub flagged as malicious, which download_module refuses.
+
+    The hub answers its own record of a module: the code of its latest version nested under `latest`, and three flags
+    where this app says `module_type`. Each is answered in the words of `GET /module` instead
+    (utils.plugin_interface.get_all_modules), so a client reads one shape for a module wherever it comes from - with the
+    hub's id and whether it is official added, which only a published module has.
+
+    :param search_keywords: The words to search for, separated by spaces. The hub matches them against the name,
+        description and documentation of a module, and orders what it found by how well it matched.
+    :returns: The modules found, in the hub's order.
+    :raises requests.RequestException: If the hub could not be reached, or answered with an error
+        (requests.HTTPError, which carries the response).
+    :raises ValueError: If the hub answered something which is not a page of modules.
+    """
+    response = search_session.get(url=f"{config.HUB_MODULES_ADDRESS}/search",
+                                  # The hub splits on every single space, and an empty word matches every
+                                  # module - so 'mqtt  sub' would answer the most liked ones instead.
+                                  params={"search_keywords": " ".join(search_keywords.split()),
+                                          "only_allowed": "true",
+                                          "no_deprecated": "true",
+                                          "size": config.HUB_MODULE_SEARCH_SIZE},
+                                  headers={"Accept": "application/json",
+                                           "Authorization": f"Bearer {os.environ.get('HUB_API_ACCESS_TOKEN')}"},
+                                  allow_redirects=True,
+                                  timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
+    response.raise_for_status()
+    body = response.json()
+    if not isinstance(body, dict) or not isinstance(body.get("items"), list):
+        raise ValueError("The hub did not answer with a page of modules.")
+
+    installed = {_base_name(module_name) for module_name in list(data_layer.registered_modules)}
+    modules = []
+    for module in body["items"]:
+        local = _as_local_module(module)
+        if local is None or local["module_name"] in installed:
+            continue
+        if isinstance(module.get("latest"), dict) and module["latest"].get("malicious"):
+            continue
+        modules.append(local)
+    return modules
+
+
+def _as_local_module(module: Any) -> dict[str, Any] | None:
+    """
+    A module as the hub describes it (`ModuleMinimal`), in the words this app describes its own.
+
+    :param module: One module of the hub's answer.
+    :return: The module, or None for an entry without a name, which nothing can be done with.
+    """
+    if not isinstance(module, dict) or not isinstance(module.get("module_name"), str) or not module["module_name"]:
+        return None
+    module_name = module["module_name"]
+    latest = module.get("latest") if isinstance(module.get("latest"), dict) else {}
+
+    # The hub stores three flags, this app derives one type from the name of the module's folder - which is what the
+    # hub's flags are derived from as well, so the name decides where the flags are missing.
+    if module.get("is_output_module") or module_name.startswith("outputs."):
+        module_type = "output"
+    elif module.get("is_processor_module") or module_name.startswith("processors."):
+        module_type = "processor"
+    else:
+        module_type = "input"
+
+    version = latest.get("version")
+    return {"module_name": module_name,
+            "module_type": module_type,
+            "version": version if isinstance(version, int) else module.get("latest_version") or 1,
+            "public": bool(module.get("public")),
+            "author": latest.get("author"),
+            "email": latest.get("email"),
+            "description": latest.get("description") or "",
+            "documentation": latest.get("documentation") or "",
+            "deprecated": bool(latest.get("deprecated")),
+            "third_party_requirements": latest.get("third_party_requirements") or [],
+            "parameters": latest.get("parameters") or [],
+            "hub_id": str(module.get("id") or ""),
+            "official": bool(module.get("official"))}
 
 
 def update_modules(module_names: Optional[List[str]] = None):

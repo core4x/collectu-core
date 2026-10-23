@@ -79,6 +79,13 @@ SECURITY_POLICY_URL: str = os.getenv("SECURITY_POLICY_URL", f"{WEBSITE_ADDRESS}/
 HUB_MODULES_ADDRESS: str = os.getenv("HUB_MODULES_ADDRESS", f"{HUB_ADDRESS}/module")
 """The endpoint of the api for registering modules."""
 
+HUB_MODULE_SEARCH_SIZE: int = int(os.getenv("HUB_MODULE_SEARCH_SIZE", 50))
+"""
+How many modules one search of the hub asks for (utils.hub_connection.search_modules), the most relevant first.
+The editor searches as an operator types, so this is one page of suggestions rather than the hub's catalogue - and the
+modules installed here are left out of it afterwards, which is why it is not smaller.
+"""
+
 HUB_CONFIGURATIONS_ADDRESS: str = os.getenv("HUB_CONFIGURATIONS_ADDRESS", f"{HUB_ADDRESS}/configuration")
 """The endpoint of the api for registering configurations."""
 

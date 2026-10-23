@@ -2,6 +2,8 @@
 Downloading, updating and publishing modules through the hub (utils.hub_connection). Nothing here talks to the hub:
 it is stood in for by a session answering from a table.
 """
+import http.client
+import io
 import os
 import unittest
 from types import SimpleNamespace
@@ -275,6 +277,107 @@ class TestDownloadModules(_HubTestCase):
         with self.assertLogs(utils.hub_connection.logger, level="ERROR") as logs:
             utils.hub_connection.download_modules()
         self.assertIn("The hub is not reachable.", logs.output[-1])
+
+
+def _found(module_name: str, **latest) -> dict:
+    """
+    A module as the hub's search answers it (`ModuleMinimal`).
+    """
+    return {"id": f"id-of-{module_name}", "module_name": module_name, "official": True, "public": True,
+            "is_input_module": module_name.startswith("inputs."),
+            "is_output_module": module_name.startswith("outputs."),
+            "is_processor_module": module_name.startswith("processors."),
+            "latest_version": latest.get("version", 1),
+            "latest": {"version": 1, "description": "A module.", "documentation": "# A module", "deprecated": False,
+                       "malicious": False, "author": "Acme", "email": "info@acme.test",
+                       "third_party_requirements": [], "parameters": [{"key": "interval"}], **latest}}
+
+
+class TestSearchModules(GlobalStateTestCase):
+    """
+    What the editor may offer to download: the hub's modules this app lacks.
+    """
+
+    def setUp(self):
+        super().setUp()
+        os.environ["HUB_API_ACCESS_TOKEN"] = "the-apps-own-token"
+        self.requests = []
+        self.answer = _Response({"items": [], "total": 0, "page": 1, "size": 50, "pages": 0})
+
+        def get(**request):
+            self.requests.append(request)
+            return self.answer
+
+        patcher = mock.patch.object(utils.hub_connection.search_session, "get", side_effect=get)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _answer(self, *modules: dict):
+        self.answer = _Response({"items": list(modules), "total": len(modules), "page": 1, "size": 50, "pages": 1})
+
+    def test_the_hub_is_asked_with_the_token_which_downloads(self):
+        utils.hub_connection.search_modules("mqtt subscriber")
+
+        (request,) = self.requests
+        self.assertEqual(request["url"], f"{config.HUB_MODULES_ADDRESS}/search")
+        self.assertEqual(request["headers"]["Authorization"], "Bearer the-apps-own-token")
+        self.assertEqual(request["params"], {"search_keywords": "mqtt subscriber", "only_allowed": "true",
+                                             "no_deprecated": "true", "size": config.HUB_MODULE_SEARCH_SIZE})
+
+    def test_no_empty_word_is_sent_which_would_match_every_module(self):
+        utils.hub_connection.search_modules("  mqtt   subscriber ")
+        self.assertEqual(self.requests[0]["params"]["search_keywords"], "mqtt subscriber")
+
+    def test_a_module_is_answered_in_the_words_of_the_installed_ones(self):
+        self._answer(_found("processors.test.multiplier_1", version=3))
+
+        (module,) = utils.hub_connection.search_modules("multiplier")
+
+        self.assertEqual(module, {"module_name": "processors.test.multiplier_1", "module_type": "processor",
+                                  "version": 3, "public": True, "author": "Acme", "email": "info@acme.test",
+                                  "description": "A module.", "documentation": "# A module", "deprecated": False,
+                                  "third_party_requirements": [], "parameters": [{"key": "interval"}],
+                                  "hub_id": "id-of-processors.test.multiplier_1", "official": True})
+
+    def test_the_type_follows_the_name_where_the_hub_does_not_say(self):
+        self._answer({"module_name": "outputs.test.collector_1"}, {"module_name": "inputs.test.client_1"})
+
+        found = utils.hub_connection.search_modules("test")
+
+        self.assertEqual([(module["module_type"], module["version"], module["parameters"]) for module in found],
+                         [("output", 1, []), ("input", 1, [])])
+
+    def test_a_module_installed_here_is_left_out_in_whichever_version(self):
+        data_layer.registered_modules["inputs.test.client_1.variable"] = SimpleNamespace(version=1)
+        self._answer(_found("inputs.test.client_1", version=5), _found("outputs.test.collector_1"))
+
+        found = utils.hub_connection.search_modules("test")
+
+        self.assertEqual([module["module_name"] for module in found], ["outputs.test.collector_1"])
+
+    def test_a_module_flagged_as_malicious_is_left_out(self):
+        self._answer(_found("outputs.test.collector_1", malicious=True), {"id": "nameless"})
+        self.assertEqual(utils.hub_connection.search_modules("collector"), [])
+
+    def test_an_error_of_the_hub_is_raised(self):
+        self.answer = _Response({"detail": "Not authenticated."}, status_code=401)
+        with self.assertRaises(requests.HTTPError):
+            utils.hub_connection.search_modules("collector")
+
+    def test_an_answer_which_is_not_a_page_of_modules_is_raised(self):
+        self.answer = _Response(["outputs.test.collector_1"])
+        with self.assertRaises(ValueError):
+            utils.hub_connection.search_modules("collector")
+
+    def test_no_cookie_of_an_answer_is_kept(self):
+        """
+        The session is shared by every search, so nothing an answer sets may be sent with the next.
+        """
+        headers = http.client.parse_headers(io.BytesIO(b"Set-Cookie: session=of-the-last-answer; Path=/\r\n\r\n"))
+        request = requests.Request("GET", f"{config.HUB_MODULES_ADDRESS}/search").prepare()
+        utils.hub_connection.search_session.cookies.extract_cookies(requests.cookies.MockResponse(headers),
+                                                                    requests.cookies.MockRequest(request))
+        self.assertEqual(len(utils.hub_connection.search_session.cookies), 0)
 
 
 class TestUpdateModules(_HubTestCase):

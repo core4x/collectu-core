@@ -68,6 +68,7 @@ EXPECTED: dict[tuple[str, str], list[str]] = {
     # The modules installed here.
     ("GET", "/api/v1/module"): ["module:read"],
     ("GET", "/api/v1/module/{module_name}/code"): ["module:read"],
+    ("GET", "/api/v1/module/hub"): ["module:read"],
     ("GET", "/api/v1/processor"): ["module:read"],
     ("GET", "/api/v1/configuration/options"): ["module:read"],
     ("POST", "/api/v1/configuration/validate"): ["module:read"],
