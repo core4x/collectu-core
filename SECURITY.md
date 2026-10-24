@@ -115,7 +115,8 @@ published with every release, so there is nothing to generate on an installation
 | Document | Where to find it | What it covers |
 |---|---|---|
 | `sbom.cdx.json` | Attached to each [GitHub release](https://github.com/core4x/collectu-core/releases) | What Collectu Core declares: the requirements in `src/requirements.txt` |
-| `src/interface/sbom.cdx.json` | Committed in the `src/interface` submodule, which is its own repository | What the API and user interface declare |
+| `src/interface/sbom.cdx.json` | Committed in the `src/interface` submodule, which is its own repository | What the API declares: the requirements in its `requirements*.txt` |
+| `src/interface/sbom.frontend.cdx.json` | Committed in the `src/interface` submodule next to the user interface bundle, by the workflow that publishes the bundle | The npm packages the user interface is built from, production dependencies only. A superset of what the bundle contains |
 | `sbom.container.cdx.json` | Attached to each [GitHub release](https://github.com/core4x/collectu-core/releases) | The published container image as built, including its operating system packages (openssl, glibc, …) |
 
 The published image additionally carries an SPDX SBOM and a provenance attestation on its

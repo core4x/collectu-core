@@ -281,8 +281,9 @@ SBOMs in CycloneDX (JSON) format are produced by the release workflow and publis
 release, so nothing has to be generated on an installation:
 
 - `sbom.cdx.json`, attached to each GitHub release: what Collectu Core declares. The
-  `src/interface` submodule has no releases of its own and commits its equivalent instead, as
-  `src/interface/sbom.cdx.json`.
+  `src/interface` submodule has no releases of its own and commits its equivalents instead:
+  `src/interface/sbom.cdx.json` for its API and `src/interface/sbom.frontend.cdx.json` for the
+  user interface bundle.
 - `sbom.container.cdx.json`, attached to each GitHub release: the published container image as
   built, including its operating system packages.
 
