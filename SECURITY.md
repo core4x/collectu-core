@@ -85,10 +85,16 @@ faith under this policy, provided that you:
 
 ### Installing security updates
 
-Updates are distributed through this git repository and are user-triggered (Collectu does not install product updates automatically):
+Updates are distributed through this git repository. They are installed when a user triggers them, or automatically
+for an app whose owner switched on automatic updates in the Collectu Hub:
 
-- **Frontend/API:** trigger the `update` command (requires `update` to be present in `allowed_commands` in `settings.ini`). The application pulls the latest version from the official repository and restarts automatically.
-- **Manual:** run `git pull` in the installation directory and restart the application.
+- **Automatic (opt-in, off by default):** with `Auto-update` switched on in the app's settings on the Collectu Hub
+  (`Account` → `Apps`), the Hub sends the app an `update` command on every push to the Collectu Core repository.
+  The app installs the newest signed release, if it does not run it yet, and restarts; a push without a new release
+  changes nothing. To opt out, switch `Auto-update` off for the app, or remove `update` from `allowed_commands` in
+  `settings.ini` - the app then refuses every remote update, automatic or not.
+- **Frontend/API:** trigger the `update` command (requires `update` to be present in `allowed_commands` in `settings.ini`). The application installs the newest release whose signature it could verify (see [Integrity of Updates](#integrity-of-updates)) and restarts automatically.
+- **Manual:** run `python src/main.py --update` in the installation directory, which makes the same check. A plain `git pull` installs whatever the branch points to, without it.
 - **Docker:** pull the latest image and recreate the container.
 
 ## Secure Configuration
@@ -136,6 +142,45 @@ device can differ — a module requirement without a pinned version resolves to 
 install time. A Core that reports to the Collectu Hub therefore also sends the list of
 distributions installed in its Python environment. 
 Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.
+
+## Integrity of Updates
+
+Collectu Core updates itself from this git repository, and it installs only **releases signed by Collectu**. Every
+release tag is signed with an ed25519 ssh key by the release workflow
+([`.github/workflows/main.yml`](.github/workflows/main.yml)). Before an update, Collectu Core checks
+([`src/utils/signed_releases.py`](src/utils/signed_releases.py)):
+
+- that the newest release tag (`vX.Y.Z`) carries a valid ssh signature, made for git, by a key in
+  [`security/allowed_signers`](security/allowed_signers);
+- that it reads that file from the **version already installed**, never from the release about to be installed, so a
+  release cannot vouch for its own key;
+- that the tag names itself as the tag it was found under, so a ref pointing at the signed tag of an older release is
+  refused.
+
+It then installs the commit the signed tag names, by its id. That commit also fixes the commit of the `src/interface`
+submodule, so the one signature covers the API and user interface as well. A release that fails any check is not
+installed: the update reports `Update refused: …`, and the reason is logged as an error. Please report such an error to
+security@collectu.de. Commits on `main` after the newest release are not installed.
+
+The check runs in Python with the `cryptography` package, so it works on hosts whose git is too old to verify ssh
+signatures itself. To verify a release by hand with git 2.34 or later:
+
+```bash
+git fetch --tags
+git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=security/allowed_signers verify-tag v2.3.1
+```
+
+The `src/interface` submodule is cloned and updated over ssh with GitHub's published host keys
+([`security/github_known_hosts`](security/github_known_hosts)) as the only known hosts. Where port 22 is blocked, the
+updater retries on GitHub's ssh service on port 443 (`ssh.github.com`), which has the same host keys.
+
+`VERIFY_UPDATE_SIGNATURE=0` switches the check off. The updater then follows the branch of the checkout without
+verifying anything, as it did before releases were signed. Set it for development only.
+
+**Release key handling:** the private key is the secret `RELEASE_SIGNING_KEY` of the GitHub environment `release`,
+whose required reviewers have to approve a release before it can be signed. The workflow refuses to tag with a key
+that is not in `security/allowed_signers`. To rotate the key, add the new key next to the old one and release with the
+old key, then switch the secret to the new key, and remove the old key in a release signed with the new one.
 
 ## Integrity of Downloaded Modules
 

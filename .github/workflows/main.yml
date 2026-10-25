@@ -76,6 +76,10 @@ jobs:
     needs: execute-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Holds RELEASE_SIGNING_KEY. A secret of the environment rather than of the repository, so
+    # it can be given required reviewers: then a push to main alone gets nothing signed, and a
+    # stolen token that can push is not also a token that can release to every Core.
+    environment: release
     permissions:
       # Pushes the tag and creates the GitHub release.
       contents: write
@@ -89,6 +93,31 @@ jobs:
           # Semantic-release reads the history back to the previous tag to decide the bump, so a
           # shallow clone gives it nothing to decide from.
           fetch-depth: 0
+
+      # A Core updates only to a release whose tag is signed by a key in security/allowed_signers
+      # of the version it already runs (src/utils/signed_releases.py). A tag signed with any
+      # other key would be refused by every Core, so the key is checked against that file before
+      # anything is tagged, and the run fails here instead.
+      - name: Check the release signing key
+        id: signing-key
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_SIGNING_KEY}" ]; then
+            echo "::error::The secret RELEASE_SIGNING_KEY of the environment 'release' is not set. See 'Integrity of Updates' in SECURITY.md."
+            exit 1
+          fi
+          key_file="$(mktemp)"
+          trap 'rm -f "${key_file}"' EXIT
+          printf '%s\n' "${RELEASE_SIGNING_KEY}" > "${key_file}"
+          public_key="$(ssh-keygen -y -f "${key_file}" | cut -d ' ' -f 1,2)"
+          if ! grep -v '^[[:space:]]*#' security/allowed_signers | grep -qF -- "${public_key}"; then
+            echo "::error::The public key of RELEASE_SIGNING_KEY is not in security/allowed_signers, so no Core would accept the release."
+            exit 1
+          fi
+          echo "public-key=${public_key}" >> "$GITHUB_OUTPUT"
+
       - name: Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10
@@ -101,6 +130,23 @@ jobs:
           # The release notes go onto the GitHub release, which is the changelog. A
           # CHANGELOG.md in the repository could only be kept current by that commit.
           changelog: false
+          # With a key pair, the action sets tag.gpgSign and gpg.format=ssh, so the annotated tag
+          # it creates is signed. The committer email is required by the action for that.
+          ssh_public_signing_key: ${{ steps.signing-key.outputs.public-key }}
+          ssh_private_signing_key: ${{ secrets.RELEASE_SIGNING_KEY }}
+          git_committer_name: Collectu Release
+          git_committer_email: release@collectu.de
+
+      # The same check a Core makes, against the same file. A tag the action pushed unsigned -
+      # because an input was renamed, say - fails the run here rather than going unnoticed until
+      # every Core refuses it.
+      - name: Verify the release tag
+        if: steps.release.outputs.released == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git fetch --quiet --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=security/allowed_signers verify-tag "${TAG}"
 
   build-and-push:
     needs: create-release

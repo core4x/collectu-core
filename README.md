@@ -192,7 +192,9 @@ protection (TLS termination, network-level access control, enabled authenticatio
 - Hub accounts act on the local API/frontend with the permissions they hold at the hub: the roles of their
   organization membership, or the scopes of their api access token
 - Configurable allowlist of remotely executable commands (`allowed_commands` in `settings.ini`)
-- Updates are only applied from the official git repository and are user-triggered (see below)
+- Updates are only applied from the official git repository, when a user triggers them or - opt-in, per app - when
+  the Collectu Hub sends them automatically (see below), and only releases whose signature the Core has verified are
+  installed (see [SECURITY.md](SECURITY.md#integrity-of-updates))
 - A Software Bill of Materials (SBOM) is published with every release (see below)
 
 ### Known or Foreseeable Circumstances Leading to Cybersecurity Risks
@@ -247,11 +249,17 @@ processed or transmitted. Review such changes before applying them in production
 
 **Installing security updates:** Updates (including security updates) are obtained from this
 git repository. Trigger an update via the frontend/API `update` command or by running
-`git pull` in the installation directory; the application restarts automatically after an
-update. Docker users pull the latest image and recreate the container. See [SECURITY.md](SECURITY.md).
+`python src/main.py --update` in the installation directory. The application installs the newest
+release whose signature it has verified and restarts automatically. A plain `git pull` installs
+whatever the branch points to, without that check. Docker users pull the latest image and recreate
+the container. See [SECURITY.md](SECURITY.md#integrity-of-updates).
 
-**Automatic security updates:** Collectu does **not** install product updates automatically;
-updates are user-triggered, so no opt-out from automatic update installation is required.
+**Automatic security updates:** Automatic product updates are opt-in and off by default. With
+`Auto-update` switched on in an app's settings on the Collectu Hub (`Account` → `Apps`), the Hub
+sends the app an `update` command on every push to the Collectu Core repository; the app installs
+the newest signed release, if it does not run it yet, and restarts, which interrupts its running
+pipeline for the time of the restart. Opt out by switching `Auto-update` off for the app, or by
+removing `update` from `allowed_commands` in `settings.ini`, which refuses every remote update.
 The automatic download of *modules and third-party requirements* from the hub can be disabled
 with `auto_install = 0`, `auto_download = 0`, and `initial_download = 0` in `settings.ini`.
 

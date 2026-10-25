@@ -23,6 +23,11 @@ compose*.yml text eol=lf
 *.json text eol=lf
 *.txt text eol=lf
 
+# Read by ssh and by the updater, on every platform. The updater reads allowed_signers from the
+# repository itself, but ssh reads github_known_hosts from the working tree, where a Windows
+# checkout would otherwise put a carriage return at the end of every key.
+security/* text eol=lf
+
 # Ensure web/frontend files are consistent
 *.html text eol=lf
 *.css text eol=lf

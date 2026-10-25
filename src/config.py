@@ -133,6 +133,29 @@ HUB_JWKS_URL: str = os.getenv("HUB_JWKS_URL", "https://api.collectu.de/.well-kno
 VERIFY_TASK_SIGNATURE: bool = os.getenv("VERIFY_TASK_SIGNATURE", "True").lower() in ("true", "1", "yes")
 """Verify the task signature using the HUB_JWKS_URL."""
 
+VERIFY_UPDATE_SIGNATURE: bool = os.getenv("VERIFY_UPDATE_SIGNATURE", "True").lower() in ("true", "1", "yes")
+"""
+Update only to the newest release whose tag is signed by a key in RELEASE_SIGNERS_FILE (utils/signed_releases.py).
+
+Off, the updater follows the branch the checkout is on, unverified, as it did before releases were signed - for
+development only. A task signature says the hub asked for an update; only this says that what the update installs is
+a release of Collectu.
+"""
+
+RELEASE_SIGNERS_FILE: str = "security/allowed_signers"
+"""The keys releases are signed with, relative to the root of the repository. Read from the commit the app runs, never
+from the working tree or from the release it is about to install."""
+
+GITHUB_KNOWN_HOSTS_FILE: str = "../security/github_known_hosts"
+"""GitHub's ssh host keys, the only known hosts the interface submodule is cloned and updated with."""
+
+GIT_SSH_CONNECT_TIMEOUT_SECONDS: int = int(os.getenv("GIT_SSH_CONNECT_TIMEOUT_SECONDS", 15))
+"""
+How long ssh waits for GitHub to accept a connection. A firewall that drops port 22 rather than refusing it would
+otherwise hold every clone and update of the interface for the operating system's TCP timeout - minutes - before the
+updater moves on to port 443.
+"""
+
 MAX_REMEMBERED_TASKS: int = int(os.getenv("MAX_REMEMBERED_TASKS", 1000))
 """
 How many task ids are remembered.
