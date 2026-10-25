@@ -4,6 +4,7 @@ Reporting to the hub and to other motherships, and executing the tasks they hand
 The reporting and requesting loops run for as long as the app does. Here they run for a given number of cycles on the
 test's thread: the function pacing them ends the loop once the cycles are done.
 """
+import email.message
 import json
 import os
 import types
@@ -439,6 +440,72 @@ class TestInstalledPackages(unittest.TestCase):
 
         self.assertEqual([(package.name, package.version) for package in packages], [("Alpha", "2.0"),
                                                                                      ("zeta", "1.0")])
+
+    @staticmethod
+    def _metadata(**headers):
+        """
+        Metadata as importlib.metadata reads it from a dist-info directory: an email message, whose repeated
+        headers - the classifiers - come back from get_all.
+        """
+        metadata = email.message.Message()
+        for key, values in headers.items():
+            for value in values if isinstance(values, list) else [values]:
+                metadata[key.replace("_", "-")] = value
+        return metadata
+
+    def test_the_license_metadata_of_a_package_is_reported(self):
+        metadata = self._metadata(Name="asyncua", License="GNU Lesser General Public License v3 or later",
+                                  Classifier=["Programming Language :: Python :: 3",
+                                              "License :: OSI Approved :: GNU Lesser General Public License v3 or "
+                                              "later (LGPLv3+)"])
+        declared = self._metadata(Name="requests", License_Expression=" Apache-2.0 ")
+        distributions = [types.SimpleNamespace(metadata=metadata, version="2.0.1"),
+                         types.SimpleNamespace(metadata=declared, version="2.34.2")]
+        with mock.patch.object(utils.mothership_interface.importlib.metadata, "distributions",
+                               return_value=distributions):
+            asyncua, requests_ = utils.mothership_interface._get_installed_packages()
+
+        self.assertEqual((asyncua.license_expression, asyncua.license, asyncua.license_classifiers),
+                         (None, "GNU Lesser General Public License v3 or later",
+                          ["License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)"]))
+        self.assertEqual((requests_.license_expression, requests_.license, requests_.license_classifiers),
+                         ("Apache-2.0", None, []))
+
+    def test_a_license_pasted_in_whole_is_cut(self):
+        metadata = self._metadata(Name="tiktoken", License="MIT License\n\n" + "x" * 5000)
+        with mock.patch.object(utils.mothership_interface.importlib.metadata, "distributions",
+                               return_value=[types.SimpleNamespace(metadata=metadata, version="0.14.0")]):
+            package, = utils.mothership_interface._get_installed_packages()
+
+        self.assertEqual(len(package.license), utils.mothership_interface.LICENSE_TEXT_LENGTH)
+        self.assertTrue(package.license.startswith("MIT License"))
+
+    def test_an_unreadable_license_field_does_not_cost_the_package(self):
+        class OddMetadata(dict):
+            def get_all(self, name):
+                raise ValueError("Undecodable header.")
+
+        distribution = types.SimpleNamespace(metadata=OddMetadata(Name="odd", License="MIT"), version="1.0")
+        with mock.patch.object(utils.mothership_interface.importlib.metadata, "distributions",
+                               return_value=[distribution]):
+            package, = utils.mothership_interface._get_installed_packages()
+
+        self.assertEqual((package.name, package.version), ("odd", "1.0"))
+
+    def test_the_packages_of_this_environment_carry_their_licenses(self):
+        packages = utils.mothership_interface._get_installed_packages()
+        self.assertTrue(any(package.license_expression or package.license or package.license_classifiers
+                            for package in packages))
+
+    def test_empty_license_fields_are_left_out_of_the_report(self):
+        distributions = [types.SimpleNamespace(metadata=self._metadata(Name="six"), version="1.17.0"),
+                         types.SimpleNamespace(metadata=self._metadata(Name="pytz", License="MIT"), version="2025.2")]
+        with mock.patch.object(utils.mothership_interface.importlib.metadata, "distributions",
+                               return_value=distributions):
+            report, _, _, _ = utils.mothership_interface._get_report_data()
+
+        self.assertEqual(report["installed_packages"], [{"name": "pytz", "version": "2025.2", "license": "MIT"},
+                                                        {"name": "six", "version": "1.17.0"}])
 
 
 class TestSystemStatistics(unittest.TestCase):

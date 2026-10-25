@@ -84,6 +84,9 @@ class Log:
 class InstalledPackage:
     """
     This is the data object for an installed Python distribution in this environment.
+
+    The license fields are what the distribution's metadata says, as installed. The hub reads them before it asks
+    the package index, and a hub that must not reach the internet has nothing else to go by.
     """
     name: str = field(
         metadata=dict(description="The name of the package.",
@@ -91,6 +94,20 @@ class InstalledPackage:
     version: str = field(
         metadata=dict(description="The version of the package.",
                       required=True))
+    license_expression: Optional[str] = field(
+        metadata=dict(description="The license as the package declares it in SPDX, its License-Expression "
+                                  "(core metadata 2.4, PEP 639).",
+                      required=False),
+        default=None)
+    license: Optional[str] = field(
+        metadata=dict(description="The beginning of the package's License field: a name, an expression or, "
+                                  "for some packages, the whole license text.",
+                      required=False),
+        default=None)
+    license_classifiers: list[str] = field(
+        metadata=dict(description="The package's 'License ::' trove classifiers.",
+                      required=False),
+        default_factory=list)
 
 
 @dataclass

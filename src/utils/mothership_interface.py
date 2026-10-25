@@ -244,6 +244,45 @@ def _get_system_stats() -> Dict[str, Any]:
     return stats
 
 
+LICENSE_TEXT_LENGTH: int = 1000
+"""
+How much of a distribution's License field is reported. A few paste the whole license there; its beginning is
+enough for the hub to recognize it, and the package list stays small.
+"""
+
+
+def _license_metadata(metadata) -> Dict[str, Any]:
+    """
+    What a distribution's metadata says about its license, as the hub reads it (collectu-hub-api: utils/licenses.py).
+
+    The License-Expression where the distribution declares one (core metadata 2.4, PEP 639), the License field, and
+    the 'License ::' classifiers - more than half of the distributions in a typical environment still declare their
+    license through these alone.
+
+    A field that can not be read is left out rather than raised: the caller skips a distribution that raises, and a
+    license field written in an odd encoding must not cost the package its place in the inventory.
+
+    :param metadata: The distribution's metadata.
+    :return: The license fields of models.InstalledPackage that the metadata fills.
+    """
+    fields: Dict[str, Any] = {}
+    try:
+        expression = str(metadata.get("License-Expression") or "").strip()
+        if expression:
+            fields["license_expression"] = expression
+        text = str(metadata.get("License") or "").strip()
+        if text:
+            fields["license"] = text[:LICENSE_TEXT_LENGTH]
+        get_all = getattr(metadata, "get_all", None)
+        classifiers = [str(classifier) for classifier in ((get_all("Classifier") or []) if get_all else [])
+                       if str(classifier).startswith("License ::")]
+        if classifiers:
+            fields["license_classifiers"] = classifiers
+    except Exception:
+        pass
+    return fields
+
+
 def _get_installed_packages() -> List[models.InstalledPackage]:
     """
     List the Python distributions installed in this app's environment.
@@ -277,7 +316,8 @@ def _get_installed_packages() -> List[models.InstalledPackage]:
                     continue
                 seen.add(key)
                 packages.append(models.InstalledPackage(name=name,
-                                                        version=distribution.version or "unknown"))
+                                                        version=distribution.version or "unknown",
+                                                        **_license_metadata(distribution.metadata)))
             except Exception:
                 # One unreadable dist-info directory must not cost us the whole inventory.
                 continue
@@ -329,8 +369,12 @@ def _get_report_data(last_log_time: Optional[datetime] = None,
     # and only changes when a module requirement gets installed, so resending it on every
     # heartbeat would be pure noise.
     # Dumped through __dict__ like the logs below - json.dumps would otherwise fall back to
-    # default=str and serialize each dataclass as its repr rather than as an object.
-    installed_packages = json.dumps([package.__dict__ for package in _get_installed_packages()], default=str)
+    # default=str and serialize each dataclass as its repr rather than as an object. A license
+    # field the metadata leaves empty is left out rather than sent as null: most packages
+    # leave two of the three empty, and a hub that knows no license fields ignores them anyway.
+    installed_packages = json.dumps([{key: value for key, value in package.__dict__.items()
+                                      if value is not None and value != []}
+                                     for package in _get_installed_packages()], default=str)
     if installed_packages != last_installed_packages:
         mothership_data["installed_packages"] = json.loads(installed_packages)
 
