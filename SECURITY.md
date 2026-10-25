@@ -148,19 +148,28 @@ Set `report_to_hub = 0` in `settings.ini` to opt out of all reporting.
 Collectu Core updates itself from this git repository, and it installs only **releases signed by Collectu**. Every
 release tag is signed with an ed25519 ssh key by the release workflow
 ([`.github/workflows/main.yml`](.github/workflows/main.yml)). Before an update, Collectu Core checks
-([`src/utils/signed_releases.py`](src/utils/signed_releases.py)):
+([`src/utils/signed_releases.py`](src/utils/signed_releases.py)) that a release tag (`vX.Y.Z`):
 
-- that the newest release tag (`vX.Y.Z`) carries a valid ssh signature, made for git, by a key in
-  [`security/allowed_signers`](security/allowed_signers);
-- that it reads that file from the **version already installed**, never from the release about to be installed, so a
-  release cannot vouch for its own key;
-- that the tag names itself as the tag it was found under, so a ref pointing at the signed tag of an older release is
-  refused.
+- carries a valid ssh signature, made for git, by a key in [`security/allowed_signers`](security/allowed_signers);
+- names itself as the tag it was found under, so a ref pointing at the signed tag of an older release is refused.
 
-It then installs the commit the signed tag names, by its id. That commit also fixes the commit of the `src/interface`
-submodule, so the one signature covers the API and user interface as well. A release that fails any check is not
-installed: the update reports `Update refused: …`, and the reason is logged as an error. Please report such an error to
-security@collectu.de. Commits on `main` after the newest release are not installed.
+It walks through the releases it does not have yet, **oldest first**, and carries trust along
+([`src/utils/updater.py`](src/utils/updater.py)):
+
+- The first release is checked against the `allowed_signers` of the **version already installed**, never against the
+  file of the release itself, so a release cannot vouch for its own key.
+- Each release that passes hands its own `allowed_signers` on to the next one.
+- A release that fails is skipped, and the walk goes on with the trust it had.
+- The newest release that passes is installed, by the id of the commit its tag names.
+
+That commit also fixes the commit of the `src/interface` submodule, so the one signature covers the API and user
+interface as well. Commits on `main` after the newest release are not installed, and a tag on a commit the installation
+already contains, whatever its number, is no release ahead of it.
+
+Every release that fails a check is logged as an error. Please report such an error to security@collectu.de. If no
+release ahead passes, nothing is installed and the update reports `Update refused: …`. A skipped release does not hold
+back the newer ones: an unsigned `v99.0.0` that anybody with push access could create would otherwise keep every Core
+on its version for good.
 
 The check runs in Python with the `cryptography` package, so it works on hosts whose git is too old to verify ssh
 signatures itself. To verify a release by hand with git 2.34 or later:
@@ -177,10 +186,47 @@ updater retries on GitHub's ssh service on port 443 (`ssh.github.com`), which ha
 `VERIFY_UPDATE_SIGNATURE=0` switches the check off. The updater then follows the branch of the checkout without
 verifying anything, as it did before releases were signed. Set it for development only.
 
-**Release key handling:** the private key is the secret `RELEASE_SIGNING_KEY` of the GitHub environment `release`,
-whose required reviewers have to approve a release before it can be signed. The workflow refuses to tag with a key
-that is not in `security/allowed_signers`. To rotate the key, add the new key next to the old one and release with the
-old key, then switch the secret to the new key, and remove the old key in a release signed with the new one.
+### Release key handling
+
+The private key is the secret `RELEASE_SIGNING_KEY` of the GitHub environment `release`, whose required reviewers have
+to approve a release before it can be signed. Without reviewers, anybody who can push to `main` gets a release signed.
+Set "Prevent self-review", switch "Allow administrators to bypass" off, and allow deployments from `main` only. The
+workflow refuses to tag with a key that is not in `security/allowed_signers`.
+
+Keep a second, offline **recovery key** in `security/allowed_signers` as well, on a hardware token or in a safe, and
+never in CI. It is what signs the rotation if the release key is lost or leaked. A Core trusts only the keys of the
+version it runs, so without a second key, a lost release key means updating every Core by hand.
+
+Publish the fingerprints of the trusted keys somewhere independent of GitHub, for example on collectu.de, so a release
+can be checked by hand even when the repository itself is in doubt (`ssh-keygen -lf <key>.pub`).
+
+**Planned rotation:**
+
+1. Generate the new key: `ssh-keygen -t ed25519 -C "collectu-core release signing <year>" -f <name> -N ""`.
+2. Add it to `security/allowed_signers` next to the old one, and release. The commit needs a type that makes a release
+   (`fix:`, `feat:`). That release is signed with the old key.
+3. Switch `RELEASE_SIGNING_KEY` to the new key. From the next release on, the new key signs.
+4. Remove the old key from `security/allowed_signers` in a release signed with the new one, and destroy the old key.
+
+There is no need to wait for the fleet in between. A Core that missed step 2 passes that release on its way to the
+newest one and picks up the new key there.
+
+**Lost release key:** sign a release with the recovery key that replaces the lost key with a new one, then continue
+from step 3.
+
+**Leaked release key:** whoever has it can sign releases that every Core still trusting the key accepts, so act at
+once.
+
+1. Sign a release with the recovery key, or with the leaked key if there is no recovery key, that removes the leaked
+   key and adds a new one. Every Core that has passed this release refuses the leaked key from then on, even in the
+   same update that installs a later release.
+2. Switch `RELEASE_SIGNING_KEY` to the new key, and check GitHub's audit log and the releases for any you did not make.
+3. A Core that installed a release you did not make has to be reinstalled by hand: clone it again, and verify the
+   release tag with `git verify-tag` against fingerprints obtained independently of GitHub.
+
+A Core that has not reached the revoking release yet still trusts the leaked key, and the walk cannot change that. A
+release signed with it that is numbered *after* the revocation is refused on the way. One numbered *before* it is
+accepted, like any release a Core trusts.
 
 ## Integrity of Downloaded Modules
 

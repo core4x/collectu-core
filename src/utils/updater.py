@@ -11,7 +11,7 @@ this off for development, and the updater then follows the branch of the checkou
 import os
 import sys
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Internal imports
@@ -179,46 +179,83 @@ class _Update:
     """How many commits the installation is behind it."""
     target: str | None = None
     """The id of the commit to install. None when there is nothing to install."""
-    refused: str | None = None
-    """Why the newest release is not installed, if its signature does not hold."""
+    refused: list[str] = field(default_factory=list)
+    """Why each release ahead of the installation that did not pass was passed over, oldest first. With a target, they
+    were skipped; without one, nothing is installed because of them."""
 
 
-def _installed_signers(repo) -> str:
+def _signers(repo, revision: str) -> str:
     """
-    The release signers file of the commit the app runs.
+    The release signers file of a commit.
 
-    From the commit rather than the working tree, which a local change - or anything else that can write to the
-    disk - could have extended, and never from the release about to be installed, which could otherwise vouch for
-    itself.
+    Read from a commit - the installed one, or a release that passed the check - and never from the working tree, which
+    a local change, or anything else that can write to the disk, could have extended.
 
     :param repo: The repository of the app.
-    :return: The content of the file, or "" if the installed version has none.
+    :param revision: The commit.
+    :return: The content of the file, or "" if that version has none.
     """
     try:
-        return repo.git.show(f"HEAD:{config.RELEASE_SIGNERS_FILE}")
+        return repo.git.show(f"{revision}:{config.RELEASE_SIGNERS_FILE}")
     except git.exc.GitCommandError:
         return ""
 
 
-def _newest_release(repo) -> str | None:
+def _releases_ahead(repo) -> list[str]:
     """
-    The tag of the newest release the repository knows.
+    The release tags whose commit the installation does not contain yet, oldest release first.
+
+    Ahead by the history rather than by the number: a tag anybody can push onto an old commit, v99.0.0 say, names a
+    commit the installation already has and so is no release ahead of it.
 
     :param repo: The repository of the app.
-    :return: The tag, e.g. 'v2.3.1', or None if there is no release.
+    :return: The tags, e.g. ['v2.3.1', 'v2.4.0'].
     """
-    releases = [(version, tag.name) for tag in repo.tags
-                if (version := utils.signed_releases.release_version(tag.name)) is not None]
-    return max(releases)[1] if releases else None
+    releases = []
+    for tag in repo.git.tag("--list", "v*", "--no-merged", "HEAD").split():
+        version = utils.signed_releases.release_version(tag)
+        if version is not None:
+            releases.append((version, tag))
+    return [tag for _, tag in sorted(releases)]
+
+
+def _verified_release(repo, tag: str, keys: list[bytes]) -> str:
+    """
+    Verify one release tag.
+
+    :param repo: The repository of the app.
+    :param tag: The tag.
+    :param keys: The keys it may be signed with.
+    :return: The id of the commit it names.
+    :raises utils.signed_releases.UnverifiedRelease: If it does not pass.
+    """
+    # A lightweight tag is a ref to a commit and nothing that could carry a signature.
+    if repo.git.cat_file("-t", f"refs/tags/{tag}") != "tag":
+        raise utils.signed_releases.UnverifiedRelease(f"The tag {tag} is not signed.")
+    tag_object = repo.git.cat_file("tag", f"refs/tags/{tag}", stdout_as_string=False, strip_newline_in_stdout=False)
+    return utils.signed_releases.verify_tag(tag_object=tag_object, tag_name=tag, keys=keys)
 
 
 def _pending_update(repo) -> _Update:
     """
     What an update would install now, from what was last fetched.
 
-    The newest release is verified only if it is ahead of the installation. A Core that is level with it - or past
-    it, as one updated from the branch before releases were signed can be - has nothing to install, and nothing to
-    complain about.
+    The releases ahead of the installation are walked through oldest first, with trust carried along: each is checked
+    against the signers file of the last one that passed - the installed version's, to begin with - and one that
+    passes hands its own file on to the next. The newest that passes is installed.
+
+    So a Core that missed the release which added a new key still gets there, by way of it, and nobody has to wait for
+    the whole fleet before switching to that key. And a Core that passes the release revoking a key stops trusting it
+    from there on, within the same update - a release signed with that key after its revocation is refused even by a
+    Core that has never installed the revocation. Taking the newest release that verifies against the installed keys
+    alone would install exactly that one.
+
+    A release that fails is passed over rather than ending the walk. Otherwise one tag that anybody with push access can
+    create - an unsigned v99.0.0 on a new commit - would hold every Core on its version for good: a Core keeps the tags
+    it has fetched, even once they are deleted upstream.
+
+    A Core that is level with the newest release - or past it, as one updated from the branch before releases were
+    signed can be - has nothing ahead of it, and nothing to complain about.
 
     :param repo: The repository of the app.
     :return: What would be installed.
@@ -227,24 +264,19 @@ def _pending_update(repo) -> _Update:
         commits = sum(1 for _ in repo.iter_commits(f"{repo.active_branch}..origin/{repo.active_branch}"))
         return _Update(commits=commits, target=repo.commit(f"origin/{repo.active_branch}").hexsha if commits else None)
 
-    tag = _newest_release(repo)
-    if tag is None:
-        return _Update()
-    commits = sum(1 for _ in repo.iter_commits(f"HEAD..refs/tags/{tag}"))
-    if commits == 0:
-        return _Update()
-    try:
-        # A lightweight tag is a ref to a commit and nothing that could carry a signature.
-        if repo.git.cat_file("-t", f"refs/tags/{tag}") != "tag":
-            raise utils.signed_releases.UnverifiedRelease(f"The tag {tag} is not signed.")
-        tag_object = repo.git.cat_file("tag", f"refs/tags/{tag}", stdout_as_string=False,
-                                       strip_newline_in_stdout=False)
-        target = utils.signed_releases.verify_tag(
-            tag_object=tag_object, tag_name=tag,
-            keys=utils.signed_releases.trusted_keys(_installed_signers(repo)))
-    except utils.signed_releases.UnverifiedRelease as e:
-        return _Update(commits=commits, refused=str(e))
-    return _Update(commits=commits, target=target)
+    keys = utils.signed_releases.trusted_keys(_signers(repo, "HEAD"))
+    target, refused = None, []
+    for tag in _releases_ahead(repo):
+        try:
+            commit = _verified_release(repo, tag, keys)
+        except utils.signed_releases.UnverifiedRelease as e:
+            refused.append(str(e))
+            continue
+        target = commit
+        keys = utils.signed_releases.trusted_keys(_signers(repo, commit))
+    if target is None:
+        return _Update(refused=refused)
+    return _Update(commits=sum(1 for _ in repo.iter_commits(f"HEAD..{target}")), target=target, refused=refused)
 
 
 def _check_for_updates(with_submodule: bool = True) -> _Update:
@@ -267,9 +299,16 @@ def _check_for_updates(with_submodule: bool = True) -> _Update:
         repo.git.fetch("origin", "--tags", "--force")
 
         update = _pending_update(repo)
-        if update.refused:
-            logger.error("A newer release is available but is not installed, because its signature does not hold: "
-                         "{0} Please report this to {1}.".format(update.refused, config.SECURITY_EMAIL))
+        # Logged as errors either way: a release tag that does not hold is either a broken release or somebody
+        # trying to get code onto this Core.
+        for reason in update.refused:
+            if update.target:
+                logger.error("A newer release is skipped, because its signature does not hold: {0} The newest release "
+                             "that holds is installed instead. Please report this to {1}."
+                             .format(reason, config.SECURITY_EMAIL))
+            else:
+                logger.error("A newer release is available but is not installed, because its signature does not "
+                             "hold: {0} Please report this to {1}.".format(reason, config.SECURITY_EMAIL))
 
         # Handle submodule. check_git_access_token() is called unconditionally because it also
         # exports GIT_SSH_COMMAND, which the submodule update in update_app depends on - it must not
@@ -294,10 +333,11 @@ def check_for_updates(with_submodule: bool = True) -> int:
     Checks for new commits and clones empty submodules.
 
     :param with_submodule: Whether to handle submodule checks.
-    :return: Number of open commits - 0 as well if the newest release is refused, which is logged as an error.
+    :return: Number of commits to the newest release that holds - 0 if none ahead does. A release that does not hold
+        is logged as an error.
     """
     update = _check_for_updates(with_submodule=with_submodule)
-    return 0 if update.refused else update.commits
+    return update.commits if update.target else 0
 
 
 def update_app() -> str:
@@ -311,8 +351,9 @@ def update_app() -> str:
 
     update = _check_for_updates()
 
-    if update.refused:
-        return f"Update refused: {update.refused}"
+    if update.target is None and update.refused:
+        # The newest of them is the one an operator asked for.
+        return f"Update refused: {update.refused[-1]}"
     if update.target is None:
         message = f"{config.APP_NAME} is already up-to-date."
         logger.info(message)

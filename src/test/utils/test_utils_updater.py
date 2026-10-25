@@ -349,14 +349,24 @@ class TestSignedReleases(_RepositoryTestCase):
     def _installed(self) -> str:
         return _git(self.installation, "rev-parse", "HEAD")
 
-    def _other_key(self) -> tuple[str, str]:
+    def _other_key(self, name: str = "other_key") -> tuple[str, str]:
         """
         A key pair nobody trusts yet: the private key's path and its allowed signers line.
         """
         if not _can_sign():
             self.skipTest("git 2.34, ssh-keygen and cryptography are needed to sign a release.")
-        path = os.path.join(self.base, "other_key")
+        path = os.path.join(self.base, name)
         return path, _signing_key(path)
+
+    def _trust(self, *signers: str, message: str):
+        """
+        Commit a release signers file upstream that names exactly these keys.
+        """
+        _write(os.path.join(self.upstream, "security", "allowed_signers"), "".join(signers))
+        self.commit(self.upstream, message)
+
+    def _installed_signers(self) -> str:
+        return _read(os.path.join(self.installation, "security", "allowed_signers"))
 
     def test_a_signed_release_is_installed(self):
         self.change_upstream()
@@ -457,6 +467,99 @@ class TestSignedReleases(_RepositoryTestCase):
 
         self.assertEqual(message, "Successfully updated. 1 new commit(s) applied.")
         self.assertEqual(self._installed(), _git(self.upstream, "rev-parse", "v1.2.0^{commit}"))
+
+    def test_a_core_that_missed_a_key_rotation_catches_up(self):
+        """
+        The whole rotation happened while this Core was not updating: it trusts the old key only, and the newest
+        release is signed with the new one. It gets there by way of the release that introduced the new key.
+        """
+        new_key, new_signer = self._other_key("new_key")
+        self._trust(self.signers, new_signer, message="Trusts the next key.")
+        self.release("v1.1.0")
+        self.change_upstream()
+        self.release("v1.2.0", key=new_key)
+        self._trust(new_signer, message="No longer trusts the old key.")
+        self.release("v1.3.0", key=new_key)
+
+        message, logs = self._update()
+
+        self.assertEqual(message, "Successfully updated. 3 new commit(s) applied.")
+        self.assertEqual(self._installed(), _git(self.upstream, "rev-parse", "v1.3.0^{commit}"))
+        self.assertEqual(self._installed_signers(), new_signer)
+        self.assertNotIn("signature does not hold", logs)
+
+    def test_a_revoked_key_is_not_trusted_past_its_revocation(self):
+        """
+        The old key leaked after it was revoked, and whoever has it signs a release. A Core that never installed the
+        revocation still trusts the old key - but it passes the revocation on the way, and stops there.
+        """
+        new_key, new_signer = self._other_key("new_key")
+        self._trust(self.signers, new_signer, message="Trusts the next key.")
+        self.release("v1.1.0")
+        self._trust(new_signer, message="Revokes the old key.")
+        self.release("v1.2.0", key=new_key)
+        self.change_upstream("# Not by Collectu.\n", "A release with the leaked key.")
+        self.release("v1.3.0")
+
+        message, logs = self._update(level="ERROR")
+
+        self.assertEqual(message, "Successfully updated. 2 new commit(s) applied.")
+        self.assertEqual(self._installed(), _git(self.upstream, "rev-parse", "v1.2.0^{commit}"))
+        self.assertIn("A newer release is skipped, because its signature does not hold: The tag v1.3.0 is signed "
+                      "with a key that is not in security/allowed_signers.", logs)
+
+    def test_a_core_past_the_revocation_refuses_the_revoked_key(self):
+        new_key, new_signer = self._other_key("new_key")
+        self._trust(new_signer, message="Revokes the old key.")
+        self.release("v1.1.0")
+        self._update()
+        self.restart.reset_mock()
+
+        self.change_upstream("# Not by Collectu.\n", "A release with the leaked key.")
+        self.release("v1.2.0")
+
+        self._assert_refused("The tag v1.2.0 is signed with a key that is not in security/allowed_signers.")
+
+    def test_a_bogus_newest_tag_does_not_hold_back_the_newest_release(self):
+        """
+        Anybody who can push can create v99.0.0. Ending the walk there would keep every Core on its version for good -
+        even once the tag is deleted upstream, since a Core keeps the tags it has fetched.
+        """
+        self.change_upstream()
+        self.release("v1.1.0")
+        self.change_upstream("# Not by Collectu.\n", "Unsigned.")
+        _git(self.upstream, "tag", "--annotate", "v99.0.0", "--message", "v99.0.0")
+
+        message, logs = self._update(level="ERROR")
+
+        self.assertEqual(message, "Successfully updated. 1 new commit(s) applied.")
+        self.assertEqual(self._installed(), _git(self.upstream, "rev-parse", "v1.1.0^{commit}"))
+        self.assertIn("A newer release is skipped, because its signature does not hold: The tag v99.0.0 is not "
+                      "signed.", logs)
+
+    def test_a_signed_release_after_a_bogus_one_is_installed(self):
+        self.change_upstream("# Not by Collectu.\n", "Unsigned.")
+        _git(self.upstream, "tag", "--annotate", "v1.1.0", "--message", "v1.1.0")
+        self.change_upstream()
+        self.release("v1.2.0")
+
+        message, _ = self._update(level="ERROR")
+
+        self.assertEqual(message, "Successfully updated. 2 new commit(s) applied.")
+        self.assertEqual(self._installed(), _git(self.upstream, "rev-parse", "v1.2.0^{commit}"))
+
+    def test_a_tag_on_a_commit_the_core_has_is_no_release_ahead(self):
+        """
+        Ahead by the history, not by the number: a v99.0.0 on an old commit neither installs nor blocks anything.
+        """
+        _git(self.upstream, "tag", "--annotate", "v99.0.0", "--message", "v99.0.0", "v1.0.0^{commit}")
+        self.change_upstream()
+        self.release("v1.1.0")
+
+        message, logs = self._update()
+
+        self.assertEqual(message, "Successfully updated. 1 new commit(s) applied.")
+        self.assertNotIn("v99.0.0", logs)
 
     def test_tags_that_are_no_releases_are_ignored(self):
         self.change_upstream()

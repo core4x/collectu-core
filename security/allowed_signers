@@ -1,16 +1,18 @@
 # The keys a release of Collectu Core is signed with, in the allowed signers format of ssh-keygen(1).
 #
 # A Core updates only to a release whose tag carries a valid signature of one of these keys
-# (src/utils/signed_releases.py), and it reads this file from the version it already runs - never
-# from the one it is about to install. So a release cannot vouch for itself: the first key has to
-# reach a Core with an update it already trusts, and a new key only through a release signed with
-# an old one. The release workflow refuses to tag with a key that is not listed here.
+# (src/utils/signed_releases.py). The first release ahead of it is checked against this file as the
+# Core already runs it - never as the release itself ships it - and each release that passes hands
+# its own copy on to the next (src/utils/updater.py). So a release cannot vouch for itself: a new
+# key is trusted only from a release signed with a key that was trusted before it. The release
+# workflow refuses to tag with a key that is not listed here.
 #
 # Only ed25519 keys are accepted. One line per key:
 #
 #   release@collectu.de namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...
 #
-# Rotating the key: add the new line next to the old one and release with the old key; switch the
-# secret RELEASE_SIGNING_KEY to the new key; remove the old line in a release signed with the new
-# one. See "Integrity of Updates" in SECURITY.md.
+# Keep a second, offline recovery key here as well - without one, a lost release key means updating
+# every Core by hand. Rotating the key, and what to do when it is lost or leaked: "Release key
+# handling" in SECURITY.md.
+release@collectu.de namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDK7FQ/onXpU/74Ga468WGZBfaKkrAN4h9ppdD0x2PKV collectu-core release recovery
 release@collectu.de namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINDhqLKhlwHQbHOtJ6vG7sNvROBho17KDMMJM8OmJOV4 collectu-core release signing
