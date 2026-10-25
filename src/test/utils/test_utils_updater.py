@@ -9,6 +9,7 @@ Releases are signed by git itself, with a key made for each test and trusted by 
 release workflow signs them. That takes git 2.34 and ssh-keygen; without them, the tests that release are skipped.
 """
 import os
+import pathlib
 import re
 import shutil
 import stat
@@ -640,16 +641,21 @@ class TestBlockedPort22(_RepositoryTestCase):
     """
     A network that blocks port 22 gets the interface from GitHub's ssh service on port 443.
 
-    The two addresses are two folders here: the one .gitmodules names, which does not exist - port 22, blocked - and
+    The two addresses are two file urls here: the one .gitmodules names, which leads nowhere - port 22, blocked - and
     the one the updater rewrites it to, which holds the interface. So what is tested is git's own rewriting, handed on
     to the clone inside the submodule, not a stand-in for it.
+
+    Urls rather than paths, as `git@github.com:` is one. Git refuses a local path that does not exist before it
+    rewrites anything - so with plain paths the tests passed on Windows, whose paths carry a colon and so read as urls,
+    and failed on Linux.
     """
 
     def prepare_upstream(self):
         os.environ.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "protocol.file.allow",
                            "GIT_CONFIG_VALUE_0": "always"})
-        self.port_22 = self.base.replace(os.sep, "/") + "/port22/"
-        self.port_443 = self.base.replace(os.sep, "/") + "/port443/"
+        self.port_22 = pathlib.Path(self.base).as_uri() + "/port22/"
+        self.port_443 = pathlib.Path(self.base).as_uri() + "/port443/"
+        self.nowhere = pathlib.Path(self.base).as_uri() + "/nowhere/"
         interface = os.path.join(self.base, "port443", "interface")
         os.makedirs(interface)
         _git(interface, "init", "--initial-branch=main")
@@ -699,7 +705,7 @@ class TestBlockedPort22(_RepositoryTestCase):
         _git(self.installation, "config", "--file", ".gitmodules", "submodule.src/interface.url",
              self.port_443 + "interface")
         utils.updater._GITHUB_SSH = self.port_443
-        utils.updater._GITHUB_SSH_PORT_443 = self.base.replace(os.sep, "/") + "/nowhere/"
+        utils.updater._GITHUB_SSH_PORT_443 = self.nowhere
 
         logs = self._check()
 
@@ -708,7 +714,7 @@ class TestBlockedPort22(_RepositoryTestCase):
         self.assertFalse(utils.updater._port_22_blocked)
 
     def test_the_interface_stays_empty_when_neither_port_works(self):
-        utils.updater._GITHUB_SSH_PORT_443 = self.base.replace(os.sep, "/") + "/nowhere/"
+        utils.updater._GITHUB_SSH_PORT_443 = self.nowhere
 
         logs = self._check()
 
