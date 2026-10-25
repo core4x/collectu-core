@@ -11,6 +11,7 @@ release workflow signs them. That takes git 2.34 and ssh-keygen; without them, t
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -241,18 +242,37 @@ class TestGitAccessToken(_RepositoryTestCase):
 
         self.assertTrue(utils.updater.check_git_access_token())
 
-        command = os.environ["GIT_SSH_COMMAND"]
-        self.assertIn('-i "{0}"'.format(token.replace("\\", "/")), command)
-        self.assertIn("-o IdentitiesOnly=yes", command)
+        # As the shell git runs the command in splits it.
+        arguments = shlex.split(os.environ["GIT_SSH_COMMAND"])
+        self.assertEqual(arguments[:3], ["ssh", "-i", token.replace("\\", "/")])
+        options = arguments[4::2]
+        self.assertIn("IdentitiesOnly=yes", options)
         # GitHub's own host keys and nothing else, rather than whichever server answers.
         known_hosts = os.path.join(self.installation, "security", "github_known_hosts").replace("\\", "/")
-        self.assertIn('-o UserKnownHostsFile="{0}"'.format(known_hosts), command)
-        self.assertIn("-o StrictHostKeyChecking=yes", command)
-        self.assertNotIn("StrictHostKeyChecking=no", command)
+        self.assertIn('UserKnownHostsFile="{0}"'.format(known_hosts), options)
+        self.assertIn("StrictHostKeyChecking=yes", options)
+        self.assertNotIn("StrictHostKeyChecking=no", options)
         # A port a firewall drops fails within seconds rather than the minutes of the TCP timeout.
-        self.assertIn(f"-o ConnectTimeout={config.GIT_SSH_CONNECT_TIMEOUT_SECONDS}", command)
+        self.assertIn(f"ConnectTimeout={config.GIT_SSH_CONNECT_TIMEOUT_SECONDS}", options)
         if os.name == "posix":
             self.assertEqual(stat.S_IMODE(os.stat(token).st_mode), 0o600)
+
+    def test_a_path_with_spaces_reaches_ssh_as_one_file(self):
+        """
+        UserKnownHostsFile takes a list of files separated by spaces. Quoted for the shell alone, the known hosts of an
+        installation in 'Collectu GitHub' reached ssh as two files that do not exist, and with strict checking no host
+        was known at all: "No ED25519 host key is known for github.com".
+        """
+        _write(os.path.join(self.installation, "git_access_token.txt"), "-----BEGIN OPENSSH PRIVATE KEY-----\n")
+        known_hosts = os.path.join(self.base, "Collectu GitHub", "security", "github_known_hosts")
+        _write(known_hosts, "github.com ssh-ed25519 AAAA\n")
+        self.patch_config(GITHUB_KNOWN_HOSTS_FILE=known_hosts)
+
+        self.assertTrue(utils.updater.check_git_access_token())
+
+        arguments = shlex.split(os.environ["GIT_SSH_COMMAND"])
+        # One argument for the shell, and quoted within it for ssh, which reads the value as one path.
+        self.assertIn('UserKnownHostsFile="{0}"'.format(pathlib.Path(known_hosts).resolve().as_posix()), arguments)
 
     def test_without_a_repository_there_is_nothing_to_update(self):
         self.enter_app_directory()

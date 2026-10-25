@@ -9,6 +9,7 @@ in GitHub's place, would otherwise be running code on every Core that updates. c
 this off for development, and the updater then follows the branch of the checkout as it used to.
 """
 import os
+import shlex
 import sys
 import logging
 from dataclasses import dataclass, field
@@ -99,13 +100,17 @@ def check_git_access_token() -> bool:
     if not known_hosts.is_file():
         logger.error("The known hosts of GitHub ({0}) are missing, so the interface submodule cannot be updated."
                      .format(known_hosts))
-    os.environ['GIT_SSH_COMMAND'] = (
-        f'ssh -i "{token_file}" '
-        f'-o UserKnownHostsFile="{known_hosts.as_posix()}" '
-        '-o StrictHostKeyChecking=yes '
-        '-o IdentitiesOnly=yes '
-        f'-o ConnectTimeout={config.GIT_SSH_CONNECT_TIMEOUT_SECONDS}'
-    )
+    # Git runs this in a shell, so every value is quoted for one. The known hosts are quoted once more, for ssh itself:
+    # UserKnownHostsFile takes a list of files separated by spaces, so an installation in 'Collectu GitHub' named two
+    # files that do not exist - and with strict checking, no host was known at all.
+    os.environ['GIT_SSH_COMMAND'] = " ".join([
+        "ssh",
+        "-i", shlex.quote(str(token_file)),
+        "-o", shlex.quote(f'UserKnownHostsFile="{known_hosts.as_posix()}"'),
+        "-o", "StrictHostKeyChecking=yes",
+        "-o", "IdentitiesOnly=yes",
+        "-o", f"ConnectTimeout={config.GIT_SSH_CONNECT_TIMEOUT_SECONDS}",
+    ])
     return True
 
 
