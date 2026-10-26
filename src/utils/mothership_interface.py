@@ -64,6 +64,31 @@ def _log_error_throttled(log_times: Dict[str, datetime], key: str, message: str)
     logger.error(message, exc_info=config.EXC_INFO)
 
 
+def _raise_for_status(response: requests.Response):
+    """
+    Raise for an error response as response.raise_for_status does - with what the mothership said about it.
+
+    requests names the status and the url, and the reason stayed in the body: the hub refuses the report of an app id
+    registered to another account with a 409 that says what to do about it, and the log said "409 Client Error:
+    Conflict". Only a detail that is a string is added, which is a message written for a person - the list of a
+    validation error echoes the request, which here is the whole report.
+
+    :param response: The response.
+    :raises requests.HTTPError: If the response is an error.
+    """
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        detail = body.get("detail") if isinstance(body, dict) else None
+        if not isinstance(detail, str) or not detail.strip():
+            raise
+        raise requests.HTTPError("{0} - {1}".format(error, detail.strip()), response=response) from error
+
+
 class DatabaseWorker:
     """
     A database worker to be thread safe during the file operations.
@@ -480,7 +505,7 @@ def _hub_login(session: requests.Session, log_times: Dict[str, datetime], addres
         # Test the token.
         response = session.post(url=config.HUB_TEST_TOKEN_ADDRESS,
                                 timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-        response.raise_for_status()
+        _raise_for_status(response)
         return True
     except Exception as e:
         _log_error_throttled(log_times, address + "_login",
@@ -515,7 +540,7 @@ def _report_hub():
                 response = session.post(url=f"{config.HUB_APP_ADDRESS}",
                                         timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                         json=json.loads(json.dumps(json_data, default=str)))
-                response.raise_for_status()
+                _raise_for_status(response)
                 # Only remember what was sent after a successful report, so failures are retried.
                 last_log_time = newest_log_time
                 last_configuration = sent_configuration
@@ -553,7 +578,7 @@ def _request_hub_tasks():
             try:
                 response = session.get(url=f'{config.HUB_TASK_ADDRESS}/{os.environ.get("APP_ID")}',
                                        timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT))
-                response.raise_for_status()
+                _raise_for_status(response)
                 json_response = response.json()
                 for task in json_response:
                     logger.info("Received task '{0}' from hub '{1}'."
@@ -606,7 +631,7 @@ def _report(mothership: str):
             response = session.post(url=f"{mothership}/api/v1/app",
                                     timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                     json=json_data)
-            response.raise_for_status()
+            _raise_for_status(response)
             # Only remember what was sent after a successful report, so failures are retried.
             last_log_time = newest_log_time
             last_configuration = sent_configuration
@@ -645,7 +670,7 @@ def _request_tasks(mothership):
             response = session.get(url=f"{mothership}/api/v1/task/app_id/{os.environ.get('APP_ID')}",
                                    timeout=(config.DEFAULT_REQUEST_TIMEOUT, config.DEFAULT_REQUEST_TIMEOUT),
                                    headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
-            response.raise_for_status()
+            _raise_for_status(response)
             json_response = response.json()
             for task in json_response:
                 logger.info("Received task '{0}' from mothership '{1}'."

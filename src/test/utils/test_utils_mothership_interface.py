@@ -47,7 +47,7 @@ class _Response:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise requests.HTTPError("{0} Error".format(self.status_code))
+            raise requests.HTTPError("{0} Error".format(self.status_code), response=self)
 
     def json(self):
         return self._body
@@ -56,7 +56,7 @@ class _Response:
 class _Session:
     """
     Stands in for the session of a reporting or requesting thread. Answers each request with the next of the given
-    answers - a response body, or an exception to raise.
+    answers - a response body, a _Response for one that is not a 200, or an exception to raise.
     """
 
     def __init__(self, gets: list = None, posts: list = None):
@@ -70,6 +70,8 @@ class _Session:
         answer = answers.pop(0) if answers else None
         if isinstance(answer, Exception):
             raise answer
+        if isinstance(answer, _Response):
+            return answer
         return _Response(answer)
 
     def get(self, url: str, timeout=None, headers=None):
@@ -316,6 +318,31 @@ class TestReportingToTheHub(_MothershipTestCase):
         self.assertEqual(len(reports), 2)
         self.assertIn("configuration", reports[1])
         self.assertEqual(session.urls("POST").count(config.HUB_TEST_TOKEN_ADDRESS), 2)
+
+    def test_why_the_hub_refused_a_report_is_logged(self):
+        """
+        The hub refuses the report of an app id registered to another account, and says what to do about it - which
+        requests leaves out of its error, so the log said no more than "409 Client Error: Conflict".
+        """
+        detail = "This app id is registered to another account. Delete the app there."
+        # Logging in, and the report that is refused.
+        session = _Session(posts=[None, _Response({"detail": detail}, status_code=409)])
+        with self.assertLogs(utils.mothership_interface.logger, level="ERROR") as logs:
+            self._run_cycles(utils.mothership_interface._report_hub, 1, session)
+
+        self.assertIn("409 Error - " + detail, logs.output[0])
+
+    def test_a_refused_report_is_not_echoed_into_the_log(self):
+        """
+        A validation error answers a list that repeats what was sent, which here is the whole report.
+        """
+        refused = {"detail": [{"loc": ["body", "latest_logs"], "msg": "Too long", "input": ["the-whole-report"]}]}
+        session = _Session(posts=[None, _Response(refused, status_code=422)])
+        with self.assertLogs(utils.mothership_interface.logger, level="ERROR") as logs:
+            self._run_cycles(utils.mothership_interface._report_hub, 1, session)
+
+        self.assertIn("422 Error", logs.output[0])
+        self.assertNotIn("the-whole-report", logs.output[0])
 
 
 class TestPeerMotherships(_MothershipTestCase):
