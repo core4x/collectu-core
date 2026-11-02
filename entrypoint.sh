@@ -10,6 +10,9 @@ REQUIRED_DIRS=(
     "/collectu-core/src/modules/outputs"
     "/collectu-core/src/modules/processors"
     "/collectu-core/src/interface"
+    # The git directory of the interface submodule. Its src/interface/.git only points here, so a volume on
+    # src/interface needs one here as well - or a recreated container leaves that pointer dangling.
+    "/collectu-core/.git/modules"
 )
 
 echo "Ensuring permissions for mounted volumes..."
