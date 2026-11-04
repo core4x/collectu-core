@@ -47,6 +47,9 @@ NO_CALLER: set[tuple[str, str]] = {
     ("POST", "/api/v1/login/access-token"),
     ("POST", "/api/v1/login/mfa"),
     ("POST", "/api/v1/login/refresh"),
+    # Signing in by approving it on the hub: started and collected with this app's own token.
+    ("POST", "/api/v1/login/hub/start"),
+    ("POST", "/api/v1/login/hub/poll"),
     ("POST", "/api/v1/logout"),
     # An app reports to a mothership, and fetches its tasks there, with nothing but its app id - as it does to the
     # hub, where that takes no permission either.

@@ -112,6 +112,13 @@ instead of a token, and the code is posted here to finish signing in."""
 HUB_REFRESH_TOKEN_ADDRESS: str = os.getenv("HUB_REFRESH_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/refresh")
 """The endpoint of the api for refreshing token."""
 
+HUB_APP_SIGN_IN_START_ADDRESS: str = os.getenv("HUB_APP_SIGN_IN_START_ADDRESS", f"{HUB_ADDRESS}/login/app/start")
+"""The endpoint of the api for starting a sign-in that is approved on the hub - what an account without a password
+(registered with Google, Microsoft or GitHub) signs in to this app with. Called with this app's own token."""
+
+HUB_APP_SIGN_IN_TOKEN_ADDRESS: str = os.getenv("HUB_APP_SIGN_IN_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/app/token")
+"""The endpoint of the api for collecting the session of an approved sign-in. Called with this app's own token."""
+
 HUB_ROLE_EFFECTIVE_ADDRESS: str = os.getenv("HUB_ROLE_EFFECTIVE_ADDRESS", f"{HUB_ADDRESS}/role/effective")
 """The endpoint of the api answering what a caller may do on an owner. Used for api authentication: what a hub account
 may do on this app is what it may do on the app's owner."""

@@ -36,9 +36,10 @@ def _allowed_commands() -> List[str]:
     """
     The commands a mothership is permitted to execute on this app.
 
-    An unset or empty ALLOWED_COMMANDS permits all commands in order to be backward compatible.
+    An unset or empty ALLOWED_COMMANDS permits none: a command runs only where the owner of the app granted it. The
+    settings.ini this app ships with grants all six (restart, start, stop, update, load, save).
 
-    :return: The allowed command names.
+    :return: The allowed command names, empty if none is permitted.
     """
     return [item.strip() for item in os.environ.get("ALLOWED_COMMANDS", "").split(",") if
             item] if os.environ.get("ALLOWED_COMMANDS", "") else []
