@@ -535,6 +535,22 @@ class TestLoadModules(_ModuleFolderTestCase):
         self.assertNotIn("outputs.test.broken_1", data_layer.registered_modules)
         self.assertIn("broken_1", "\n".join(logs.output))
 
+    def test_only_the_module_types_of_the_custom_module_folder_are_imported(self):
+        # A test of a module imports what it needs to run, which the app does not have to have.
+        self.write("custom/tests/test_collector_1.py", "import a_package_the_app_does_not_have\n")
+        self.write("custom/helpers.py", "# No module.\n")
+        with self.assertNoLogs(utils.plugin_interface.logger, level="WARNING"):
+            utils.plugin_interface.load_modules()
+        self.assertIn("outputs.test.collector_1", data_layer.registered_modules)
+        self.assertNotIn("modules.custom.helpers", sys.modules)
+
+    def test_only_the_module_types_of_the_module_folder_are_imported(self):
+        self.write("outputs/test/installed_1.py", OUTPUT_MODULE.format(description="Installed."))
+        self.write("scripts/update.py", "import a_package_the_app_does_not_have\n")
+        with self.assertNoLogs(utils.plugin_interface.logger, level="WARNING"):
+            utils.plugin_interface.load_modules()
+        self.assertEqual(data_layer.registered_modules["outputs.test.installed_1"].description, "Installed.")
+
     def test_without_a_custom_module_folder_none_is_loaded(self):
         os.environ.pop("CUSTOM_MODULE_FOLDER")
         self.assertIsNone(utils.plugin_interface.get_custom_module_folder())

@@ -48,6 +48,15 @@ Kept in step with `utils.helpers.MARKDOWN_EXTENSIONS` in hub-api, which converts
 docstrings when a module is published.
 """
 
+MODULE_TYPES = ("inputs", "outputs", "processors")
+"""
+The packages of a module folder that hold modules - the only files a module folder has imported.
+
+Everything else in it - tests, scripts, helpers - can never be registered, but used to be imported
+at every start all the same: the top-level code of a test then ran inside the app, and a test
+importing a package the app lacks logged a warning as if a module could not be imported.
+"""
+
 
 def module_docstring(module) -> str:
     """
@@ -293,23 +302,27 @@ def load_modules():
     """
     Load and register all available modules.
     """
-    # First: Load all modules from the general modules packages.
-    for importer, modname, ispackage in pkgutil.walk_packages(path=modules.__path__,
-                                                              prefix=modules.__name__ + '.',
-                                                              onerror=lambda x: None):
-        if not ispackage:
-            try:
-                module = importlib.import_module(modname)
-                modname = modname.replace("modules.", "").lower()
-                if not register_module(modname, module):
-                    logger.debug("Unknown module: {0}.".format(modname))
-            except Exception as e:
-                logger.warning("Could not import and register module '{0}': {1}".format(str(modname), str(e)),
-                               exc_info=config.EXC_INFO)
-        else:
-            # Here, we have all packages (folders with __init__.py file).
-            # logger.debug(modname)
-            pass
+    # First: Load all modules from the general modules packages. Only those of MODULE_TYPES: walking the whole
+    # modules package also walked into the custom module folder, if it has an __init__.py, and imported its tests.
+    for module_type in MODULE_TYPES:
+        paths = [os.path.join(path, module_type) for path in modules.__path__
+                 if os.path.isdir(os.path.join(path, module_type))]
+        for importer, modname, ispackage in pkgutil.walk_packages(path=paths,
+                                                                  prefix=modules.__name__ + '.' + module_type + '.',
+                                                                  onerror=lambda x: None):
+            if not ispackage:
+                try:
+                    module = importlib.import_module(modname)
+                    modname = modname.replace("modules.", "").lower()
+                    if not register_module(modname, module):
+                        logger.debug("Unknown module: {0}.".format(modname))
+                except Exception as e:
+                    logger.warning("Could not import and register module '{0}': {1}".format(str(modname), str(e)),
+                                   exc_info=config.EXC_INFO)
+            else:
+                # Here, we have all packages (folders with __init__.py file).
+                # logger.debug(modname)
+                pass
 
     # Second: Load (and overwrite if it already exists) all modules from the custom module folder if defined.
     custom_module_folder = get_custom_module_folder()
@@ -326,39 +339,38 @@ def load_modules():
             return
 
         package_path = pathlib.Path(top_package.__path__[0])
-        # Walk through the directory tree.
-        for dir_path, _, filenames in os.walk(package_path):
-            for filename in filenames:
-                if filename.endswith('.py') and filename != '__init__.py':
-                    relative_dir = os.path.relpath(dir_path, package_path)
-                    module_name = os.path.splitext(filename)[0]
-                    # Convert the file path to a module path.
-                    if relative_dir != '.':
-                        module_path = f"modules.{os.path.basename(package_path)}.{relative_dir.replace(os.sep, '.')}.{module_name}"
-                    else:
-                        module_path = f"modules.{os.path.basename(package_path)}.{module_name}"
-                    # Dynamically import the module. Wrapped like the general module loop
-                    # above: one custom module that fails to import used to abort the walk,
-                    # so every module after it in the folder went unregistered as well.
-                    logger.debug("Importing custom module: {0}".format(module_path))
-                    modname = module_path.split(".", 2)[-1].lower()
-                    try:
-                        module = importlib.import_module(module_path)
-                        module = importlib.reload(module)  # Required if it is just a hot-reload.
-                    except Exception as e:
-                        logger.warning("Could not import and register custom module '{0}': {1}"
-                                       .format(module_path, str(e)), exc_info=config.EXC_INFO)
-                        continue
+        # Walk through the directory tree of each module type (MODULE_TYPES), and nothing else of the folder.
+        for module_type in MODULE_TYPES:
+            for dir_path, _, filenames in os.walk(package_path / module_type):
+                for filename in filenames:
+                    if filename.endswith('.py') and filename != '__init__.py':
+                        relative_dir = os.path.relpath(dir_path, package_path)
+                        module_name = os.path.splitext(filename)[0]
+                        # Convert the file path to a module path.
+                        module_path = "modules.{0}.{1}.{2}".format(os.path.basename(package_path),
+                                                                   relative_dir.replace(os.sep, '.'), module_name)
+                        # Dynamically import the module. Wrapped like the general module loop
+                        # above: one custom module that fails to import used to abort the walk,
+                        # so every module after it in the folder went unregistered as well.
+                        logger.debug("Importing custom module: {0}".format(module_path))
+                        modname = module_path.split(".", 2)[-1].lower()
+                        try:
+                            module = importlib.import_module(module_path)
+                            module = importlib.reload(module)  # Required if it is just a hot-reload.
+                        except Exception as e:
+                            logger.warning("Could not import and register custom module '{0}': {1}"
+                                           .format(module_path, str(e)), exc_info=config.EXC_INFO)
+                            continue
 
-                    entries = module_registry_entries(modname, module)
-                    if not entries:
-                        logger.debug("Unknown module: {0}.".format(modname))
-                    for registry_key, module_class in entries:
-                        if registry_key in data_layer.registered_modules:
-                            logger.warning("A module with the name {0} was already registered and "
-                                           "is now overwritten with the one in your custom module folder ({1})."
-                                           .format(registry_key, os.environ.get("CUSTOM_MODULE_FOLDER")))
-                        data_layer.registered_modules[registry_key] = module_class
+                        entries = module_registry_entries(modname, module)
+                        if not entries:
+                            logger.debug("Unknown module: {0}.".format(modname))
+                        for registry_key, module_class in entries:
+                            if registry_key in data_layer.registered_modules:
+                                logger.warning("A module with the name {0} was already registered and "
+                                               "is now overwritten with the one in your custom module folder ({1})."
+                                               .format(registry_key, os.environ.get("CUSTOM_MODULE_FOLDER")))
+                            data_layer.registered_modules[registry_key] = module_class
 
     logger.info("Successfully registered {0} modules.".format(str(len(data_layer.registered_modules))))
 
