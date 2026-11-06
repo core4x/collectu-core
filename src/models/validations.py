@@ -420,14 +420,15 @@ class OneOf(Validation):
     """
     Checks if the value is one of the given possibilities.
 
-    The module gets the value as the possibilities spell it, whatever the case it was configured in. Modules compare
-    these values exactly and hand them to libraries, so 'sasl_ssl' accepted but left as it is would not be 'SASL_SSL'.
+    With `case_sensitive=False`, the module gets the value as the possibilities spell it, whatever the case it was
+    configured in. Modules compare these values exactly and hand them to libraries, so a value accepted but left as it
+    is would not be the possibility it stands for.
 
     :param possibilities: The given possibilities as list.
-    :param case_sensitive: If True, the case of a string has to match as well.
+    :param case_sensitive: If False, the case of a string does not matter.
     """
 
-    def __init__(self, possibilities: list, case_sensitive: bool = False):
+    def __init__(self, possibilities: list, case_sensitive: bool = True):
         self.possibilities = possibilities
         self.case_sensitive = case_sensitive
 
