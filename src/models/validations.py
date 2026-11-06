@@ -93,6 +93,7 @@ def validate_module(module):
         if validation_class and value is not None:
             try:
                 validation_class.validate(field_name=field.name, value=value)
+                setattr(module, field.name, validation_class.normalize(value))
             except ValidationError as e:
                 errors.extend(e.args[0])
             except Exception as e:
@@ -404,16 +405,58 @@ class Validation(ABC):
         """
         ...
 
+    def normalize(self, value: Any) -> Any:
+        """
+        Called after a successful validation. What is returned is the value the module gets.
+
+        :param value: The valid value of the field.
+
+        :returns: The value in the form the module works with.
+        """
+        return value
+
 
 class OneOf(Validation):
     """
     Checks if the value is one of the given possibilities.
 
+    The module gets the value as the possibilities spell it, whatever the case it was configured in. Modules compare
+    these values exactly and hand them to libraries, so 'sasl_ssl' accepted but left as it is would not be 'SASL_SSL'.
+
     :param possibilities: The given possibilities as list.
+    :param case_sensitive: If True, the case of a string has to match as well.
     """
 
-    def __init__(self, possibilities: list):
+    def __init__(self, possibilities: list, case_sensitive: bool = False):
         self.possibilities = possibilities
+        self.case_sensitive = case_sensitive
+
+    def _spelled(self, value: Any) -> Any:
+        """
+        Looks up how the possibilities spell a value. An exact match wins over one that differs in case.
+
+        :param value: The value.
+
+        :returns: The possibility the value stands for, or the value if there is none.
+        """
+        if self.case_sensitive or not isinstance(value, str) or value in self.possibilities:
+            return value
+        for possibility in self.possibilities:
+            if isinstance(possibility, str) and possibility.casefold() == value.casefold():
+                return possibility
+        return value
+
+    def normalize(self, value: Any) -> Any:
+        """
+        Called after a successful validation. What is returned is the value the module gets.
+
+        :param value: The valid value of the field.
+
+        :returns: The value as the possibilities spell it.
+        """
+        if type(value) == list:
+            return [self._spelled(val) for val in value]
+        return self._spelled(value)
 
     def validate(self, field_name: str, value: Any):
         """
@@ -426,11 +469,11 @@ class OneOf(Validation):
         """
         if type(value) == list:
             for val in value:
-                if val not in self.possibilities:
+                if self._spelled(val) not in self.possibilities:
                     raise ValidationError([f"The value of the field '{field_name}' has to be "
                                            f"one of '{self.possibilities}' but was '{val}'."])
         else:
-            if value not in self.possibilities:
+            if self._spelled(value) not in self.possibilities:
                 raise ValidationError([f"The value of the field '{field_name}' has to be "
                                        f"one of '{self.possibilities}' but was '{value}'."])
 

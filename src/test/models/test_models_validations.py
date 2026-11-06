@@ -316,6 +316,62 @@ class TestOneOf(unittest.TestCase):
         (message,) = _messages(validation, ["debug", "verbose"])
         self.assertIn("'verbose'", message)
 
+    def test_the_case_does_not_matter_by_default(self):
+        validation = models.validations.OneOf(["Crimson", "SASL_SSL"])
+        for value in ("Crimson", "crimson", "CRIMSON", "sasl_ssl", ["crimson", "Sasl_Ssl"]):
+            self.assertEqual(_messages(validation, value), [])
+        self.assertEqual(len(_messages(validation, "crimsonx")), 1)
+
+    def test_the_case_has_to_match_if_asked_for(self):
+        validation = models.validations.OneOf(["Crimson"], case_sensitive=True)
+        self.assertEqual(_messages(validation, "Crimson"), [])
+        self.assertEqual(len(_messages(validation, "crimson")), 1)
+        self.assertEqual(len(_messages(validation, ["Crimson", "CRIMSON"])), 1)
+        self.assertEqual(validation.normalize("crimson"), "crimson")
+
+    def test_possibilities_which_are_no_strings_are_compared_as_they_are(self):
+        validation = models.validations.OneOf([1, 2.5, True, "a"])
+        for value in (1, 2.5, True, "A"):
+            self.assertEqual(_messages(validation, value), [])
+        self.assertEqual(len(_messages(validation, 3)), 1)
+        self.assertEqual(len(_messages(validation, "1")), 1)
+
+    def test_a_value_is_normalized_to_the_spelling_of_the_possibilities(self):
+        validation = models.validations.OneOf(["Crimson", "SASL_SSL"])
+        self.assertEqual(validation.normalize("sasl_ssl"), "SASL_SSL")
+        self.assertEqual(validation.normalize(["CRIMSON", "sasl_ssl"]), ["Crimson", "SASL_SSL"])
+        self.assertEqual(validation.normalize(1), 1)
+
+    def test_an_exact_match_wins_over_one_differing_in_case(self):
+        validation = models.validations.OneOf(["a", "A"])
+        self.assertEqual(validation.normalize("A"), "A")
+        self.assertEqual(validation.normalize("a"), "a")
+
+    def test_the_module_gets_the_spelling_of_the_possibilities(self):
+        @dataclass
+        class Module:
+            protocol: str = field(metadata=dict(description="A protocol.",
+                                                validate=models.validations.OneOf(["PLAINTEXT", "SASL_SSL"])),
+                                  default="PLAINTEXT")
+            levels: List[str] = field(metadata=dict(description="Some levels.",
+                                                    validate=models.validations.OneOf(["Debug", "Info"])),
+                                      default_factory=list)
+
+        module = Module(protocol="sasl_ssl", levels=["debug", "INFO"])
+        models.validations.validate_module(module=module)
+        self.assertEqual((module.protocol, module.levels), ("SASL_SSL", ["Debug", "Info"]))
+
+    def test_a_dynamic_value_is_left_alone(self):
+        @dataclass
+        class Module:
+            protocol: str = field(metadata=dict(description="A protocol.",
+                                                validate=models.validations.OneOf(["PLAINTEXT"])),
+                                  default="PLAINTEXT")
+
+        module = Module(protocol="${local.protocol}")
+        models.validations.validate_module(module=module)
+        self.assertEqual(module.protocol, "${local.protocol}")
+
 
 class TestRegex(unittest.TestCase):
     """
