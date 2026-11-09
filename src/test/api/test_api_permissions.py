@@ -45,7 +45,6 @@ NO_CALLER: set[tuple[str, str]] = {
     ("GET", "/api/v1/capabilities"),
     ("GET", "/api/v1/version"),
     ("POST", "/api/v1/login/access-token"),
-    ("POST", "/api/v1/login/mfa"),
     ("POST", "/api/v1/login/refresh"),
     # Signing in by approving it on the hub: started and collected with this app's own token.
     ("POST", "/api/v1/login/hub/start"),

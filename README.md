@@ -191,6 +191,9 @@ protection (TLS termination, network-level access control, enabled authenticatio
 - Optional API/frontend authentication with local user management (`api_authentication` in `settings.ini`)
 - Hub accounts act on the local API/frontend with the permissions they hold at the hub: the roles of their
   organization membership, or the scopes of their api access token
+- Hub accounts sign in by approving the sign-in on the hub ("Sign in with Collectu"): their password is typed only
+  on the hub, over TLS, and never sent to the app. The local admin is the only account that signs in with a password
+  on the app itself
 - Configurable allowlist of remotely executable commands (`allowed_commands` in `settings.ini`)
 - Updates are only applied from the official git repository, when a user triggers them or - opt-in, per app - when
   the Collectu Hub sends them automatically (see below), and only releases whose signature the Core has verified are

@@ -1,9 +1,12 @@
 """
 Signing in to this app by approving it on the hub (`/login/hub/start`, `/login/hub/poll` of interface/api_v1/routers/v1/
-login.py) - what an account without a password, registered with Google, Microsoft or GitHub, signs in with.
+login.py) - how every hub account signs in here, with a password or with Google, Microsoft or GitHub.
 
 This app starts and collects the sign-in with its own token, holds the hub's secret for it in a cookie of the browser
-that started it, and is handed a session of whoever approved - set as cookies, as a sign-in with a password sets them.
+that started it, and is handed a session of whoever approved - set as cookies, as the local administrator's are.
+
+And the password form, which is the local administrator's alone: a hub password posted here is refused without
+reaching the hub, so that it never crosses the factory network to a Core.
 """
 import os
 import unittest
@@ -37,8 +40,11 @@ SESSION: dict = {"access_token": "hub-access", "refresh_token": "hub-refresh", "
 """The session of whoever approved."""
 
 
-@unittest.skipUnless(api_available, "The interface submodule or FastAPI is not available.")
-class TestHubSignIn(unittest.TestCase):
+class HubSignInTestCase(unittest.TestCase):
+    """
+    The routes of this app, with the hub stood in for: `answers` are what it answers next, `hub` the requests it was
+    sent.
+    """
 
     def setUp(self):
         patcher = mock.patch.dict(os.environ, ENVIRONMENT)
@@ -63,6 +69,10 @@ class TestHubSignIn(unittest.TestCase):
     def _poll(self, answer: dict):
         self.answers.append(FakeResponse(body=answer))
         return self.client.post("/api/v1/login/hub/poll")
+
+
+@unittest.skipUnless(api_available, "The interface submodule or FastAPI is not available.")
+class TestHubSignIn(HubSignInTestCase):
 
     def test_the_page_is_shown_the_code_and_never_the_secret(self):
         response = self._start()
@@ -115,6 +125,58 @@ class TestHubSignIn(unittest.TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.hub.assert_not_called()
+
+
+@unittest.skipUnless(api_available, "The interface submodule or FastAPI is not available.")
+class TestPasswordSignIn(HubSignInTestCase):
+    """
+    `/login/access-token`, which takes the local administrator's password and no other.
+    """
+
+    def _password(self, username: str = "someone@example.com", password: str = "the-hub-password"):
+        return self.client.post("/api/v1/login/access-token", data={"username": username, "password": password})
+
+    def test_the_local_administrator_signs_in_with_the_password(self):
+        response = self._password(username="admin", password="password")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIsNotNone(self.client.cookies.get("access_token_cookie"))
+        self.hub.assert_not_called()
+
+    def test_a_hub_password_is_refused_and_passed_on_to_nobody(self):
+        response = self._password()
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], login.NOT_THE_LOCAL_ADMINISTRATOR)
+        self.hub.assert_not_called()
+        self.assertIsNone(self.client.cookies.get("access_token_cookie"))
+
+    def test_a_wrong_password_of_the_local_administrator_is_refused(self):
+        self.assertEqual(self._password(username="admin", password="wrong").status_code, 401)
+        self.hub.assert_not_called()
+
+    def test_without_a_local_administrator_password_nobody_signs_in_with_one(self):
+        os.environ["LOCAL_ADMIN_PASSWORD"] = ""
+
+        self.assertEqual(self._password(username="admin", password="anything").status_code, 401)
+        self.hub.assert_not_called()
+
+    def test_there_is_no_second_factor_to_relay(self):
+        response = self.client.post("/api/v1/login/mfa", json={"mfa_token": "a-token", "code": "123456"})
+
+        self.assertIn(response.status_code, (404, 405))
+        self.hub.assert_not_called()
+
+    def test_a_session_of_the_hub_keeps_refreshing_on_the_device_of_this_browser(self):
+        self.answers.append(FakeResponse(body=SESSION))
+
+        response = self.client.post("/api/v1/login/refresh",
+                                    cookies={"refresh_token_cookie": "hub-refresh", "device_id_cookie": "the-device"})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        args, kwargs = self.hub.call_args
+        self.assertEqual(args[1], config.HUB_REFRESH_TOKEN_ADDRESS)
+        self.assertEqual(kwargs["cookies"], {"refresh_token_cookie": "hub-refresh", "device_id_cookie": "the-device"})
 
 
 if __name__ == "__main__":
