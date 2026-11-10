@@ -394,6 +394,128 @@ class TestRsaSignedTasks(unittest.TestCase):
             self.assertFalse(utils.security.verify_task_signature(task=task))
 
 
+@unittest.skipUnless(utils.security.ML_DSA_PUBLIC_KEYS, "The installed cryptography package has no ML-DSA.")
+class TestMlDsaSignedTasks(unittest.TestCase):
+    """
+    The hub may sign with a post-quantum key (ML-DSA, FIPS 204), which its key set publishes as RFC 9964 has it.
+
+    An app that does not know the key type refuses every task - the 'update' that would teach it included - so
+    this has to be in the field before the hub signs with such a key, not after.
+    """
+
+    PUBLIC_KEY_BYTES = {"ML-DSA-44": 1312, "ML-DSA-65": 1952, "ML-DSA-87": 2592}
+    """The parameter sets, with the length FIPS 204 fixes for a public key of each."""
+
+    @classmethod
+    def setUpClass(cls):
+        from cryptography.hazmat.primitives.asymmetric import mldsa
+        cls.private_keys = {"ML-DSA-44": mldsa.MLDSA44PrivateKey.generate(),
+                            "ML-DSA-65": mldsa.MLDSA65PrivateKey.generate(),
+                            "ML-DSA-87": mldsa.MLDSA87PrivateKey.generate()}
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"APP_ID": APP_ID})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        # The key is read from the key set as the hub serves it, so the whole way is covered: the task names a
+        # kid, the key set names the algorithm.
+        response = mock.Mock(**{"json.return_value": self._jwks()})
+        patcher = mock.patch.object(utils.security.requests, "get", return_value=response)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self._forget_keys()
+        self.addCleanup(self._forget_keys)
+
+    @staticmethod
+    def _forget_keys():
+        with utils.security._public_keys_lock:
+            utils.security._public_keys.clear()
+
+    def _jwks(self) -> dict:
+        """
+        :return: The key set, as the hub publishes ML-DSA keys.
+        """
+        return {"keys": [{"kty": "AKP", "alg": algorithm, "use": "sig", "kid": algorithm,
+                          "pub": _base64url_encode(key.public_key().public_bytes_raw())}
+                         for algorithm, key in self.private_keys.items()]}
+
+    def _task(self, algorithm: str) -> dict:
+        """
+        :param algorithm: The algorithm of the key the hub signed with.
+        :return: The signed task.
+        """
+        task = {"id": TASK_ID, "owner_id": "33333333-3333-3333-3333-333333333333", "app_id": APP_ID,
+                "command": "restart", "configuration": None, "git_access_token": None,
+                "issued_at": datetime.now(timezone.utc).isoformat(), "kid": algorithm}
+        # As the hub signs: the message as it is, with no context.
+        signature = self.private_keys[algorithm].sign(utils.security._signed_message(task=task))
+        task["signature_v2"] = _base64url_encode(signature)
+        return task
+
+    def test_a_key_of_every_parameter_set_is_read(self):
+        for algorithm, length in self.PUBLIC_KEY_BYTES.items():
+            with self.subTest(algorithm=algorithm):
+                public_key = utils.security.get_public_key(algorithm)
+                self.assertIsInstance(public_key, utils.security.ML_DSA_PUBLIC_KEYS[algorithm])
+                self.assertEqual(len(public_key.public_bytes_raw()), length)
+
+    def test_a_task_signed_with_ml_dsa_is_accepted(self):
+        for algorithm in self.private_keys:
+            with self.subTest(algorithm=algorithm):
+                self.assertTrue(utils.security.verify_task_signature(task=self._task(algorithm)))
+
+    def test_a_changed_task_signed_with_ml_dsa_is_rejected(self):
+        task = self._task("ML-DSA-65")
+        task["command"] = "update"
+        with self.assertLogs(utils.security.logger, level="ERROR") as logs:
+            self.assertFalse(utils.security.verify_task_signature(task=task))
+        self.assertIn("Task signature is invalid", logs.output[0])
+
+    def test_a_signature_of_another_key_is_rejected(self):
+        """
+        The key is the one the task's kid names, whatever signed it: a signature of ML-DSA-44 under the kid of
+        the ML-DSA-65 key is not that key's.
+        """
+        task = self._task("ML-DSA-44")
+        task["kid"] = "ML-DSA-65"
+        with self.assertLogs(utils.security.logger, level="ERROR"):
+            self.assertFalse(utils.security.verify_task_signature(task=task))
+
+    def test_a_cut_off_signature_is_rejected(self):
+        task = self._task("ML-DSA-65")
+        task["signature_v2"] = task["signature_v2"][:100]
+        with self.assertLogs(utils.security.logger, level="ERROR"):
+            self.assertFalse(utils.security.verify_task_signature(task=task))
+
+    def test_a_key_of_an_algorithm_that_is_not_ml_dsa_is_refused(self):
+        """'AKP' is the key type of every algorithm that names itself, not of ML-DSA alone."""
+        response = mock.Mock(**{"json.return_value": {"keys": [
+            {"kty": "AKP", "alg": "SLH-DSA-SHA2-128s", "kid": "other", "pub": "AQ"},
+            {"kty": "AKP", "kid": "nameless", "pub": "AQ"}]}})
+        with mock.patch.object(utils.security.requests, "get", return_value=response):
+            for kid in ("other", "nameless"):
+                with self.subTest(kid=kid):
+                    with self.assertRaisesRegex(ValueError, "Unsupported algorithm"):
+                        utils.security.get_public_key(kid)
+
+    def test_a_key_that_is_not_one_is_refused(self):
+        response = mock.Mock(**{"json.return_value": {"keys": [
+            {"kty": "AKP", "alg": "ML-DSA-65", "kid": "short", "pub": "AQ"}]}})
+        with mock.patch.object(utils.security.requests, "get", return_value=response):
+            with self.assertRaises(ValueError):
+                utils.security.get_public_key("short")
+
+    def test_an_app_whose_cryptography_predates_ml_dsa_says_what_it_needs(self):
+        """
+        Such an app keeps verifying the keys it always could. Of an ML-DSA key it can only say why not - which
+        is what stands in its log when the hub has switched and its tasks stop arriving.
+        """
+        with mock.patch.object(utils.security, "ML_DSA_PUBLIC_KEYS", {}), \
+                self.assertLogs(utils.security.logger, level="ERROR") as logs:
+            self.assertFalse(utils.security.verify_task_signature(task=self._task("ML-DSA-65")))
+        self.assertIn("version 48 or newer", logs.output[0])
+
+
 class TestTaskBody(unittest.TestCase):
     """
     What is signed, and what a task needs to carry before its signature is even looked at.

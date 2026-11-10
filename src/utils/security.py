@@ -46,7 +46,23 @@ except ImportError:
     if config.VERIFY_TASK_SIGNATURE:
         logger.error("Optional cryptography package not installed! Some features may not be supported.")
 
-PublicKeyType = Union[RSAPublicKey, EllipticCurvePublicKey] if cryptography_available else None
+# On its own: the module exists since cryptography 48, and a Core running an older one has to keep verifying the
+# keys it always could.
+try:
+    from cryptography.hazmat.primitives.asymmetric import mldsa
+
+    ML_DSA_PUBLIC_KEYS: dict = {"ML-DSA-44": mldsa.MLDSA44PublicKey,
+                                "ML-DSA-65": mldsa.MLDSA65PublicKey,
+                                "ML-DSA-87": mldsa.MLDSA87PublicKey}
+except ImportError:
+    ML_DSA_PUBLIC_KEYS: dict = {}
+"""
+The post-quantum keys the hub may sign with (ML-DSA, FIPS 204), by the 'alg' its key set names them with (RFC 9964).
+Empty if the installed cryptography package can not verify them.
+"""
+
+PublicKeyType = Union[RSAPublicKey, EllipticCurvePublicKey, *ML_DSA_PUBLIC_KEYS.values()] \
+    if cryptography_available else None
 
 
 def base64url_decode(data: str) -> bytes:
@@ -106,6 +122,14 @@ def get_public_key(kid: str) -> Optional[PublicKeyType]:
                 raise ValueError(f"Unsupported EC curve: {key['crv']}")
 
             public_key = EllipticCurvePublicNumbers(x=x, y=y, curve=curve).public_key()
+        elif key["kty"] == "AKP":
+            # A key type that names its algorithm instead of its parameters. The only ones read are ML-DSA's.
+            if key.get("alg") not in ("ML-DSA-44", "ML-DSA-65", "ML-DSA-87"):
+                raise ValueError(f"Unsupported algorithm: {key.get('alg')}")
+            if key["alg"] not in ML_DSA_PUBLIC_KEYS:
+                raise ValueError(f"The hub signed with {key['alg']}, which takes the cryptography package in "
+                                 f"version 48 or newer to verify. Update the packages of this app.")
+            public_key = ML_DSA_PUBLIC_KEYS[key["alg"]].from_public_bytes(base64url_decode(key["pub"]))
         else:
             raise ValueError(f"Unsupported key type: {key['kty']}")
 
@@ -282,6 +306,9 @@ def verify_task_signature(task: dict) -> bool:
                 message,
                 ec.ECDSA(hashes.SHA256())
             )
+        elif isinstance(public_key, tuple(ML_DSA_PUBLIC_KEYS.values())):
+            # Pure ML-DSA with an empty context, which is how the hub signs - there is nothing to choose.
+            public_key.verify(signature, message)
         else:
             logger.error("Invalid task: Unsupported key type.")
             return False

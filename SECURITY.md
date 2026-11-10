@@ -235,6 +235,8 @@ the Hub with the SHA-256 of its code, so a downloaded version can be checked aga
 that was reviewed. Commands pushed from the Hub (`restart`, `update`, `load`, …) carry an ES256
 signature that Collectu Core verifies against the Hub's published keys
 ([`/.well-known/jwks.json`](https://api.collectu.de/.well-known/jwks.json)) before executing.
+Collectu Core verifies a post-quantum ML-DSA signature (FIPS 204) as well, for the day the Hub
+signs with such a key; that takes the `cryptography` package in version 48 or newer.
 Verification is on by default; do not set the `VERIFY_TASK_SIGNATURE` environment variable to
 `0` outside of development.
 
