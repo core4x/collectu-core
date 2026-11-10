@@ -25,6 +25,18 @@ EXC_INFO: bool = os.getenv("EXC_INFO", "False").lower() in ("true", "1", "yes")
 NUMBER_OF_BUFFERED_LOGS: int = int(os.getenv("NUMBER_OF_BUFFERED_LOGS", 50))
 """The number of buffered logs."""
 
+PACKAGE_INSTALLER: str = os.getenv("PACKAGE_INSTALLER", "uv")
+"""
+What installs a third-party requirement while the app runs (utils.plugin_interface.installer_commands):
+
+- 'uv': uv, which is much faster, and pip where uv is missing or fails.
+- 'pip': pip alone. For a network set up for pip only - uv reads neither pip.conf nor PIP_INDEX_URL and brings its
+  own certificates -, where every installation would otherwise start with an attempt of uv that fails.
+
+This is the default. The installer reads the environment variable itself when it installs, so that it can be set as
+'package_installer' in the settings file as well, which is only read after this module.
+"""
+
 AUTOSAVE_NUMBER: int = int(os.getenv("AUTOSAVE_NUMBER", 10))
 """The number of autosave entries in the configuration database."""
 

@@ -744,14 +744,46 @@ class TestBlockedPort22(_RepositoryTestCase):
 
 
 class TestRestartApplication(unittest.TestCase):
+    """
+    The app restarts by replacing its process with a new one, started as it was itself.
+    """
 
-    def test_the_app_replaces_itself_with_a_new_process(self):
+    @staticmethod
+    def restart(platform: str, executable: str, argv: list[str]) -> tuple[mock.Mock, mock.Mock]:
+        """
+        Restarts the app as the given interpreter on the given platform would.
+
+        :returns: The mocks of os.execv and of the exit handler.
+        """
         with mock.patch.object(utils.updater.os, "execv") as execv, \
                 mock.patch.object(utils.updater.main, "exit_handler") as exit_handler, \
-                mock.patch.object(sys, "argv", ["main.py", "--cold"]):
+                mock.patch.object(sys, "platform", platform), \
+                mock.patch.object(sys, "executable", executable), \
+                mock.patch.object(sys, "argv", argv):
             utils.updater.restart_application()
+        return execv, exit_handler
+
+    def test_the_app_replaces_itself_with_a_new_process(self):
+        execv, exit_handler = self.restart("linux", "/opt/collectu core/venv/bin/python", ["main.py", "--cold"])
         exit_handler.assert_called_once_with()
-        execv.assert_called_once_with(sys.executable, [sys.executable, "main.py", "--cold"])
+        # A list of arguments is what a process is handed there: nothing is to be quoted.
+        execv.assert_called_once_with("/opt/collectu core/venv/bin/python",
+                                      ["/opt/collectu core/venv/bin/python", "main.py", "--cold"])
+
+    def test_on_windows_an_argument_with_a_space_is_quoted(self):
+        """
+        os.execv joins the arguments to one command line there, as they are. An interpreter below a folder with a
+        space in its name was split in two, and the new process ended looking for the second half as its script.
+        """
+        executable = "C:\\Program Files\\Collectu\\venv\\Scripts\\python.exe"
+        execv, _ = self.restart("win32", executable, ["main.py", "-c", "my configuration.yml"])
+        execv.assert_called_once_with(executable, ['"{0}"'.format(executable), "main.py", "-c",
+                                                   '"my configuration.yml"'])
+
+    def test_on_windows_an_argument_without_a_space_stays_as_it_is(self):
+        executable = "C:\\Collectu\\venv\\Scripts\\python.exe"
+        execv, _ = self.restart("win32", executable, ["main.py", "--cold"])
+        execv.assert_called_once_with(executable, [executable, "main.py", "--cold"])
 
 
 if __name__ == '__main__':

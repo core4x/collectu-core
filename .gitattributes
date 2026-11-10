@@ -8,6 +8,11 @@ Dockerfile text eol=lf
 .dockerignore text eol=lf
 .gitignore text eol=lf
 
+# Force CRLF for batch files, on every platform and in a downloaded archive: with LF alone,
+# cmd.exe can miss the labels a "goto" or "call" jumps to.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # Docker Compose files
 docker-compose*.yml text eol=lf
 compose*.yml text eol=lf

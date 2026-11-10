@@ -20,6 +20,9 @@ api_access_token.txt
 venv/
 .venv/
 
+# The process id of the app running in the background (bin/linux/start_local_background.sh).
+collectu.pid
+
 # Docker volumes.
 volumes/
 

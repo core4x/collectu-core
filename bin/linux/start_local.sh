@@ -1,23 +1,31 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Starts Collectu Core in this terminal and starts it again when it crashes.
+# Arguments are passed on to main.py. Ctrl+C stops the application.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.sh"
 
-# Get the script's directory (even if symlinked)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RESTART_DELAY=60
 
-# Change to that directory
-cd "$SCRIPT_DIR"
+require_venv
+if pid="$(background_pid)"; then
+    echo "Collectu Core is already running in the background (PID $pid). Stop it first: stop_local_background.sh" >&2
+    exit 1
+fi
 
-cd ../.. || { echo "Failed to change directory."; exit 1; }
+cd "$ROOT/src"
 
-cd src || { echo "Failed to change to 'src' directory."; exit 1; }
-
-while true
-do
+while true; do
     echo "App is starting..."
+    exit_code=0
+    "$PYTHON" main.py "$@" || exit_code=$?
 
-    source ../venv/bin/activate && python main.py
-    deactivate
+    # Exit code 0 is a stop somebody asked for (Ctrl+C, or a command line option which only prints).
+    # A restart after an update is none: the app replaces its process, which keeps running here.
+    if [ "$exit_code" -eq 0 ]; then
+        echo "App stopped."
+        exit 0
+    fi
 
-    echo "App crashed. Restarting..."
-
-    sleep 60
+    echo "App stopped unexpectedly (exit code $exit_code). Restarting in $RESTART_DELAY seconds. Press Ctrl+C to prevent that."
+    sleep "$RESTART_DELAY"
 done

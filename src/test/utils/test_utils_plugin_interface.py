@@ -11,6 +11,7 @@ import unittest
 from unittest import mock
 
 # Internal imports.
+import config
 import data_layer
 import modules
 import utils.plugin_interface
@@ -127,6 +128,11 @@ class TestInstallPluginRequirement(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"AUTO_INSTALL": "1"})
         patcher.start()
         self.addCleanup(patcher.stop)
+        # The default installer, whatever the environment the tests run in says.
+        os.environ.pop("PACKAGE_INSTALLER", None)
+        patcher = mock.patch.object(config, "PACKAGE_INSTALLER", "uv")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         # A stand-in for the uv package, so the tests do not depend on it being installed.
         self.uv = types.ModuleType("uv")
         self.uv.find_uv_bin = lambda: self.UV_BINARY
@@ -150,9 +156,18 @@ class TestInstallPluginRequirement(unittest.TestCase):
         Without --python, uv only installs into an activated venv or a .venv, and the Docker
         image's venv is neither.
         """
-        self.assertEqual([("uv", [self.UV_BINARY, "pip", "install", "--python", sys.executable, "six==1.17.0"]),
+        self.assertEqual([("uv", [self.UV_BINARY, "pip", "install", "--link-mode", "copy",
+                                  "--python", sys.executable, "six==1.17.0"]),
                           ("pip", [sys.executable, "-m", "pip", "install", "six==1.17.0"])],
                          utils.plugin_interface.installer_commands("six==1.17.0"))
+
+    def test_uv_copies_the_files_rather_than_linking_them_out_of_its_cache(self):
+        """
+        A hard link keeps the permissions of uv's cache, which lies in the profile of the user who installed:
+        on an installation several Windows users share, nobody else could read the package.
+        """
+        command = dict(utils.plugin_interface.installer_commands("six==1.17.0"))["uv"]
+        self.assertEqual("copy", command[command.index("--link-mode") + 1])
 
     def test_pip_alone_without_uv(self):
         with mock.patch.dict(sys.modules, {"uv": None}):  # Makes 'import uv' raise ImportError.
@@ -166,6 +181,34 @@ class TestInstallPluginRequirement(unittest.TestCase):
         self.uv.find_uv_bin = binary_not_found
         commands = utils.plugin_interface.installer_commands("six==1.17.0")
         self.assertEqual(["pip"], [installer for installer, _ in commands])
+
+    def test_pip_alone_where_the_setting_says_so(self):
+        """
+        Where the network is set up for pip only, every installation would otherwise begin with a uv that fails.
+        The setting arrives as an environment variable, from the settings file as from anywhere else.
+        """
+        for value in ("pip", " PIP "):
+            with self.subTest(value=value):
+                os.environ["PACKAGE_INSTALLER"] = value
+                commands = utils.plugin_interface.installer_commands("six==1.17.0")
+                self.assertEqual([("pip", [sys.executable, "-m", "pip", "install", "six==1.17.0"])], commands)
+
+    def test_pip_alone_where_the_environment_said_so_at_the_start(self):
+        with mock.patch.object(config, "PACKAGE_INSTALLER", "pip"):
+            commands = utils.plugin_interface.installer_commands("six==1.17.0")
+        self.assertEqual(["pip"], [installer for installer, _ in commands])
+
+    def test_an_empty_setting_is_the_default(self):
+        os.environ["PACKAGE_INSTALLER"] = ""  # 'package_installer =' in the settings file.
+        commands = utils.plugin_interface.installer_commands("six==1.17.0")
+        self.assertEqual(["uv", "pip"], [installer for installer, _ in commands])
+
+    def test_an_unknown_installer_is_reported_and_the_default_is_used(self):
+        os.environ["PACKAGE_INSTALLER"] = "conda"
+        with self.assertLogs(utils.plugin_interface.logger, level="WARNING") as logs:
+            commands = utils.plugin_interface.installer_commands("six==1.17.0")
+        self.assertEqual(["uv", "pip"], [installer for installer, _ in commands])
+        self.assertIn("conda", "\n".join(logs.output), "The value which was not understood is missing from the log.")
 
     def test_nothing_is_reinstalled_by_force(self):
         """
@@ -262,6 +305,19 @@ class TestRequirementIsInstalled(unittest.TestCase):
     def test_a_requirement_which_is_not_installed_is_not_satisfied(self):
         satisfied, message = utils.plugin_interface.requirement_is_installed("collectu-test-not-installed==1.0")
         self.assertEqual((satisfied, message), (False, "Requirement 'collectu-test-not-installed' is not installed."))
+
+    def test_a_requirement_whose_metadata_can_not_be_read_is_not_satisfied(self):
+        """
+        importlib.metadata gives None as the version of a package whose METADATA file this user may not read - a
+        package another Windows user installed by hard link. Parsing it raised "Invalid version: None", which no
+        caller expects of this function: it took the start of every module requiring the package down.
+        """
+        with mock.patch.object(importlib.metadata, "version", return_value=None):
+            for requirement in ("requests", "requests>=1.0"):
+                with self.subTest(requirement=requirement):
+                    satisfied, message = utils.plugin_interface.requirement_is_installed(requirement)
+                    self.assertFalse(satisfied)
+                    self.assertIn("its metadata can not be read", message)
 
     def test_a_malformed_requirement_is_not_satisfied(self):
         self.assertEqual(utils.plugin_interface.requirement_is_installed("requests>=>1"),

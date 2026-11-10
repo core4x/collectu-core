@@ -10,6 +10,7 @@ this off for development, and the updater then follows the branch of the checkou
 """
 import os
 import shlex
+import subprocess
 import sys
 import logging
 from dataclasses import dataclass, field
@@ -32,13 +33,31 @@ except Exception:
     git = None
 
 
+def restart_arguments() -> list[str]:
+    """
+    The arguments the application is started again with: the interpreter, and what it was started with.
+
+    On Windows each of them is quoted where it needs to be. A Windows process is not handed a list of
+    arguments but one command line, which os.execv builds by joining the arguments with spaces - as they
+    are, without quoting them. An interpreter below 'C:\\Program Files' or any other folder with a space in
+    its name was split in two that way: the new process took the second half for the script to run, did not
+    find it and ended, and the application was gone after every update instead of restarted.
+
+    :returns: The arguments for os.execv.
+    """
+    arguments = [sys.executable] + sys.argv
+    if sys.platform == "win32":
+        return [subprocess.list2cmdline([argument]) for argument in arguments]
+    return arguments
+
+
 def restart_application():
     """
     Restarts the application.
     """
     logger.info("Restarting application...")
     main.exit_handler()
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    os.execv(sys.executable, restart_arguments())
 
 
 def find_file_by_filename(searched_file: str) -> str | None:

@@ -94,6 +94,7 @@ services:
       - CONFIG=configuration.yml  # The filepath to the configuration file.
       - AUTO_START=1  # Load configuration file on start-up.
       - AUTO_INSTALL=1  # Automatically install third party requirements.
+      # - PACKAGE_INSTALLER=pip  # Install them with pip alone, instead of uv with pip as its fallback.
       - INITIAL_DOWNLOAD=1  # Automatically download modules from hub during first start.
       - AUTO_DOWNLOAD=1  # Automatically download modules if they do not exist locally.
       - API=1  # Start the api.

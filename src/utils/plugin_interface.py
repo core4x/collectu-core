@@ -159,6 +159,15 @@ def requirement_is_installed(package: str) -> tuple[bool, str]:
     except importlib.metadata.PackageNotFoundError:
         return False, "Requirement '{0}' is not installed.".format(pkg_name)
 
+    if installed_version is None:
+        # The package's .dist-info folder is there, but its METADATA file is missing or - the usual case -
+        # may not be read by this user: importlib.metadata swallows the PermissionError and reports no
+        # version. That is what a package looks like to every other Windows user once uv hard-linked it
+        # out of the cache of the user who installed it (see installer_commands). Parsing the None raised
+        # "Invalid version: None" out of the constructor of every module requiring the package.
+        return False, ("Requirement '{0}' is installed, but its metadata can not be read. The installation is "
+                       "damaged, or it belongs to another user and this one may not read it.".format(pkg_name))
+
     if not specifier or specifier.contains(parse_version(installed_version), prereleases=True):
         return True, "Requirement '{0}' is satisfied (installed: {1}).".format(package, installed_version)
 
@@ -180,21 +189,52 @@ def installer_commands(package: str) -> list[tuple[str, list[str]]]:
     activated venv or a .venv it finds and refuses otherwise - and the Docker image's venv is
     neither, it is only put on PATH.
 
+    uv is also told to copy the files into the environment (--link-mode copy) rather than to
+    hard-link them out of its cache, which is its default wherever both are on one volume. A hard
+    link is the same file under a second name, and so it keeps the permissions of the cache - which
+    lies in the profile of the user who ran the installation. On Windows no other user may read a
+    file in there: with an installation shared by several users, a package one of them installed
+    was unreadable for all the others, and they could neither import it nor replace it. A copy is
+    a new file, which inherits the permissions of the environment's folder, as with pip.
+
+    PACKAGE_INSTALLER=pip leaves uv out altogether (see config.PACKAGE_INSTALLER).
+
     :param package: The requirement string. It is passed on unchanged, so extras and specifiers
                     remain intact.
     :returns: A list of (installer name, command) pairs.
     """
     commands = []
-    # Imported here rather than with the optional imports above: an existing installation gets
-    # uv at start-up, through install_plugin_requirement, and this way uses it without a restart.
-    try:
-        import uv
-        commands.append(("uv", [uv.find_uv_bin(), "pip", "install", "--python", sys.executable, package]))
-    except (ImportError, FileNotFoundError):
-        # FileNotFoundError: the package is installed, but its binary could not be found.
-        pass
+    if package_installer() == "uv":
+        # Imported here rather than with the optional imports above: an existing installation gets
+        # uv at start-up, through install_plugin_requirement, and this way uses it without a restart.
+        try:
+            import uv
+            commands.append(("uv", [uv.find_uv_bin(), "pip", "install", "--link-mode", "copy",
+                                    "--python", sys.executable, package]))
+        except (ImportError, FileNotFoundError):
+            # FileNotFoundError: the package is installed, but its binary could not be found.
+            pass
     commands.append(("pip", [sys.executable, "-m", "pip", "install", package]))
     return commands
+
+
+def package_installer() -> str:
+    """
+    The installer requirements are installed with: 'uv' (with pip as its fallback) or 'pip' (alone).
+
+    Read from the environment at the time of the installation rather than once from config: the settings
+    file, where it can be set as 'package_installer', is loaded into the environment after config is imported.
+    A value left empty there is the default, and one that is neither is reported and is the default as well -
+    a typing error should not stop requirements from being installed.
+
+    :returns: 'uv' or 'pip'.
+    """
+    installer = os.environ.get("PACKAGE_INSTALLER", "").strip().lower() or config.PACKAGE_INSTALLER.strip().lower()
+    if installer not in ("uv", "pip"):
+        logger.warning("Unknown PACKAGE_INSTALLER '{0}': expected 'uv' or 'pip'. Using uv, and pip as its fallback."
+                       .format(installer))
+        return "uv"
+    return installer
 
 
 def install_plugin_requirement(package: str) -> int:

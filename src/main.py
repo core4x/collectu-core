@@ -36,8 +36,8 @@ if __name__ == "__main__":
         os.chdir(sys.path[0])
 
         # Check the python version.
-        if sys.version_info < (3, 10):
-            raise Exception("Python 3.10 or a more recent version is required.")
+        if sys.version_info < (3, 11):
+            raise Exception("Python 3.11 or a more recent version is required.")
 
         # Set up the logging.
         import utils.logging
