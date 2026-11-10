@@ -60,6 +60,50 @@ def restart_application():
     os.execv(sys.executable, restart_arguments())
 
 
+def trust_repository():
+    """
+    Tell git that the repository of the app, and the one of its interface submodule, may be used by this user.
+
+    Git refuses a repository whose folder belongs to somebody else ("detected dubious ownership"): one found by
+    accident, in a folder another user can write to, could carry a configuration or hooks that run commands as
+    whoever calls git there. An installation shared by several Windows users is exactly that - it belongs to the
+    one who installed it, or to the Administrators group -, so for everybody else the version was unknown and every
+    update check failed.
+
+    This repository is no accident, though. The app is executing the code in this folder already, so whoever can
+    write to its .git can as well write to its Python files: trusting the one adds nothing to what running the
+    other gives away.
+
+    The exception is made in the environment of this process (GIT_CONFIG_COUNT and its keys), which every git it
+    starts inherits - also the ones git starts itself, inside the submodule. Nothing is written to the git
+    configuration of the user, where git's own advice (`git config --global --add safe.directory`) would put it for
+    every program, and for good. Git honours safe.directory from the environment as of 2.38; an older one refuses
+    as before. Entries that are already there, from whoever started the app or from an earlier call, are kept.
+    """
+    root = Path("..").resolve()
+    count = int(os.environ.get("GIT_CONFIG_COUNT") or 0)
+    entries = {(os.environ.get(f"GIT_CONFIG_KEY_{index}"), os.environ.get(f"GIT_CONFIG_VALUE_{index}"))
+               for index in range(count)}
+    # The submodule is a repository of its own to git, which asks who owns it separately.
+    for directory in (root, root / "src" / "interface"):
+        # With forward slashes on every platform, which is how git writes the path it compares this with.
+        entry = ("safe.directory", directory.as_posix())
+        if entry not in entries:
+            os.environ[f"GIT_CONFIG_KEY_{count}"], os.environ[f"GIT_CONFIG_VALUE_{count}"] = entry
+            count += 1
+    os.environ["GIT_CONFIG_COUNT"] = str(count)
+
+
+def _repository():
+    """
+    Open the repository of the app, for this user to use (see trust_repository).
+
+    :returns: The repository in the parent directory of the working directory.
+    """
+    trust_repository()
+    return git.Repo("..")
+
+
 def find_file_by_filename(searched_file: str) -> str | None:
     """
     Finds a file by name in the parent directory.
@@ -186,7 +230,7 @@ def determine_version(repo=None) -> str:
     try:
         # Asked of the repo object rather than a shell, so it resolves against the repository
         # instead of the working directory, and 'v*' cannot be glob-expanded on the way.
-        repo = repo if repo is not None else git.Repo("..")
+        repo = repo if repo is not None else _repository()
         data_layer.version = repo.git.describe(
             "--abbrev=7", "--always", "--long", "--match", "v*", "main").strip()
     except Exception as e:
@@ -312,7 +356,7 @@ def _check_for_updates(with_submodule: bool = True) -> _Update:
     """
     update = _Update()
     try:
-        repo = git.Repo("..")
+        repo = _repository()
 
         # A checkout without a 'main' branch should still get its update check and its submodules.
         if determine_version(repo) != "unknown":
@@ -384,7 +428,7 @@ def update_app() -> str:
         return message
 
     try:
-        repo = git.Repo("..")
+        repo = _repository()
 
         # --- AUTO-UPDATER POLICY ---
         # Never merge on dirty trees. Never prompt. Remote always updates.

@@ -4,10 +4,6 @@
 set -euo pipefail
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.sh"
 
-# What the app prints, for looking at it later: tail -f logs/console.log
-# It starts empty with every start. The app writes its log files (warnings and above) itself.
-CONSOLE_LOG="$ROOT/logs/console.log"
-
 require_venv
 # Not an error: this script is also what an autostart entry runs, which may find the app running.
 if pid="$(background_pid)"; then
@@ -16,17 +12,18 @@ if pid="$(background_pid)"; then
 fi
 
 cd "$ROOT/src"
-mkdir -p "$ROOT/logs"
 
 echo "App is starting..."
-nohup "$PYTHON" main.py "$@" > "$CONSOLE_LOG" 2>&1 &
+# Nothing the app prints is kept. It writes its log to logs/Logs.log itself (warnings and above, a new
+# file every day, five days kept), and a file the shell redirects into is never rotated.
+nohup "$PYTHON" main.py "$@" > /dev/null 2>&1 &
 echo $! > "$PID_FILE"
 
 # Without a terminal, a start which fails goes unseen. So look again after a moment.
 sleep 3
 if ! pid="$(background_pid)"; then
     rm -f "$PID_FILE"
-    echo "App failed to start. See $CONSOLE_LOG" >&2
+    echo "App failed to start. See logs/Logs.log, or run start_local.sh to watch it." >&2
     exit 1
 fi
 echo "App started (PID $pid). Stop it with stop_local_background.sh."

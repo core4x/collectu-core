@@ -61,8 +61,17 @@ def _can_sign() -> bool:
     """
     if shutil.which("git") is None or shutil.which("ssh-keygen") is None or Ed25519PrivateKey is None:
         return False
+    return _git_version() >= (2, 34)
+
+
+def _git_version() -> tuple[int, ...]:
+    """
+    The major and minor version of the installed git, or (0, 0) without one.
+    """
+    if shutil.which("git") is None:
+        return 0, 0
     version = re.search(r"(\d+)\.(\d+)", subprocess.run(["git", "--version"], capture_output=True, text=True).stdout)
-    return version is not None and tuple(int(part) for part in version.groups()) >= (2, 34)
+    return tuple(int(part) for part in version.groups()) if version else (0, 0)
 
 
 def _signing_key(path: str) -> str:
@@ -204,6 +213,59 @@ class TestVersion(_RepositoryTestCase):
         self.enter_app_directory()
         with self.assertLogs(utils.updater.logger, level="WARNING"):
             self.assertEqual(utils.updater.determine_version(), "unknown")
+
+
+class TestRepositoryOfAnotherUser(_RepositoryTestCase):
+    """
+    An installation several users share belongs to one of them, or to the Administrators group. Git refuses the
+    repository to everybody else ("detected dubious ownership") - unless it is told that this one is meant.
+    """
+
+    def setUp(self):
+        super().setUp()
+        if _git_version() < (2, 38):
+            self.skipTest("git honours safe.directory from the environment as of 2.38.")
+        # The remote is a repository on this disk here, which git asks about as well when it is fetched from. It
+        # stands for the entries whoever started the app has made, which are to be kept.
+        os.environ.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory",
+                           "GIT_CONFIG_VALUE_0": self.upstream.replace(os.sep, "/")})
+        # Git's own switch for its tests: every repository is treated as somebody else's.
+        os.environ["GIT_TEST_ASSUME_DIFFERENT_OWNER"] = "1"
+
+    def test_git_refuses_the_repository_by_itself(self):
+        with self.assertRaises(subprocess.CalledProcessError) as raised:
+            _git(self.installation, "describe", "--always")
+        self.assertIn("dubious ownership", raised.exception.stderr)
+
+    def test_the_version_is_determined(self):
+        commit = _git(self.upstream, "rev-parse", "--short=7", "HEAD")
+        self.assertEqual(utils.updater.determine_version(), f"v1.0.0-0-g{commit}")
+
+    def test_updates_are_checked_for(self):
+        self.change_upstream()
+        with self.assertLogs(utils.updater.logger, level="INFO") as logs:
+            utils.updater.check_for_updates(with_submodule=False)
+        self.assertNotIn("Update check failed", "\n".join(logs.output))
+        self.assertNotIn("dubious ownership", "\n".join(logs.output))
+
+    def test_the_app_and_its_interface_are_trusted_and_nothing_else(self):
+        utils.updater.trust_repository()
+        root = self.installation.replace(os.sep, "/")
+        entries = [(os.environ[f"GIT_CONFIG_KEY_{index}"], os.environ[f"GIT_CONFIG_VALUE_{index}"])
+                   for index in range(int(os.environ["GIT_CONFIG_COUNT"]))]
+        self.assertEqual(entries, [("safe.directory", self.upstream.replace(os.sep, "/")),
+                                   ("safe.directory", root),
+                                   # A repository of its own to git, which the update of the submodule runs in.
+                                   ("safe.directory", root + "/src/interface")])
+
+    def test_the_repository_is_trusted_once(self):
+        for _ in range(3):
+            utils.updater.trust_repository()
+        self.assertEqual(os.environ["GIT_CONFIG_COUNT"], "3")
+
+    def test_nothing_is_written_to_the_git_configuration_of_the_user(self):
+        utils.updater.determine_version()
+        self.assertEqual(_read(os.environ["GIT_CONFIG_GLOBAL"]), "")
 
 
 class TestCheckForUpdates(_RepositoryTestCase):

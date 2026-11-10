@@ -22,8 +22,6 @@ chmod +x bin/linux/*.sh
 `stop_local_background.sh` stops that process and no other. It asks the app to end and only ends it by
 force if it has not done so after 30 seconds.
 
-What the app prints is written to `logs/console.log`, which starts empty with every start:
-
-```
-tail -f logs/console.log
-```
+The app writes its log to `logs/Logs.log` itself (warnings and above, a new file every day, five days
+kept). What it prints to the terminal is not kept in the background. To watch everything the app
+prints, start it with `start_local.sh`.
