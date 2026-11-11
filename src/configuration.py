@@ -8,6 +8,7 @@ import copy
 import logging
 import time
 import pathlib
+import re
 import traceback
 import uuid
 import threading
@@ -41,6 +42,61 @@ try:
 except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
+
+
+_SURROGATE = re.compile("[\ud800-\udfff]")
+"""A utf-16 surrogate: half of a character outside the basic multilingual plane, such as an emoji."""
+
+
+def _join_surrogates(value: Any) -> Any:
+    """
+    Join the surrogate pairs in the strings of a deserialized configuration into the characters they encode.
+
+    A string holding surrogates can not be encoded as utf-8, so the api fails to return a configuration containing one.
+    A surrogate without its other half is replaced with U+FFFD.
+
+    :param value: The deserialized configuration, or a part of it.
+
+    :returns: The value, with every string in it repaired.
+    """
+    if isinstance(value, str):
+        if _SURROGATE.search(value):
+            return value.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+        return value
+    if isinstance(value, list):
+        return [_join_surrogates(item) for item in value]
+    if isinstance(value, dict):
+        return {_join_surrogates(key): _join_surrogates(item) for key, item in value.items()}
+    return value
+
+
+def parse_configuration(content: str) -> Any:
+    """
+    Deserialize a configuration given as json or yaml.
+
+    Json is tried first. Most configurations arrive as the output of `json.dumps`, which escapes a character outside the
+    basic multilingual plane, such as an emoji, as a surrogate pair: "\\ud83d\\udfe2". PyYAML decodes each half of the
+    pair on its own and leaves two lone surrogates in the string. The api then fails to serialize the configuration, and
+    `yaml.dump` writes the halves into the configuration file as "\\uD83D\\uDFE2", so they come back on every load.
+    The json parser joins the pair. PyYAML (yaml 1.1) also misreads some json, such as the number `1e3` as a string.
+
+    Strings are repaired after parsing either way, so that a file which was written with lone surrogates loads
+    correctly as well.
+
+    :param content: The configuration as json or yaml.
+
+    :returns: The deserialized configuration.
+
+    :raises Exception: If the content is neither valid json nor valid yaml.
+    """
+    try:
+        return _join_surrogates(json.loads(content))
+    except (ValueError, TypeError):
+        pass
+    if not yaml:
+        logger.warning("Yaml package is not installed, so a configuration can only be read as json.")
+        raise Exception("Content seems not to be a valid json.")
+    return _join_surrogates(yaml.load(stream=content, Loader=yaml.FullLoader))
 
 
 def configuration_path(filename: str) -> pathlib.Path:
@@ -469,14 +525,7 @@ class Configuration:
         configuration = []
         errors = defaultdict(list)
         try:
-            if yaml:
-                configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
-            else:
-                logger.warning("Yaml package is not installed. Trying to deserialize content using json...")
-                try:
-                    configuration_dict = json.loads(content)
-                except Exception as e:
-                    raise Exception("Content seems not to be a valid json.")
+            configuration_dict = parse_configuration(content)
 
             # If the file was empty, we create a default value.
             if not configuration_dict:
@@ -969,14 +1018,7 @@ class Configuration:
         :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
         """
         try:
-            if yaml:
-                configuration_dict = yaml.load(stream=content, Loader=yaml.FullLoader)
-            else:
-                logger.warning("Yaml package is not installed. Trying to deserialize content using json...")
-                try:
-                    configuration_dict = json.loads(content)
-                except Exception as e:
-                    raise Exception("Content seems not to be a valid json.")
+            configuration_dict = parse_configuration(content)
 
             configuration_dict = self._configuration_dict + configuration_dict
             configuration, configuration_dict, errors = self.validate_configuration_from_stream(

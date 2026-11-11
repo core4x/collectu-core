@@ -138,6 +138,42 @@ class TestValidateConfiguration(AppTestCase):
         self.assertEqual(configuration[0].measurement, "pressure")
         self.assertEqual(configuration[0].links, ["collector"])
 
+    def test_an_emoji_in_json_is_read_as_one_character(self):
+        """
+        json.dumps escapes an emoji as a surrogate pair, which PyYAML decodes into two lone surrogates - a string the
+        api can not encode as utf-8, so the editor showed no configuration at all.
+        """
+        _, configuration_dict, errors = self._validate([dict(PIPELINE[0], measurement="\U0001F7E2 ok"), PIPELINE[1]])
+        self.assertEqual(errors, {})
+        self.assertEqual(configuration_dict[0]["measurement"], "\U0001F7E2 ok")
+        json.dumps(configuration_dict, ensure_ascii=False).encode("utf-8")
+
+    def test_lone_surrogates_in_a_yaml_file_are_joined(self):
+        """
+        A file saved before the above was fixed holds the halves as escapes, "\\uD83D\\uDFE2", and loads repaired.
+        """
+        content = ("- id: source\n"
+                   "  module_name: inputs.test.source_1.variable\n"
+                   "  version: 1\n"
+                   "  measurement: \"\\uD83D\\uDFE2 ok\"\n"
+                   "  links:\n"
+                   "    - collector\n"
+                   "- id: collector\n"
+                   "  module_name: outputs.test.collector_1\n"
+                   "  version: 1\n")
+        configuration, configuration_dict, errors = self._validate(content)
+        self.assertEqual(errors, {})
+        self.assertEqual(configuration[0].measurement, "\U0001F7E2 ok")
+        self.assertEqual(configuration_dict[0]["measurement"], "\U0001F7E2 ok")
+
+    def test_a_surrogate_without_its_other_half_is_replaced(self):
+        _, configuration_dict, errors = self._validate('[{"id": "source", "module_name": '
+                                                       '"inputs.test.source_1.variable", "version": 1, '
+                                                       '"measurement": "\\ud83d ok", "links": ["collector"]}, '
+                                                       + json.dumps(PIPELINE[1]) + ']')
+        self.assertEqual(errors, {})
+        self.assertEqual(configuration_dict[0]["measurement"], "� ok")
+
     def test_an_empty_configuration_is_valid(self):
         for content in ("", "[]", "null"):
             with self.subTest(content=content):
@@ -431,6 +467,16 @@ class TestSaveConfiguration(AppTestCase):
         self.configuration.save_configuration_as_file("saved.yml", json.dumps(PIPELINE))
         self.assertEqual(self.configuration.load_configuration_from_file("saved.yml"), {})
         self.assertEqual(self.configuration.configuration_dict, PIPELINE)
+
+    def test_an_emoji_is_saved_and_loads_again(self):
+        pipeline = [dict(PIPELINE[0], measurement="\U0001F7E2 ok"), PIPELINE[1]]
+        success, message = self.configuration.save_configuration_as_file("saved.yml", json.dumps(pipeline))
+        self.assertTrue(success, message)
+        with open(os.path.join(self.root, "configuration", "saved.yml"), encoding="utf-8") as file:
+            self.assertNotIn("\\uD83D", file.read(), "The emoji is not written as two surrogate halves.")
+        self.assertEqual(self._read("saved.yml"), pipeline)
+        self.assertEqual(self.configuration.load_configuration_from_file("saved.yml"), {})
+        self.assertEqual(self.configuration.configuration_dict, pipeline)
 
     def test_a_file_which_could_not_be_written_completely_is_removed(self):
         with mock.patch.object(yaml, "dump", side_effect=OSError("No space left on device.")):
