@@ -142,9 +142,12 @@ class _RepositoryTestCase(GlobalStateTestCase):
         _write(os.path.join(self.upstream, "src", "main.py"), "# Version 1.\n")
         _write(os.path.join(self.upstream, "README.md"), "Collectu\n")
         _write(os.path.join(self.upstream, "security", "github_known_hosts"), "github.com ssh-ed25519 AAAA\n")
-        # The key releases are signed with, trusted from the first commit on.
+        # The key releases are signed with, trusted from the first commit on. Made with cryptography alone: what
+        # takes git 2.34 and ssh-keygen is signing a release with it (`release`), not trusting it - the app verifies
+        # in python. Trusted only where signing is possible, the release a test refuses for being unsigned was
+        # refused for an empty signers file instead.
         self.release_key = os.path.join(self.base, "release_key")
-        self.signers = _signing_key(self.release_key) if _can_sign() else ""
+        self.signers = _signing_key(self.release_key) if Ed25519PrivateKey is not None else ""
         _write(os.path.join(self.upstream, "security", "allowed_signers"), self.signers)
         # As in the repository of the app: the token files, the settings and the configurations are the
         # installation's own, which the update stashes nothing of.
@@ -225,10 +228,17 @@ class TestRepositoryOfAnotherUser(_RepositoryTestCase):
         super().setUp()
         if _git_version() < (2, 38):
             self.skipTest("git honours safe.directory from the environment as of 2.38.")
-        # The remote is a repository on this disk here, which git asks about as well when it is fetched from. It
-        # stands for the entries whoever started the app has made, which are to be kept.
+        # The remote is a repository on this disk here, which git asks about as well when it is fetched from. Older
+        # git (2.43 among them) asks about it by its git directory, and does not hand the entries of the environment
+        # on to the process that reads it - so it is trusted where a user trusts a repository, in the global
+        # configuration, as git's own refusal says to. A real installation fetches from github.
+        upstream = self.upstream.replace(os.sep, "/")
+        _write(os.environ["GIT_CONFIG_GLOBAL"],
+               f"[safe]\n\tdirectory = {upstream}\n\tdirectory = {upstream}/.git\n")
+        self.global_configuration = _read(os.environ["GIT_CONFIG_GLOBAL"])
+        # An entry of the environment stands for those whoever started the app has made, which are to be kept.
         os.environ.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory",
-                           "GIT_CONFIG_VALUE_0": self.upstream.replace(os.sep, "/")})
+                           "GIT_CONFIG_VALUE_0": upstream})
         # Git's own switch for its tests: every repository is treated as somebody else's.
         os.environ["GIT_TEST_ASSUME_DIFFERENT_OWNER"] = "1"
 
@@ -265,7 +275,8 @@ class TestRepositoryOfAnotherUser(_RepositoryTestCase):
 
     def test_nothing_is_written_to_the_git_configuration_of_the_user(self):
         utils.updater.determine_version()
-        self.assertEqual(_read(os.environ["GIT_CONFIG_GLOBAL"]), "")
+        utils.updater.check_for_updates(with_submodule=False)
+        self.assertEqual(_read(os.environ["GIT_CONFIG_GLOBAL"]), self.global_configuration)
 
 
 class TestCheckForUpdates(_RepositoryTestCase):

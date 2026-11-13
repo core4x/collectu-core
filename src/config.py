@@ -105,7 +105,8 @@ HUB_APP_ADDRESS: str = os.getenv("HUB_APP_ADDRESS", f"{HUB_ADDRESS}/app")
 """The endpoint of the api for reporting app data. Used in utils.mothership_interface."""
 
 HUB_GET_APP_ADDRESS: str = os.getenv("HUB_GET_APP_ADDRESS", f"{HUB_ADDRESS}/app/app_id")
-"""The endpoint of the api for getting app data. Used for api authentication."""
+"""The endpoint of the api for getting app data. Used for api authentication: `{this}/{APP_ID}/access` answers who a
+caller is to this app and what they may do on its owner."""
 
 HUB_TASK_ADDRESS: str = os.getenv("HUB_TASK_ADDRESS", f"{HUB_ADDRESS}/task/app_id")
 """The endpoint of the api for requesting tasks. Used in utils.mothership_interface."""
@@ -122,10 +123,6 @@ HUB_APP_SIGN_IN_START_ADDRESS: str = os.getenv("HUB_APP_SIGN_IN_START_ADDRESS", 
 
 HUB_APP_SIGN_IN_TOKEN_ADDRESS: str = os.getenv("HUB_APP_SIGN_IN_TOKEN_ADDRESS", f"{HUB_ADDRESS}/login/app/token")
 """The endpoint of the api for collecting the session of an approved sign-in. Called with this app's own token."""
-
-HUB_ROLE_EFFECTIVE_ADDRESS: str = os.getenv("HUB_ROLE_EFFECTIVE_ADDRESS", f"{HUB_ADDRESS}/role/effective")
-"""The endpoint of the api answering what a caller may do on an owner. Used for api authentication: what a hub account
-may do on this app is what it may do on the app's owner."""
 
 HUB_IDENTITY_CACHE_SECONDS: int = int(os.getenv("HUB_IDENTITY_CACHE_SECONDS", 30))
 """How long this app takes for granted what the hub answered about a caller, in seconds. Used for api authentication.

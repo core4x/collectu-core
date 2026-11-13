@@ -149,32 +149,22 @@ class FakeResponse:
             raise requests.HTTPError(response=self)
 
 
-def hub(permissions: list[str], owner_id: str = OWNER_ID, app_owner_id: str | None = OWNER_ID, calls=None,
-        knows_access: bool = True):
+def hub(permissions: list[str], app_owner_id: str | None = OWNER_ID, calls=None):
     """
-    A stand-in for the hub's answers about a caller.
+    A stand-in for the hub's answer about a caller (`GET /app/app_id/{app_id}/access`).
 
     :param permissions: What the hub answers the caller may do.
-    :param owner_id: The owner /role/effective answers about.
     :param app_owner_id: The owner of the app, as the hub answers it.
     :param calls: A list to record each request's (url, params, headers) in.
-    :param knows_access: Whether the hub has the route that answers everything at once. One that does not is asked
-        for the app and for /role/effective, as every hub was.
     :return: A replacement for the session's `get`.
     """
 
     def get(url, params=None, headers=None, timeout=None):
         if calls is not None:
             calls.append((url, params, dict(headers or {})))
-        if knows_access and url.endswith("/app/app_id/" + APP_ID + "/access"):
+        if url.endswith("/app/app_id/" + APP_ID + "/access"):
             return FakeResponse(body={"app_id": APP_ID, "owner_id": app_owner_id, "username": "alice",
                                       "is_api_access_token": False, "permissions": permissions})
-        if url.endswith("/app/app_id/" + APP_ID):
-            return FakeResponse(body={"app_id": APP_ID, "owner_id": app_owner_id})
-        if url.endswith("/role/effective"):
-            return FakeResponse(body={"owner_id": owner_id, "permissions": permissions})
-        if url.endswith("/login/test-token"):
-            return FakeResponse(body={"username": "alice"})
         return FakeResponse(status_code=404, body={"detail": "Not Found"})
 
     return get
@@ -381,40 +371,6 @@ class TestIdentity(unittest.TestCase):
         self.assertEqual(headers["Authorization"], "Bearer hub-token")
         self.assertEqual((caller.owner_id, caller.username), (OWNER_ID, "alice"))
 
-    def test_a_hub_without_that_answer_is_asked_about_the_owner_of_this_app(self):
-        """
-        A hub older than this app: the app, which says whose it is, then what the caller may do on that owner.
-        """
-        calls = []
-        self._hub(permissions=VIEWER, calls=calls, knows_access=False)
-        caller = deps.get_identity(token="hub-token")
-        (access_url, _, _), (app_url, _, _), (effective_url, effective_params, _) = calls
-        self.assertTrue(access_url.endswith("/access"))
-        self.assertTrue(app_url.endswith("/app/app_id/" + APP_ID))
-        self.assertTrue(effective_url.endswith("/role/effective"))
-        self.assertEqual(effective_params, {"owner_id": OWNER_ID})
-        self.assertEqual(caller.permissions, ["app:read", "module:read", "configuration:read"])
-
-    def test_a_hub_without_that_answer_is_not_asked_for_it_every_time(self):
-        calls = []
-        self._hub(permissions=VIEWER, calls=calls, knows_access=False)
-        deps.get_identity(token="first")
-        del calls[:]
-        deps.get_identity(token="second")
-        self.assertEqual([url.rsplit("/", 1)[-1] for url, _, _ in calls], [APP_ID, "effective"])
-
-    def test_an_app_the_hub_does_not_know_is_not_taken_for_a_route_it_does_not_have(self):
-        """
-        Both are a 404. Only the framework's own means the route is missing; the hub's says which app is.
-        """
-        calls = []
-        unknown = FakeResponse(status_code=404, body={"detail": "The app with this app_id does not exist."})
-        with mock.patch.object(deps.session, "get", side_effect=lambda url, **kwargs: calls.append(url) or unknown):
-            with self.assertRaises(HTTPException) as refused:
-                deps.get_identity(token="hub-token")
-        self.assertEqual(refused.exception.status_code, 403)
-        self.assertEqual(len(calls), 1)
-
     def test_what_the_hub_answered_is_kept_for_a_moment(self):
         """
         A page of the interface makes a dozen requests, and each used to ask the hub twice.
@@ -556,23 +512,15 @@ class TestIdentity(unittest.TestCase):
                                              requests.cookies.MockRequest(request))
         self.assertEqual(len(deps.session.cookies), 0)
 
-    def test_an_answer_about_another_owner_is_not_taken(self):
-        self._hub(permissions=VIEWER, owner_id="33333333-3333-3333-3333-333333333333", knows_access=False)
+    def test_an_answer_without_an_owner_is_not_taken(self):
+        """
+        The permissions are the caller's on the owner of this app; an answer that does not say which owner they are
+        about is no answer.
+        """
+        self._hub(permissions=VIEWER, app_owner_id=None)
         with self.assertRaises(HTTPException) as refused:
             deps.get_identity(token="hub-token")
         self.assertEqual(refused.exception.status_code, 502)
-
-    def test_an_app_without_an_owner_is_not_asked_about(self):
-        """
-        Asked without an owner, the hub answers for the caller's own account instead - somebody's permissions, but not
-        on the owner of this app.
-        """
-        calls = []
-        self._hub(permissions=VIEWER, app_owner_id=None, calls=calls)
-        with self.assertRaises(HTTPException) as refused:
-            deps.get_identity(token="hub-token")
-        self.assertEqual(refused.exception.status_code, 502)
-        self.assertEqual(len(calls), 1)
 
     def test_what_went_wrong_at_the_hub_is_answered_as_what_it_is(self):
         cases = [(FakeResponse(status_code=401, body={}), 401),
@@ -649,9 +597,10 @@ class TestEnforcement(unittest.TestCase):
         restart.assert_called_once()
 
     def test_test_token_shows_what_the_caller_may_do(self):
-        self._as(identity("configuration:read", "configuration:create", "ai:use"))
-        with mock.patch.object(deps.session, "get", side_effect=hub(permissions=[])):
-            response = self.client.get("/api/v1/login/test-token")
+        caller = identity("configuration:read", "configuration:create", "ai:use")
+        caller.username = "alice"
+        self._as(caller)
+        response = self.client.get("/api/v1/login/test-token")
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["username"], "alice")
