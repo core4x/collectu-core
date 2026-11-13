@@ -90,6 +90,7 @@ services:
       # - WORK_CENTER=Line 1
       # - WORK_UNIT=Press 3
       # - EQUIPMENT_MODULE=Hydraulics
+      # - APP_ID=<uuid>  # The id this app is known by at the hub. Generated on the first start and kept in ./data.
       - APP_DESCRIPTION=core1  # The name of the app.
       - CONFIG=configuration.yml  # The filepath to the configuration file.
       - AUTO_START=1  # Load configuration file on start-up.
@@ -119,6 +120,11 @@ services:
       - './git_access_token.txt:/collectu-core/git_access_token.txt'  # Delete this, if not used.
       - './api_access_token.txt:/collectu-core/api_access_token.txt'  # Delete this, if specified as env var.
 ```
+
+> **Keep the `./data` volume.** The id this app is known by at the hub (`app_id`) is generated on the first start
+> and remembered there. A container that is recreated without it - or started with `docker run` and no volume - comes
+> back as a new app: it registers a second time, and a device token of the hub, which is bound to the app it first
+> reported as, refuses it. Setting `APP_ID` yourself does the same job.
 
 Generate an API access token in your user dashboard on [collectu.de](https://collectu.de),
 enter it in the compose file (or mount it as a file, see below), and start:

@@ -25,6 +25,56 @@ import utils.plugin_interface
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
+APP_ID_PATH: str = os.path.join("..", "data", "app_id")
+"""
+Where the app id is kept besides the settings file: in the data directory.
+
+The settings file is part of the checkout, and in a container that is the image. An app id generated on the first
+start was written into a file the next container did not have: recreated - for an update, or with `docker compose
+down` and `up` - the app came back with a new id, registered at the hub a second time, and left the first one behind
+as a record that never reports again. With a device token of the hub, which is bound to the app it first reported
+as, the new app is refused altogether. The data directory is what a container keeps (the volume the compose file of
+the readme mounts), so the id is remembered there too.
+"""
+
+
+def _remembered_app_id() -> str | None:
+    """
+    The app id this installation ran with before, as the data directory remembers it.
+
+    :returns: The app id, or None if none is remembered. As it was written: an app id is whatever the app was given,
+        not necessarily one this app generated.
+    """
+    try:
+        with open(APP_ID_PATH, encoding=config.ENCODING) as file:
+            value = file.read().strip()
+        return value or None
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        logger.warning("Could not read the app id remembered in {0}: {1}".format(APP_ID_PATH, str(e)))
+        return None
+
+
+def _remember_app_id(app_id: str) -> None:
+    """
+    Remember the app id this installation runs with in the data directory, wherever it came from - so that it is
+    still known when the settings file or the environment variable that named it is gone.
+
+    A failure is reported and nothing more: the app runs with its id either way.
+
+    :param app_id: The app id.
+    """
+    if _remembered_app_id() == app_id:
+        return
+    try:
+        os.makedirs(os.path.dirname(APP_ID_PATH), exist_ok=True)
+        with open(APP_ID_PATH, "w", encoding=config.ENCODING) as file:
+            file.write(app_id + "\n")
+    except OSError as e:
+        logger.warning("Could not remember the app id in {0}: {1}. In a container it is lost with the container "
+                       "unless APP_ID is set or the data directory is a volume.".format(APP_ID_PATH, str(e)))
+
 
 def _normalize_package_name(name: str) -> str:
     """
@@ -122,14 +172,18 @@ def load_and_process_settings_file() -> bool:
 
         # Set the environment variables if not already defined.
         for name, value in parser.items('env'):
-            # If no app_id is set, we generate one.
+            # If no app_id is set, we take the one this installation ran with before, or generate one.
             if name.lower() == "app_id" and not os.environ.get(name.upper(), False):
                 if not bool(value.strip()):
-                    logger.info(f"Welcome to {config.APP_NAME}.")
-                    value = str(uuid.uuid4())
+                    value = _remembered_app_id()
+                    if value:
+                        logger.info(f"Took the app_id this installation ran with before from {APP_ID_PATH}: {value}")
+                    else:
+                        logger.info(f"Welcome to {config.APP_NAME}.")
+                        value = str(uuid.uuid4())
+                        logger.info(f"Auto-generated app_id: {value}")
                     parser.set('env', name.lower(), value)
                     updated = True
-                    logger.info(f"Auto-generated app_id: {value}")
                 os.environ[name.upper()] = value
                 data_layer.settings[name.upper()] = str(value)
             elif name.lower() == "local_admin_password" and not os.environ.get(name.upper(), False):
@@ -166,6 +220,10 @@ def load_and_process_settings_file() -> bool:
             elif os.environ.get(name.upper(), False):
                 # Already set environment variables.
                 data_layer.settings[name.upper()] = os.environ.get(name.upper())
+
+        # Whichever named it - the environment, the settings file, or this start: the data directory remembers it.
+        if os.environ.get("APP_ID", False):
+            _remember_app_id(os.environ["APP_ID"])
 
         # Safe GIT_ACCESS_TOKEN (base64-encoded) as file.
         # Guarded on its own, so a malformed token cannot abort the rest of the initialization

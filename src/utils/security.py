@@ -9,6 +9,7 @@ import json
 import base64
 import os
 import threading
+import time
 
 # Internal imports.
 import config
@@ -20,10 +21,17 @@ logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 """The logger instance."""
 
 _public_keys: dict = {}
-"""The public keys already fetched from the jwks endpoint, by kid."""
+"""The public keys already fetched from the jwks endpoint, by kid - each with when it was read (_monotonic)."""
 
 _public_keys_lock = threading.Lock()
 """Guards _public_keys, which the hub and the peer task workers share."""
+
+_monotonic = time.monotonic
+"""The clock the keys are aged by: one that never jumps, as the wall clock does when it is corrected."""
+
+
+class KeyNotInKeySet(ValueError):
+    """The key set of the hub was read and does not hold the key: one it never had, or one it removed."""
 
 # Third-party imports (optional).
 try:
@@ -80,20 +88,55 @@ def base64url_decode(data: str) -> bytes:
 
 def get_public_key(kid: str) -> Optional[PublicKeyType]:
     """
-    Fetch JWKS and return the public key matching the given kid.
+    Return the public key of the hub matching the given kid, from its key set.
 
     Keys are cached by kid. A signing key is long-lived, while this is called once per task
     received from the hub - so without the cache every task cost an extra round trip, on the
     thread that is supposed to be polling for the next one.
 
+    Not for ever, though: a key is read again after config.HUB_JWKS_CACHE_SECONDS. It used to be kept until this app
+    restarted, and a key the hub had removed from its key set - because it leaked - went on verifying tasks here,
+    which is the one case removing it is for. Read again and not found, it is forgotten and the task refused.
+
+    While the key set can not be read - the hub is unreachable, or answers an error - the key last seen stays: a
+    task is handed out once, and an unreachable key set must not drop it. That a key is gone is only ever learned
+    from a key set that was read.
+
     :param kid: The id of the key.
     :return: The public key.
+    :raises KeyNotInKeySet: If the key set does not hold the key.
     """
     with _public_keys_lock:
         cached = _public_keys.get(kid)
-    if cached is not None:
-        return cached
+    if cached is not None and _monotonic() - cached[1] < config.HUB_JWKS_CACHE_SECONDS:
+        return cached[0]
 
+    try:
+        public_key = _read_public_key(kid)
+    except KeyNotInKeySet:
+        with _public_keys_lock:
+            _public_keys.pop(kid, None)
+        raise
+    except Exception as e:
+        if cached is None:
+            raise
+        logger.warning("Could not read the key set of the hub again ({0}): {1}. The key '{2}' is used as it was "
+                       "last read.".format(config.HUB_JWKS_URL, str(e), kid))
+        return cached[0]
+
+    with _public_keys_lock:
+        _public_keys[kid] = (public_key, _monotonic())
+    return public_key
+
+
+def _read_public_key(kid: str) -> PublicKeyType:
+    """
+    Fetch the key set of the hub and read the key with the given kid from it.
+
+    :param kid: The id of the key.
+    :return: The public key.
+    :raises KeyNotInKeySet: If the key set does not hold the key.
+    """
     # A timeout is essential: this runs on the task worker thread, and an unbounded read
     # would park task processing until the connection eventually died on its own.
     resp = requests.get(config.HUB_JWKS_URL,
@@ -133,11 +176,9 @@ def get_public_key(kid: str) -> Optional[PublicKeyType]:
         else:
             raise ValueError(f"Unsupported key type: {key['kty']}")
 
-        with _public_keys_lock:
-            _public_keys[kid] = public_key
         return public_key
 
-    raise ValueError(f"No key found for kid={kid}.")
+    raise KeyNotInKeySet(f"No key found for kid={kid}.")
 
 
 _accepted_task_ids: OrderedDict = OrderedDict()

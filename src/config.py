@@ -127,6 +127,21 @@ HUB_ROLE_EFFECTIVE_ADDRESS: str = os.getenv("HUB_ROLE_EFFECTIVE_ADDRESS", f"{HUB
 """The endpoint of the api answering what a caller may do on an owner. Used for api authentication: what a hub account
 may do on this app is what it may do on the app's owner."""
 
+HUB_IDENTITY_CACHE_SECONDS: int = int(os.getenv("HUB_IDENTITY_CACHE_SECONDS", 30))
+"""How long this app takes for granted what the hub answered about a caller, in seconds. Used for api authentication.
+
+Every request of a hub account used to cost two requests to the hub. Now the hub is asked once per caller and this
+long: a page of the interface loads with one question instead of dozens, and a right taken away at the hub is gone
+here after this time at the latest. 0 asks the hub on every request again."""
+
+HUB_IDENTITY_GRACE_SECONDS: int = int(os.getenv("HUB_IDENTITY_GRACE_SECONDS", 300))
+"""How long past HUB_IDENTITY_CACHE_SECONDS the last answer of the hub about a caller still counts while the hub can
+not be reached, in seconds - never past the expiry the caller's own token names.
+
+Without it, whoever was working on this app was thrown out the moment its connection to the hub dropped, although
+nothing about them had changed. It only ever applies when the hub gives no answer: a caller the hub refuses is
+refused here at once. 0 switches it off."""
+
 HUB_LLM_DOCS_ADDRESS: str = os.getenv("HUB_LLM_DOCS_ADDRESS", "https://collectu.de/docs/llms.txt")
 """Sitemap for LLM friendly docs from Collectu."""
 
@@ -140,6 +155,14 @@ side that writes it."""
 
 HUB_JWKS_URL: str = os.getenv("HUB_JWKS_URL", "https://api.collectu.de/.well-known/jwks.json")
 """The jwks url of the hub for validating signatures."""
+
+HUB_JWKS_CACHE_SECONDS: int = int(os.getenv("HUB_JWKS_CACHE_SECONDS", 3600))
+"""How long a key of the hub is used without reading its key set again, in seconds.
+
+A key was kept until this app restarted. One the hub had removed from its key set - because it leaked - went on
+verifying tasks on every app that had ever seen it, which is exactly the case removing it is for. Read again after
+this time, a removed key stops being trusted. While the key set can not be read, the key last seen stays: an
+unreachable key set must not drop the tasks the hub hands out once."""
 
 VERIFY_TASK_SIGNATURE: bool = os.getenv("VERIFY_TASK_SIGNATURE", "True").lower() in ("true", "1", "yes")
 """Verify the task signature using the HUB_JWKS_URL."""

@@ -50,6 +50,9 @@ class HubSignInTestCase(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, ENVIRONMENT)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # What the hub answered about a caller is kept for a moment - not from one test to the next.
+        deps.forget_identity()
+        self.addCleanup(deps.forget_identity)
         # Who the session is, asked as after every sign-in.
         patcher = mock.patch.object(deps.session, "get", side_effect=hub(permissions=VIEWER))
         patcher.start()

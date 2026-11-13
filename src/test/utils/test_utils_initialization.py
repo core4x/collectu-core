@@ -197,6 +197,69 @@ class TestSettingsFile(GlobalStateTestCase):
         self.assertEqual(self._read_settings()["app_id"], app_id)
         self.assertEqual(data_layer.settings["APP_ID"], app_id)
 
+    def _remembered(self) -> str | None:
+        path = os.path.join(self.root, "data", "app_id")
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding=config.ENCODING) as file:
+            return file.read().strip()
+
+    def test_a_generated_app_id_is_remembered_in_the_data_directory(self):
+        """
+        The settings file is part of the image of a container, and the data directory is what the container keeps.
+        """
+        self._write_settings(app_id="")
+        utils.initialization.load_and_process_settings_file()
+        self.assertEqual(self._remembered(), os.environ["APP_ID"])
+
+    def test_a_recreated_container_keeps_its_app_id(self):
+        """
+        A new container starts from the settings file of the image, which names no app id. It used to generate a new
+        one: the app registered at the hub a second time, and a device token bound to the first refused it.
+        """
+        self._write_settings(app_id="")
+        utils.initialization.load_and_process_settings_file()
+        first = os.environ.pop("APP_ID")
+        # The container is recreated: the settings file is the image's again, the data directory is still there.
+        self._write_settings(app_id="")
+        with self.assertLogs(config.APP_NAME.lower(), level="INFO") as logs:
+            self.assertTrue(utils.initialization.load_and_process_settings_file())
+        self.assertEqual(os.environ["APP_ID"], first)
+        self.assertEqual(self._read_settings()["app_id"], first)
+        self.assertEqual(data_layer.settings["APP_ID"], first)
+        self.assertFalse(any("Auto-generated app_id" in line for line in logs.output))
+
+    def test_an_app_id_which_is_given_is_remembered_and_wins(self):
+        """
+        Named in the environment or in the settings file, that is the app id - and what is remembered follows it, so
+        it is still known when whatever named it is gone.
+        """
+        with open(os.path.join(self.root, "data", "app_id"), "w", encoding=config.ENCODING) as file:
+            file.write("an-older-id\n")
+        for source in ("environment", "settings"):
+            with self.subTest(source=source):
+                os.environ.pop("APP_ID", None)
+                if source == "environment":
+                    self._write_settings(app_id="")
+                    os.environ["APP_ID"] = "press-3"
+                    expected = "press-3"
+                else:
+                    self._write_settings()
+                    expected = "11111111-1111-1111-1111-111111111111"
+                utils.initialization.load_and_process_settings_file()
+                self.assertEqual(os.environ["APP_ID"], expected)
+                self.assertEqual(self._remembered(), expected)
+
+    def test_an_app_id_which_can_not_be_remembered_is_reported_and_used_all_the_same(self):
+        self._write_settings(app_id="")
+        os.rmdir(os.path.join(self.root, "data"))
+        with open(os.path.join(self.root, "data"), "w", encoding=config.ENCODING) as file:
+            file.write("Not a directory.")
+        with self.assertLogs(config.APP_NAME.lower(), level="WARNING") as logs:
+            utils.initialization.load_and_process_settings_file()
+        self.assertEqual(str(uuid.UUID(os.environ["APP_ID"])), os.environ["APP_ID"])
+        self.assertTrue(any("Could not remember the app id" in line for line in logs.output))
+
     def test_a_missing_password_is_generated_and_written_back_but_never_logged(self):
         """
         Logs are mirrored into the reports sent to the hub and to every mothership.
