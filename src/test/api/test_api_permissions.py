@@ -680,6 +680,18 @@ class TestHubProxy(unittest.TestCase):
         self._proxy(identity("mqtt:subscribe"), "GET", "mqtt/subscribe/plant/line 1/#")
         self.assertTrue(self.forward.call_args.kwargs["url"].endswith("/mqtt/subscribe/plant/line%201/%23"))
 
+    def test_a_hub_that_can_not_be_reached_is_a_503_not_a_crash(self):
+        """
+        A page tells "the hub does not know this" from "the hub could not be asked" by it - and no traceback is
+        logged for every request made while the network is down.
+        """
+        for failure in (requests.ConnectionError(), requests.Timeout()):
+            with self.subTest(failure=type(failure).__name__):
+                self.forward.side_effect = failure
+                with self.assertRaises(HTTPException) as raised:
+                    self._proxy(identity("module:read"), "GET", "module/get_by_module_name")
+                self.assertEqual(raised.exception.status_code, 503)
+
 
 if __name__ == '__main__':
     unittest.main()
