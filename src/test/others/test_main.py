@@ -49,7 +49,7 @@ class TestMain(unittest.TestCase):
 
     def setUp(self):
         with open(os.path.join(self.root, config.SETTINGS_FILENAME), "w", encoding="utf-8") as file:
-            file.write("[env]\napp_id =\nlocal_admin_password =\napp_description = smoke-test\n"
+            file.write("[env]\nlocal_admin_password =\napp_description = smoke-test\n"
                        "auto_install = 0\nreport_to_hub = 0\napi = 0\nmotherships = []\n")
 
     @staticmethod
@@ -83,7 +83,11 @@ class TestMain(unittest.TestCase):
         parser = configparser.ConfigParser()
         parser.read(os.path.join(self.root, config.SETTINGS_FILENAME), encoding="utf-8")
         settings = parser["env"]
-        self.assertEqual(str(uuid.UUID(settings["app_id"])), settings["app_id"])
+        # The app id is kept in the data directory, and the settings file names it no longer.
+        self.assertNotIn("app_id", settings)
+        with open(os.path.join(self.root, "data", "app_id"), encoding="utf-8") as file:
+            app_id = file.read().strip()
+        self.assertEqual(str(uuid.UUID(app_id)), app_id)
         password = settings["local_admin_password"]
         self.assertEqual(len(password), 16)
         self.assertNotIn(password, result.stdout + result.stderr)

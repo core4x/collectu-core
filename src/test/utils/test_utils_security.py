@@ -340,6 +340,72 @@ class TestPublicKeys(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No key found for kid=missing."):
             utils.security.get_public_key("missing")
 
+    def _clock(self) -> list[float]:
+        """
+        A clock the test sets, in place of the one keys are aged by.
+
+        :returns: A list holding the time, to be changed in place.
+        """
+        clock = [1000.0]
+        patcher = mock.patch.object(utils.security, "_monotonic", side_effect=lambda: clock[0])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return clock
+
+    def test_a_key_is_read_again_once_it_is_old(self):
+        clock = self._clock()
+        get = self._serve(self._jwks())
+        utils.security.get_public_key("rsa")
+        clock[0] += config.HUB_JWKS_CACHE_SECONDS - 1
+        utils.security.get_public_key("rsa")
+        self.assertEqual(get.call_count, 1)
+        clock[0] += 2
+        utils.security.get_public_key("rsa")
+        self.assertEqual(get.call_count, 2)
+
+    def test_a_key_the_hub_removed_stops_being_trusted(self):
+        """
+        Kept until the app restarted, a key the hub had taken out of its key set - because it leaked - went on
+        verifying tasks here.
+        """
+        clock = self._clock()
+        get = self._serve(self._jwks())
+        utils.security.get_public_key("rsa")
+        without = {"keys": [key for key in self._jwks()["keys"] if key["kid"] != "rsa"]}
+        get.return_value = mock.Mock(**{"json.return_value": without})
+        clock[0] += config.HUB_JWKS_CACHE_SECONDS + 1
+        with self.assertRaises(utils.security.KeyNotInKeySet):
+            utils.security.get_public_key("rsa")
+        # Forgotten, so it is not trusted from memory the next time either.
+        with self.assertRaisesRegex(ValueError, "No key found for kid=rsa."):
+            utils.security.get_public_key("rsa")
+        self.assertIsNotNone(utils.security.get_public_key("P-256"))
+
+    def test_the_key_last_read_stays_while_the_key_set_can_not_be_read(self):
+        """
+        A task is handed out once. That its key is gone is only ever learned from a key set that was read.
+        """
+        clock = self._clock()
+        get = self._serve(self._jwks())
+        key = utils.security.get_public_key("rsa")
+        clock[0] += config.HUB_JWKS_CACHE_SECONDS + 1
+        get.side_effect = requests.ConnectionError("unreachable")
+        with self.assertLogs(config.APP_NAME.lower(), level="WARNING"):
+            self.assertIs(utils.security.get_public_key("rsa"), key)
+        get.side_effect = None
+        get.return_value.raise_for_status.side_effect = requests.HTTPError("503 Error")
+        with self.assertLogs(config.APP_NAME.lower(), level="WARNING"):
+            self.assertIs(utils.security.get_public_key("rsa"), key)
+        # And once it can be read again, it is.
+        get.return_value.raise_for_status.side_effect = None
+        self.assertIsNot(utils.security.get_public_key("rsa"), key)
+
+    def test_a_key_never_read_is_not_taken_from_a_key_set_that_can_not_be_read(self):
+        get = self._serve(self._jwks())
+        get.side_effect = requests.ConnectionError("unreachable")
+        with self.assertRaises(requests.ConnectionError):
+            utils.security.get_public_key("rsa")
+
     def test_an_unsupported_key_is_refused(self):
         self._serve({"keys": [{"kid": "symmetric", "kty": "oct", "k": "c2VjcmV0"},
                               {"kid": "small", "kty": "EC", "crv": "P-192", "x": "AQ", "y": "AQ"}]})

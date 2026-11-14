@@ -6,8 +6,10 @@ below is the whole of what the routes take, in one place to review: a route adde
 `test_every_route_says_what_it_takes` rather than being open, and one whose permissions change fails
 `test_what_each_route_takes` until the table says so too.
 """
+import base64
 import http.client
 import io
+import json
 import os
 import unittest
 from unittest import mock
@@ -147,13 +149,12 @@ class FakeResponse:
             raise requests.HTTPError(response=self)
 
 
-def hub(permissions: list[str], owner_id: str = OWNER_ID, app_owner_id: str | None = OWNER_ID, calls=None):
+def hub(permissions: list[str], app_owner_id: str | None = OWNER_ID, calls=None):
     """
-    A stand-in for the hub's answers about a caller.
+    A stand-in for the hub's answer about a caller (`GET /app/app_id/{app_id}/access`).
 
-    :param permissions: What /role/effective answers.
-    :param owner_id: The owner /role/effective answers about.
-    :param app_owner_id: The owner the app lookup answers.
+    :param permissions: What the hub answers the caller may do.
+    :param app_owner_id: The owner of the app, as the hub answers it.
     :param calls: A list to record each request's (url, params, headers) in.
     :return: A replacement for the session's `get`.
     """
@@ -161,12 +162,9 @@ def hub(permissions: list[str], owner_id: str = OWNER_ID, app_owner_id: str | No
     def get(url, params=None, headers=None, timeout=None):
         if calls is not None:
             calls.append((url, params, dict(headers or {})))
-        if url.endswith("/app/app_id/" + APP_ID):
-            return FakeResponse(body={"app_id": APP_ID, "owner_id": app_owner_id})
-        if url.endswith("/role/effective"):
-            return FakeResponse(body={"owner_id": owner_id, "permissions": permissions})
-        if url.endswith("/login/test-token"):
-            return FakeResponse(body={"username": "alice"})
+        if url.endswith("/app/app_id/" + APP_ID + "/access"):
+            return FakeResponse(body={"app_id": APP_ID, "owner_id": app_owner_id, "username": "alice",
+                                      "is_api_access_token": False, "permissions": permissions})
         return FakeResponse(status_code=404, body={"detail": "Not Found"})
 
     return get
@@ -174,6 +172,19 @@ def hub(permissions: list[str], owner_id: str = OWNER_ID, app_owner_id: str | No
 
 HUB_TOKEN: str = "hub-token"
 """The token a caller with a hub account came with."""
+
+
+def jwt_like(claims: dict) -> str:
+    """
+    A token shaped like the hub's, as far as this app reads one: its claims, which only the hub can verify.
+
+    :param claims: The claims.
+    :return: The token.
+    """
+    def part(value: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+    return ".".join([part({"alg": "HS256", "kid": "kid"}), part(claims), "signature"])
 
 
 def identity(*permissions: str):
@@ -282,6 +293,9 @@ class TestIdentity(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, ENVIRONMENT)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # What the hub answered about a caller is kept for a moment - not from one test to the next.
+        deps.forget_identity()
+        self.addCleanup(deps.forget_identity)
 
     def _hub(self, **kwargs):
         patcher = mock.patch.object(deps.session, "get", side_effect=hub(**kwargs))
@@ -345,14 +359,137 @@ class TestIdentity(unittest.TestCase):
         self.assertEqual(refused.exception.detail,
                          "Not enough permissions: task:create, configuration:delete are required.")
 
-    def test_the_hub_is_asked_about_the_owner_of_this_app(self):
+    def test_the_hub_is_asked_once_about_the_caller_on_this_app(self):
+        """
+        Who the caller is to this app and what it may do on its owner, in one answer.
+        """
         calls = []
         self._hub(permissions=VIEWER, calls=calls)
+        caller = deps.get_identity(token="hub-token")
+        [(url, _, headers)] = calls
+        self.assertTrue(url.endswith("/app/app_id/" + APP_ID + "/access"))
+        self.assertEqual(headers["Authorization"], "Bearer hub-token")
+        self.assertEqual((caller.owner_id, caller.username), (OWNER_ID, "alice"))
+
+    def test_what_the_hub_answered_is_kept_for_a_moment(self):
+        """
+        A page of the interface makes a dozen requests, and each used to ask the hub twice.
+        """
+        get = self._hub(permissions=VIEWER)
+        first = deps.get_identity(token="hub-token")
+        again = deps.get_identity(token="hub-token")
+        other = deps.get_identity(token="another-token")
+        self.assertEqual(get.call_count, 2, "Once per caller.")
+        self.assertEqual(again.permissions, first.permissions)
+        self.assertEqual((again.hub_token, other.hub_token), ("hub-token", "another-token"))
+
+    def test_the_hub_is_asked_again_once_its_answer_is_old(self):
+        """
+        Which is how long a right taken away at the hub can still be used here.
+        """
+        clock = [1000.0]
+        with mock.patch.object(deps, "_monotonic", side_effect=lambda: clock[0]):
+            self._hub(permissions=VIEWER + ["task:create"])
+            self.assertTrue(deps.get_identity(token="hub-token").has(P.TASK_CREATE))
+            clock[0] += deps.config.HUB_IDENTITY_CACHE_SECONDS - 1
+            with mock.patch.object(deps.session, "get", side_effect=hub(permissions=VIEWER)) as get:
+                self.assertTrue(deps.get_identity(token="hub-token").has(P.TASK_CREATE))
+                get.assert_not_called()
+                clock[0] += 2
+                self.assertFalse(deps.get_identity(token="hub-token").has(P.TASK_CREATE))
+                get.assert_called_once()
+
+    def test_nothing_is_kept_where_keeping_is_switched_off(self):
+        get = self._hub(permissions=VIEWER)
+        with mock.patch.object(deps.config, "HUB_IDENTITY_CACHE_SECONDS", 0), \
+                mock.patch.object(deps.config, "HUB_IDENTITY_GRACE_SECONDS", 0):
+            deps.get_identity(token="hub-token")
+            deps.get_identity(token="hub-token")
+        self.assertEqual(get.call_count, 2)
+
+    def test_a_caller_the_hub_refuses_is_refused_at_once(self):
+        """
+        Remembered or not: an answer of the hub is never stretched over a refusal of the hub.
+        """
+        clock = [1000.0]
+        with mock.patch.object(deps, "_monotonic", side_effect=lambda: clock[0]):
+            self._hub(permissions=VIEWER)
+            deps.get_identity(token="hub-token")
+            clock[0] += deps.config.HUB_IDENTITY_CACHE_SECONDS + 1
+            # A user or an organization that is no longer active is answered 400 by the hub - a refusal as well.
+            for status_code, answered in ((400, 403), (401, 401), (403, 403)):
+                with self.subTest(status_code=status_code), \
+                        mock.patch.object(deps.session, "get", return_value=FakeResponse(status_code=status_code,
+                                                                                         body={})):
+                    with self.assertRaises(HTTPException) as refused:
+                        deps.get_identity(token="hub-token")
+                    self.assertEqual(refused.exception.status_code, answered)
+            # And what was remembered is gone: a hub that can not be reached now does not bring it back.
+            with mock.patch.object(deps.session, "get", side_effect=requests.ConnectionError()):
+                with self.assertRaises(HTTPException) as refused:
+                    deps.get_identity(token="hub-token")
+            self.assertEqual(refused.exception.status_code, 503)
+
+    def test_whoever_is_working_here_stays_while_the_hub_can_not_be_reached(self):
+        """
+        Nothing about the caller was said, so nothing has changed - for a while, and not for ever.
+        """
+        clock = [1000.0]
+        unreachable = [requests.ConnectionError(), FakeResponse(status_code=502, raw=b"<html>Bad Gateway</html>")]
+        with mock.patch.object(deps, "_monotonic", side_effect=lambda: clock[0]):
+            self._hub(permissions=VIEWER)
+            deps.get_identity(token="hub-token")
+            clock[0] += deps.config.HUB_IDENTITY_CACHE_SECONDS + 1
+            for answer in unreachable:
+                with self.subTest(answer=answer), mock.patch.object(deps.session, "get", side_effect=[answer]):
+                    caller = deps.get_identity(token="hub-token")
+                    self.assertEqual(caller.permissions, ["app:read", "module:read", "configuration:read"])
+            clock[0] += deps.config.HUB_IDENTITY_GRACE_SECONDS
+            with mock.patch.object(deps.session, "get", side_effect=requests.ConnectionError()):
+                with self.assertRaises(HTTPException) as refused:
+                    deps.get_identity(token="hub-token")
+            self.assertEqual(refused.exception.status_code, 503)
+
+    def test_a_caller_never_seen_is_not_let_in_while_the_hub_can_not_be_reached(self):
+        self._hub(permissions=VIEWER)
         deps.get_identity(token="hub-token")
-        (app_url, _, _), (effective_url, effective_params, _) = calls
-        self.assertTrue(app_url.endswith("/app/app_id/" + APP_ID))
-        self.assertTrue(effective_url.endswith("/role/effective"))
-        self.assertEqual(effective_params, {"owner_id": OWNER_ID})
+        with mock.patch.object(deps.session, "get", side_effect=requests.ConnectionError()):
+            with self.assertRaises(HTTPException) as refused:
+                deps.get_identity(token="a-stranger")
+        self.assertEqual(refused.exception.status_code, 503)
+
+    def test_an_answer_is_not_kept_past_the_expiry_the_token_names(self):
+        """
+        A session's token lives for minutes. What the hub said about it says nothing once it ran out - reachable or
+        not.
+        """
+        expiring = jwt_like({"sub": "alice", "exp": 2000})
+        clock, wall = [1000.0], [1990.0]
+        with mock.patch.object(deps, "_monotonic", side_effect=lambda: clock[0]), \
+                mock.patch.object(deps, "_now", side_effect=lambda: wall[0]):
+            self._hub(permissions=VIEWER)
+            deps.get_identity(token=expiring)
+            clock[0] += 5
+            wall[0] += 15
+            with mock.patch.object(deps.session, "get", side_effect=requests.ConnectionError()) as get:
+                with self.assertRaises(HTTPException) as refused:
+                    deps.get_identity(token=expiring)
+                get.assert_called_once()
+            self.assertEqual(refused.exception.status_code, 503)
+
+    def test_the_token_itself_is_not_kept(self):
+        self._hub(permissions=VIEWER)
+        deps.get_identity(token="hub-token")
+        self.assertNotIn("hub-token", repr(dict(deps._answers)))
+
+    def test_only_so_many_answers_are_kept(self):
+        self._hub(permissions=VIEWER)
+        with mock.patch.object(deps, "MAX_KNOWN_CALLERS", 3):
+            for number in range(5):
+                deps.get_identity(token=f"token-{number}")
+        self.assertEqual(len(deps._answers), 3)
+        self.assertIn(deps._key("token-4"), deps._answers)
+        self.assertNotIn(deps._key("token-0"), deps._answers)
 
     def test_each_caller_is_asked_about_with_their_own_token(self):
         """
@@ -363,8 +500,7 @@ class TestIdentity(unittest.TestCase):
         self._hub(permissions=VIEWER, calls=calls)
         deps.get_identity(token="first")
         deps.get_identity(token="second")
-        self.assertEqual([headers["Authorization"] for _, _, headers in calls],
-                         ["Bearer first", "Bearer first", "Bearer second", "Bearer second"])
+        self.assertEqual([headers["Authorization"] for _, _, headers in calls], ["Bearer first", "Bearer second"])
         self.assertNotIn("Authorization", deps.session.headers)
 
     def test_no_cookie_of_one_callers_answer_is_sent_for_the_next(self):
@@ -377,26 +513,19 @@ class TestIdentity(unittest.TestCase):
                                              requests.cookies.MockRequest(request))
         self.assertEqual(len(deps.session.cookies), 0)
 
-    def test_an_answer_about_another_owner_is_not_taken(self):
-        self._hub(permissions=VIEWER, owner_id="33333333-3333-3333-3333-333333333333")
+    def test_an_answer_without_an_owner_is_not_taken(self):
+        """
+        The permissions are the caller's on the owner of this app; an answer that does not say which owner they are
+        about is no answer.
+        """
+        self._hub(permissions=VIEWER, app_owner_id=None)
         with self.assertRaises(HTTPException) as refused:
             deps.get_identity(token="hub-token")
         self.assertEqual(refused.exception.status_code, 502)
-
-    def test_an_app_without_an_owner_is_not_asked_about(self):
-        """
-        Asked without an owner, the hub answers for the caller's own account instead - somebody's permissions, but not
-        on the owner of this app.
-        """
-        calls = []
-        self._hub(permissions=VIEWER, app_owner_id=None, calls=calls)
-        with self.assertRaises(HTTPException) as refused:
-            deps.get_identity(token="hub-token")
-        self.assertEqual(refused.exception.status_code, 502)
-        self.assertEqual(len(calls), 1)
 
     def test_what_went_wrong_at_the_hub_is_answered_as_what_it_is(self):
         cases = [(FakeResponse(status_code=401, body={}), 401),
+                 (FakeResponse(status_code=400, body={"detail": "Inactive organization."}), 403),
                  (FakeResponse(status_code=403, body={}), 403),
                  (FakeResponse(status_code=404, body={}), 403),
                  (FakeResponse(status_code=500, body={}), 502),
@@ -470,9 +599,10 @@ class TestEnforcement(unittest.TestCase):
         restart.assert_called_once()
 
     def test_test_token_shows_what_the_caller_may_do(self):
-        self._as(identity("configuration:read", "configuration:create", "ai:use"))
-        with mock.patch.object(deps.session, "get", side_effect=hub(permissions=[])):
-            response = self.client.get("/api/v1/login/test-token")
+        caller = identity("configuration:read", "configuration:create", "ai:use")
+        caller.username = "alice"
+        self._as(caller)
+        response = self.client.get("/api/v1/login/test-token")
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["username"], "alice")
@@ -551,6 +681,18 @@ class TestHubProxy(unittest.TestCase):
         """
         self._proxy(identity("mqtt:subscribe"), "GET", "mqtt/subscribe/plant/line 1/#")
         self.assertTrue(self.forward.call_args.kwargs["url"].endswith("/mqtt/subscribe/plant/line%201/%23"))
+
+    def test_a_hub_that_can_not_be_reached_is_a_503_not_a_crash(self):
+        """
+        A page tells "the hub does not know this" from "the hub could not be asked" by it - and no traceback is
+        logged for every request made while the network is down.
+        """
+        for failure in (requests.ConnectionError(), requests.Timeout()):
+            with self.subTest(failure=type(failure).__name__):
+                self.forward.side_effect = failure
+                with self.assertRaises(HTTPException) as raised:
+                    self._proxy(identity("module:read"), "GET", "module/get_by_module_name")
+                self.assertEqual(raised.exception.status_code, 503)
 
 
 if __name__ == '__main__':

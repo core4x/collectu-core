@@ -153,8 +153,7 @@ class TestSettingsFile(GlobalStateTestCase):
             os.environ.pop(variable, None)
 
     def _write_settings(self, **values: str):
-        values = {"app_id": "11111111-1111-1111-1111-111111111111", "local_admin_password": "secret",
-                  "app_description": "press-3", **values}
+        values = {"local_admin_password": "secret", "app_description": "press-3", **values}
         with open(os.path.join(self.root, config.SETTINGS_FILENAME), "w", encoding="utf-8") as file:
             file.write("[env]\n" + "".join(f"{key} = {value}\n" for key, value in values.items()))
 
@@ -187,15 +186,90 @@ class TestSettingsFile(GlobalStateTestCase):
         self.assertEqual((os.environ["API_PORT"], data_layer.settings["API_PORT"]), ("9000", "9000"))
         self.assertEqual(self._read_settings()["api_port"], "8181")
 
-    def test_a_missing_app_id_is_generated_and_written_back(self):
-        self._write_settings(app_id="")
+    def _remembered(self) -> str | None:
+        path = os.path.join(self.root, "data", "app_id")
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding=config.ENCODING) as file:
+            return file.read().strip()
 
-        self.assertTrue(utils.initialization.load_and_process_settings_file())
+    def test_a_new_app_id_is_generated_and_kept_in_the_data_directory_alone(self):
+        """
+        The settings file is part of the image of a container, and the data directory is what the container keeps.
+        """
+        self._write_settings()
+
+        self.assertFalse(utils.initialization.load_and_process_settings_file(), "Nothing had to be written back.")
 
         app_id = os.environ["APP_ID"]
         self.assertEqual(str(uuid.UUID(app_id)), app_id)
-        self.assertEqual(self._read_settings()["app_id"], app_id)
+        self.assertEqual(self._remembered(), app_id)
         self.assertEqual(data_layer.settings["APP_ID"], app_id)
+        self.assertNotIn("app_id", self._read_settings())
+
+    def test_a_recreated_container_keeps_its_app_id(self):
+        """
+        A new container starts from the settings file of the image, which names no app id. It used to generate a new
+        one, and the app registered at the hub a second time.
+        """
+        self._write_settings()
+        utils.initialization.load_and_process_settings_file()
+        first = os.environ.pop("APP_ID")
+        # The container is recreated: the settings file is the image's again, the data directory is still there.
+        self._write_settings()
+        with self.assertLogs(config.APP_NAME.lower(), level="INFO") as logs:
+            utils.initialization.load_and_process_settings_file()
+        self.assertEqual(os.environ["APP_ID"], first)
+        self.assertEqual(data_layer.settings["APP_ID"], first)
+        self.assertFalse(any("Auto-generated app_id" in line for line in logs.output))
+
+    def test_an_app_id_in_the_environment_wins_and_is_remembered(self):
+        with open(os.path.join(self.root, "data", "app_id"), "w", encoding=config.ENCODING) as file:
+            file.write("an-older-id\n")
+        self._write_settings()
+        os.environ["APP_ID"] = "press-3"
+
+        utils.initialization.load_and_process_settings_file()
+
+        self.assertEqual(os.environ["APP_ID"], "press-3")
+        self.assertEqual(self._remembered(), "press-3")
+
+    def test_an_app_id_in_the_settings_file_is_not_used(self):
+        """
+        Only the environment and the data directory name the app id.
+        """
+        with open(os.path.join(self.root, "data", "app_id"), "w", encoding=config.ENCODING) as file:
+            file.write("the-remembered-id\n")
+        self._write_settings(app_id="11111111-1111-1111-1111-111111111111")
+
+        utils.initialization.load_and_process_settings_file()
+
+        self.assertEqual(os.environ["APP_ID"], "the-remembered-id")
+        self.assertEqual(data_layer.settings["APP_ID"], "the-remembered-id")
+        self.assertEqual(self._remembered(), "the-remembered-id")
+
+    def test_the_settings_page_keeps_the_app_id_out_of_the_settings_file(self):
+        """
+        Saving the settings writes every one of them into the settings file - the app id goes to the data directory.
+        """
+        self._write_settings()
+        utils.initialization.load_and_process_settings_file()
+        data_layer.settings["APP_ID"] = "press-4"
+
+        utils.initialization.update_env_variables()
+
+        self.assertEqual((os.environ["APP_ID"], self._remembered()), ("press-4", "press-4"))
+        self.assertNotIn("app_id", self._read_settings())
+
+    def test_an_app_id_which_can_not_be_remembered_is_reported_and_used_all_the_same(self):
+        self._write_settings()
+        os.rmdir(os.path.join(self.root, "data"))
+        with open(os.path.join(self.root, "data"), "w", encoding=config.ENCODING) as file:
+            file.write("Not a directory.")
+        with self.assertLogs(config.APP_NAME.lower(), level="WARNING") as logs:
+            utils.initialization.load_and_process_settings_file()
+        self.assertEqual(str(uuid.UUID(os.environ["APP_ID"])), os.environ["APP_ID"])
+        self.assertTrue(any("Could not remember the app id" in line for line in logs.output))
 
     def test_a_missing_password_is_generated_and_written_back_but_never_logged(self):
         """

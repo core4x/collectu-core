@@ -49,7 +49,7 @@ class TestConfig(unittest.TestCase):
         for name, path in (("HUB_MODULES_ADDRESS", "/module"), ("HUB_CONFIGURATIONS_ADDRESS", "/configuration"),
                            ("HUB_APP_ADDRESS", "/app"), ("HUB_TASK_ADDRESS", "/task/app_id"),
                            ("HUB_TEST_TOKEN_ADDRESS", "/login/test-token"),
-                           ("HUB_ROLE_EFFECTIVE_ADDRESS", "/role/effective")):
+                           ("HUB_GET_APP_ADDRESS", "/app/app_id")):
             with self.subTest(address=name):
                 self.assertEqual(getattr(loaded, name), "https://hub.example.com/api/v1" + path)
 
