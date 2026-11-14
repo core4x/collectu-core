@@ -416,7 +416,8 @@ class TestIdentity(unittest.TestCase):
             self._hub(permissions=VIEWER)
             deps.get_identity(token="hub-token")
             clock[0] += deps.config.HUB_IDENTITY_CACHE_SECONDS + 1
-            for status_code, answered in ((401, 401), (403, 403)):
+            # A user or an organization that is no longer active is answered 400 by the hub - a refusal as well.
+            for status_code, answered in ((400, 403), (401, 401), (403, 403)):
                 with self.subTest(status_code=status_code), \
                         mock.patch.object(deps.session, "get", return_value=FakeResponse(status_code=status_code,
                                                                                          body={})):
@@ -524,6 +525,7 @@ class TestIdentity(unittest.TestCase):
 
     def test_what_went_wrong_at_the_hub_is_answered_as_what_it_is(self):
         cases = [(FakeResponse(status_code=401, body={}), 401),
+                 (FakeResponse(status_code=400, body={"detail": "Inactive organization."}), 403),
                  (FakeResponse(status_code=403, body={}), 403),
                  (FakeResponse(status_code=404, body={}), 403),
                  (FakeResponse(status_code=500, body={}), 502),
