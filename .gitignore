@@ -14,7 +14,7 @@ configuration/*
 settings.ini
 
 git_access_token.txt
-api_access_token.txt
+api_access_token*
 
 # Virtual environment.
 venv/
