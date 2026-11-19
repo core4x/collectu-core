@@ -33,8 +33,8 @@ def visualization(module_id: str, latest_data: dict | None = None, **configurati
     :param latest_data: What the module shows, empty until its first data object.
     :param configuration: Parameters of the configuration besides the ones every dashboard module has.
     """
-    values = dict(id=module_id, dashboard="Default", width=6, height=4, start_priority=0, name=module_id,
-                  description="")
+    values = dict(id=module_id, dashboard="Default", width=6, height=4, start_priority=0, active=True,
+                  name=module_id, description="")
     values.update(configuration)
     return types.SimpleNamespace(configuration=types.SimpleNamespace(**values), latest_data=latest_data or {})
 
@@ -99,8 +99,8 @@ class TestDashboardLayout(GlobalStateTestCase):
         sent = records(Request(rounds=1))
 
         self.assertEqual(sent, [("layout", {"modules": [{"id": "image", "dashboard": "Line 1", "width": 8,
-                                                         "height": 6, "start_priority": 3, "name": "Camera",
-                                                         "description": "The camera."}]})])
+                                                         "height": 6, "start_priority": 3, "active": True,
+                                                         "name": "Camera", "description": "The camera."}]})])
 
     def test_the_layout_precedes_the_data(self):
         data_layer.dashboard_modules = [visualization("text", {"id": "text", "type": "text"})]
@@ -136,6 +136,12 @@ class TestDashboardLayout(GlobalStateTestCase):
         modules = dashboard.dashboard_layout([module])["modules"]
 
         self.assertIsNone(modules[0]["height"])
+
+    def test_an_inactive_module_is_laid_out_as_inactive(self):
+        # Registered all the same, but it never runs: the dashboard must not wait for its data.
+        modules = dashboard.dashboard_layout([visualization("on"), visualization("off", active=False)])["modules"]
+
+        self.assertEqual([(module["id"], module["active"]) for module in modules], [("on", True), ("off", False)])
 
 
 if __name__ == "__main__":
