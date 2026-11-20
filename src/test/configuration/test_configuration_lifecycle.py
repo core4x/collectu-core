@@ -72,6 +72,17 @@ class TestStartAndStopOrder(AppTestCase):
         self.assertEqual(_created(create_module), ["high", "low", "default", "source"],
                          "Outputs before inputs, whatever their priority.")
 
+    def test_a_negative_start_priority_starts_after_the_regular_order(self):
+        content = [module_config("late", "outputs.test.collector_1", start_priority=-2),
+                   module_config("default", "outputs.test.collector_1"),
+                   module_config("later", "outputs.test.collector_1", start_priority=-5),
+                   module_config("early", "outputs.test.collector_1", start_priority=1)]
+
+        with mock.patch.object(Configuration, "_create_module") as create_module:
+            self.assertEqual(self.configuration.load_configuration_from_stream(json.dumps(content)), {})
+
+        self.assertEqual(_created(create_module), ["early", "default", "late", "later"])
+
     def test_modules_are_stopped_in_the_reverse_order_of_their_types(self):
         self.configuration.load_configuration_from_stream(json.dumps(PIPELINE))
 
@@ -334,9 +345,9 @@ class TestStartAndStopModule(AppTestCase):
         collector = instance("collector")
 
         errors = self.configuration.start_module(
-            module_config=module_config("collector", "outputs.test.collector_1", start_priority=-1))
+            module_config=module_config("collector", "outputs.test.collector_1", x="left"))
 
-        self.assertIn("'start_priority'", errors["collector"][0])
+        self.assertIn("Expected field x", errors["collector"][0])
         self.assertIs(instance("collector"), collector)
         self.assertTrue(collector.active)
 

@@ -86,6 +86,7 @@ EXPECTED: dict[tuple[str, str], list[str]] = {
     ("GET", "/api/v1/module/data/stream"): ["app:read"],
     ("GET", "/api/v1/module/data/{id}"): ["app:read"],
     ("GET", "/api/v1/dashboard/stream"): ["app:read"],
+    ("PUT", "/api/v1/dashboard/layout"): ["task:create"],
     ("GET", "/api/v1/log"): ["app:read"],
     ("GET", "/api/v1/log/stream"): ["app:read"],
     ("GET", "/api/v1/metric"): ["app:read"],

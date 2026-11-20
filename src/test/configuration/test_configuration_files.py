@@ -203,7 +203,7 @@ class TestValidateConfiguration(AppTestCase):
         """
         The invalid module is left out, so a link to it leads nowhere.
         """
-        configuration, _, errors = self._validate([PIPELINE[0], dict(PIPELINE[1], start_priority=-1)])
+        configuration, _, errors = self._validate([PIPELINE[0], dict(PIPELINE[1], x="left")])
         self.assertEqual(errors["source"], ["A linked module with the id 'collector' does not exist."])
         self.assertEqual(configuration, [])
 
@@ -258,9 +258,9 @@ class TestValidateConfiguration(AppTestCase):
         self.assertIn("communication with the hub has failed", errors["collector"][0])
 
     def test_an_invalid_parameter_is_reported_under_the_id_of_its_module(self):
-        _, _, errors = self._validate([dict(PIPELINE[1], start_priority=-1)])
+        _, _, errors = self._validate([dict(PIPELINE[1], x="left")])
         self.assertEqual(list(errors), ["collector"])
-        self.assertIn("'start_priority'", errors["collector"][0])
+        self.assertIn("Expected field x", errors["collector"][0])
 
     def test_unknown_parameters_are_ignored(self):
         with self.assertLogs("collectu.configuration", level="WARNING") as logs:

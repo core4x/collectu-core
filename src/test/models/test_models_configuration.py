@@ -102,10 +102,10 @@ class TestValidation(unittest.TestCase):
         for panel in ("panel-1", "panel-6", "Presse"):
             self.assertEqual(_module(panel=panel).panel, panel)
 
-    def test_the_start_priority_is_not_negative(self):
+    def test_the_start_priority_may_be_negative(self):
+        # A negative priority starts a module after the ones without (0), and places its card after theirs.
         self.assertEqual(_module(start_priority=0).start_priority, 0)
-        with self.assertRaises(ValidationError):
-            _module(start_priority=-1)
+        self.assertEqual(_module(start_priority=-1).start_priority, -1)
 
     def test_values_are_converted_to_the_type_of_their_parameter(self):
         module = _module(port="502", timeout="1.5", nodes=[1, 2], start_priority="3", x=10.0)
@@ -120,7 +120,7 @@ class TestValidation(unittest.TestCase):
 
     def test_all_errors_are_reported_at_once(self):
         with self.assertRaises(ValidationError) as raised:
-            _module(port="five hundred", start_priority=-1)
+            _module(port="five hundred", timeout="slow")
         self.assertEqual(len(raised.exception.args[0]), 2)
 
     def test_a_missing_required_number_is_reported(self):

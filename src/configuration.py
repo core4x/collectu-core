@@ -33,9 +33,6 @@ import json
 
 logger = logging.getLogger(config.APP_NAME.lower() + '.' + __name__)
 
-CONFIGURATION_DIR = pathlib.Path('..', 'configuration')
-"""The one directory configuration files are read from and written to."""
-
 # Third-party imports (optional).
 try:
     import yaml
@@ -43,6 +40,8 @@ except ImportError as e:
     yaml = None
     logger.error("Optional yaml package not installed! Some features may not be supported.")
 
+CONFIGURATION_DIR = pathlib.Path('..', 'configuration')
+"""The one directory configuration files are read from and written to."""
 
 _SURROGATE = re.compile("[\ud800-\udfff]")
 """A utf-16 surrogate: half of a character outside the basic multilingual plane, such as an emoji."""
@@ -149,6 +148,41 @@ def configuration_files() -> list[str]:
             continue
         filenames.append(filename)
     return sorted(filenames)
+
+
+def declares_dashboard(configuration) -> bool:
+    """
+    Whether a module declares the dashboard its card is on - the parameter `dashboard`.
+
+    :param configuration: The configuration of the module.
+    :returns: True if it does. False for a configuration which is not a dataclass.
+    """
+    try:
+        return any(field.name == "dashboard" for field in dataclasses.fields(configuration))
+    except TypeError:
+        return False
+
+
+def dashboard_card_ids() -> set[str]:
+    """
+    The running modules which show a card on a dashboard.
+
+    A module showing a card declares the dashboard it is on: `dashboard` is the one parameter every one of them has - a
+    chart, a button, a switch and an input mask alike. That is what decides it, not the name of the module, so a
+    custom module showing a card is placed as the others are. A module which registers itself in
+    `data_layer.dashboard_modules` counts as well, if it declares no dashboard.
+
+    **An input mask does not register itself, and must not.** That list is what the dashboard stream sends, and every
+    Core names each module in it as a card waiting for its first data. An input
+    mask never sends any - it is read by `GET /user_input` - so a user input module registering itself would leave a
+    card waiting forever beside its mask, on every Core it runs on.
+
+    :returns: Their ids.
+    """
+    ids = {instance.configuration.id for instance in data_layer.dashboard_modules.copy()}
+    ids.update(module_id for module_id, module_data in data_layer.module_data.copy().items()
+               if declares_dashboard(module_data.configuration))
+    return ids
 
 
 class Configuration:
@@ -1059,6 +1093,121 @@ class Configuration:
             self._configuration = configuration
             self._configuration_dict = configuration_dict
         return errors
+
+    def update_dashboard_layout(self, cards: list[dict[str, Any]]) -> dict[str, list[str]]:
+        """
+        Move and resize the cards of running modules on their dashboards, and save the running configuration as the
+        startup configuration.
+
+        Each card names its module by `id` and gives the parameters of DASHBOARD_LAYOUT_PARAMETERS to set. A parameter
+        left out keeps its value. A position of None removes it, and the card is placed by its start priority again.
+
+        **No module is restarted.** Where a card is and how large it is changes nothing the module does - a restart
+        would only lose what it holds, the history of a chat or the points of a chart. So the configurations of the
+        running modules are changed in place. The dashboard stream reads them every round, so every open dashboard
+        follows by itself.
+
+        All or nothing: every card is checked before anything changes, the file is written next, and the running
+        configuration is changed only once it was - so the running pipeline and the file never disagree about it.
+
+        :param cards: The cards: `id` and the parameters to set.
+        :returns: A dict of error messages with the module id (if it exists, otherwise '-') as key.
+        """
+        DASHBOARD_LAYOUT_PARAMETERS: tuple[str, ...] = ("dashboard_column", "dashboard_row", "width", "height")
+        """
+        The parameters placing the card of a module on its dashboard, which `update_dashboard_layout` sets.
+
+        They are the module's own, as the dashboard it belongs to is: a module showing a card declares them. A version of a
+        module predating them has no place to keep a position in, or - older still - a height. Its card is placed by its start
+        priority, and `update_dashboard_layout` refuses to set what it does not declare.
+        """
+        errors: defaultdict[str, list[str]] = defaultdict(list)
+        if not cards:
+            return {"-": ["No cards were given."]}
+
+        card_ids = dashboard_card_ids()
+        candidate_dict = copy.deepcopy(self._configuration_dict)
+        entries = {entry.get("id"): entry for entry in candidate_dict}
+        changed: dict[str, dict[str, Any]] = {}
+
+        for card in cards:
+            module_id = card.get("id")
+            if not module_id or module_id not in entries or module_id not in data_layer.module_data:
+                errors[module_id or "-"].append("There is no running module with the id '{0}'.".format(module_id))
+                continue
+            if module_id in changed:
+                errors[module_id].append("The card is given more than once.")
+                continue
+            if module_id not in card_ids:
+                errors[module_id].append("The module does not show a card on a dashboard.")
+                continue
+
+            # The parameters the module declares, which is what decides whether it has a height.
+            declared = {field.name for field in dataclasses.fields(data_layer.module_data[module_id].configuration)}
+            entry = entries[module_id]
+            values = {key: value for key, value in card.items() if key != "id"}
+            for key, value in values.items():
+                if key not in DASHBOARD_LAYOUT_PARAMETERS:
+                    errors[module_id].append("'{0}' does not place a card on a dashboard.".format(key))
+                elif key not in declared:
+                    errors[module_id].append("The module does not declare '{0}'. A newer version of it may: update "
+                                             "the module to place or resize its card.".format(key))
+                elif value is None and key in ("dashboard_column", "dashboard_row"):
+                    entry.pop(key, None)
+                elif type(value) is not int:
+                    # Not isinstance: a bool is an int as well.
+                    errors[module_id].append("'{0}' has to be a whole number, but was '{1}'.".format(key, value))
+                else:
+                    entry[key] = value
+            changed[module_id] = values
+
+        if errors:
+            return dict(errors.items())
+
+        # The values themselves are checked by the module, as it checks every configuration: a height above the
+        # module's maximum is refused as it would be in the editor.
+        configuration, configuration_dict, validation_errors = self.validate_configuration_from_stream(
+            json.dumps(candidate_dict))
+        for module_id, error_list in validation_errors.items():
+            errors[module_id].extend(error_list)
+        validated = {module.id: module for module in configuration}
+
+        for module_id in changed:
+            module = validated.get(module_id)
+            if module is None:
+                continue
+            column, row = getattr(module, "dashboard_column", None), getattr(module, "dashboard_row", None)
+            if (column is None) != (row is None):
+                errors[module_id].append("A card is placed by both dashboard_column and dashboard_row, or by neither.")
+            width = getattr(module, "width", None)
+            if column is not None and isinstance(width, int) and column + width > 12:
+                errors[module_id].append("The card does not fit on the dashboard: it starts in column {0} and is {1} "
+                                         "wide, but there are {2} columns.".format(column, width, 12))
+        if errors:
+            return dict(errors.items())
+
+        success, message = self.save_configuration_as_file(content=json.dumps(configuration_dict))
+        if not success:
+            return {"-": [message]}
+
+        for module_id in changed:
+            module = validated[module_id]
+            live = [data_layer.module_data[module_id].configuration]
+            live += [running for running in self._configuration if running.id == module_id and running is not live[0]]
+            for running in live:
+                for key in DASHBOARD_LAYOUT_PARAMETERS:
+                    if hasattr(module, key):
+                        setattr(running, key, getattr(module, key))
+        self._configuration_dict = configuration_dict
+
+        self.database_queue.put({"task": "add",
+                                 "configuration": copy.deepcopy(configuration_dict),
+                                 "description": "autosave (dashboard layout)",
+                                 "title": f"autosave ({datetime.now(timezone.utc).replace(microsecond=0)})",
+                                 "valid": True,
+                                 "autosave": True})
+        logger.info("Updated the dashboard layout of {0} module(s).".format(len(changed)))
+        return {}
 
     @staticmethod
     def _check_if_deprecated(module) -> bool:

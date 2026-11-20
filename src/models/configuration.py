@@ -68,10 +68,11 @@ class Module:
         metadata=dict(description="The start (and stop) priority. "
                                   "A module with greater priority is started before (and stopped after) "
                                   "a module of the same type with a lower priority. "
-                                  "If the start priority is 0, the regular starting order is used.",
+                                  "If the start priority is 0, the regular starting order is used; a negative one "
+                                  "starts the module after those. A card on a dashboard which has no position of its "
+                                  "own is placed by it as well, higher first.",
                       category="general",
-                      required=False,
-                      validate=models.validations.Range(min=0, exclusive=False)),
+                      required=False),
         default=0)
 
     def __post_init__(self):
