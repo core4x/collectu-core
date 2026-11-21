@@ -10,6 +10,8 @@ import importlib.metadata
 import pathlib
 import pkgutil
 import logging
+import dataclasses
+import typing
 from typing import Any
 from dataclasses import _MISSING_TYPE
 
@@ -475,6 +477,67 @@ def get_all_custom_module_files() -> dict[str, dict[str, Any]]:
     return found_modules
 
 
+def nested_dataclass(annotation: Any) -> type | None:
+    """
+    The dataclass a parameter's type holds - the type itself, or the first one among its type arguments, at any depth:
+    `list[Alarm]`, `Optional[list[Rule]]`, `dict[str, Threshold]`.
+
+    :param annotation: The type of a dataclass field.
+    :returns: The dataclass, or None if the type holds none.
+    """
+    if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
+        return annotation
+    for argument in typing.get_args(annotation):
+        found = nested_dataclass(argument)
+        if found is not None:
+            return found
+    return None
+
+
+def describe_parameters(configuration: type, seen: frozenset[type] = frozenset()) -> list[dict[str, Any]]:
+    """
+    The parameter list of a configuration dataclass, as `get_all_modules` describes it.
+
+    A parameter holding other dataclasses - the `list[Field]` of a user input, the `list[Alarm]` of the alarm
+    processor - carries their parameters under `parameters`, described the same way. That is what lets a client offer a
+    form for every entry rather than a box to type the entry into as JSON.
+
+    :param configuration: The dataclass to describe.
+    :param seen: The dataclasses already being described further up, so a class holding itself ends.
+    :returns: The parameter list.
+    """
+    # The resolved types, where the class wrote its annotations as strings (`from __future__ import annotations`).
+    try:
+        hints = typing.get_type_hints(configuration)
+    except Exception:
+        hints = {}
+
+    parameter_list = []
+    for field_name, field in configuration.__dataclass_fields__.items():
+        # Get the default value.
+        if type(field.default) != _MISSING_TYPE:
+            default_value = field.default
+        elif type(field.default_factory) != _MISSING_TYPE:
+            default_value = field.default_factory()
+        else:
+            default_value = None
+        parameter = {"key": field_name,
+                     "data_type": str(getattr(field, "type")).replace("typing.", "") if getattr(
+                         getattr(getattr(field, "type"), "__class__"), "__name__") != "type" else str(
+                         getattr(getattr(field, "type"), "__name__")),
+                     "required": field.metadata.get("required", False),
+                     "category": field.metadata.get("category", "basic").lower(),
+                     "description": field.metadata.get("description", "-"),
+                     "secret": field.metadata.get("secret", False),
+                     "default": default_value,
+                     "dynamic": field.metadata.get('dynamic', False)}
+        nested = nested_dataclass(hints.get(field_name, field.type))
+        if nested is not None and nested not in seen:
+            parameter["parameters"] = describe_parameters(nested, seen | {nested})
+        parameter_list.append(parameter)
+    return parameter_list
+
+
 def get_all_modules(inputs: bool = False, outputs: bool = False, processors: bool = False) -> list[dict[str, Any]]:
     """
     Get all modules.
@@ -519,6 +582,9 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
       "description": "description",
       "default": "default_value",
       "dynamic": True/False}
+
+     A parameter holding dataclasses (e.g. `list[Field]`) also has "parameters": the parameter list of that dataclass,
+     see `describe_parameters`.
     """
     described_modules = []
     for module_name, module in data_layer.registered_modules.items():
@@ -530,25 +596,7 @@ def get_all_modules(inputs: bool = False, outputs: bool = False, processors: boo
         if outputs and not module_name.startswith("outputs."):
             continue
 
-        parameter_list = []
-        for field_name, field in getattr(module, "Configuration").__dataclass_fields__.items():
-            # Get the default value.
-            if type(field.default) != _MISSING_TYPE:
-                default_value = field.default
-            elif type(field.default_factory) != _MISSING_TYPE:
-                default_value = field.default_factory()
-            else:
-                default_value = None
-            parameter_list.append({"key": field_name,
-                                   "data_type": str(getattr(field, "type")).replace("typing.", "") if getattr(
-                                       getattr(getattr(field, "type"), "__class__"), "__name__") != "type" else str(
-                                       getattr(getattr(field, "type"), "__name__")),
-                                   "required": field.metadata.get("required", False),
-                                   "category": field.metadata.get("category", "basic").lower(),
-                                   "description": field.metadata.get("description", "-"),
-                                   "secret": field.metadata.get("secret", False),
-                                   "default": default_value,
-                                   "dynamic": field.metadata.get('dynamic', False)}, )
+        parameter_list = describe_parameters(getattr(module, "Configuration"))
 
         if module_name.startswith("inputs."):
             module_type = "input"

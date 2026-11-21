@@ -2,11 +2,13 @@
 Rendering a module's docstring into the payload `GET /modules/` returns, and installing the
 third-party requirements of a module.
 """
+import dataclasses
 import importlib
 import os
 import subprocess
 import sys
 import types
+import typing
 import unittest
 from unittest import mock
 
@@ -104,6 +106,71 @@ class TestUtilsPluginInterface(unittest.TestCase):
         html = markdown.markdown(documentation,
                                  extensions=utils.plugin_interface.MARKDOWN_EXTENSIONS)
         self.assertEqual("", html, "An empty docstring should render to nothing.")
+
+
+@dataclasses.dataclass
+class Threshold:
+    """
+    An entry of a nested list, as a module defines one.
+    """
+    key: str = dataclasses.field(metadata=dict(description="The key.", required=True, dynamic=True), default=None)
+    limit: float = dataclasses.field(metadata=dict(description="The limit."), default=1.5)
+
+
+@dataclasses.dataclass
+class Node:
+    """
+    An entry holding entries of its own class.
+    """
+    name: str = dataclasses.field(metadata=dict(description="The name."), default="")
+    children: list["Node"] = dataclasses.field(metadata=dict(description="The children."), default_factory=list)
+
+
+@dataclasses.dataclass
+class NestedConfiguration:
+    """
+    A configuration with nested lists.
+    """
+    thresholds: list[Threshold] = dataclasses.field(
+        metadata=dict(description="The thresholds.", category="advanced"), default_factory=list)
+    optional_thresholds: typing.Optional[typing.List[Threshold]] = dataclasses.field(
+        metadata=dict(description="Maybe thresholds."), default=None)
+    nodes: list[Node] = dataclasses.field(metadata=dict(description="The nodes."), default_factory=list)
+    name: str = dataclasses.field(metadata=dict(description="A plain parameter."), default="x")
+
+
+class TestDescribeParameters(unittest.TestCase):
+    """
+    The parameter list of a configuration, nested dataclasses included.
+    """
+
+    def setUp(self):
+        self.parameters = {parameter["key"]: parameter
+                           for parameter in utils.plugin_interface.describe_parameters(NestedConfiguration)}
+
+    def test_a_plain_parameter_has_no_nested_parameters(self):
+        self.assertEqual("x", self.parameters["name"]["default"])
+        self.assertNotIn("parameters", self.parameters["name"],
+                         "A parameter holding no dataclass must not carry nested parameters.")
+
+    def test_a_list_of_dataclasses_carries_their_parameters(self):
+        nested = self.parameters["thresholds"]["parameters"]
+        self.assertEqual(["key", "limit"], [parameter["key"] for parameter in nested])
+        self.assertEqual({"key": "key", "data_type": "str", "required": True, "category": "basic",
+                          "description": "The key.", "secret": False, "default": None, "dynamic": True}, nested[0])
+        self.assertEqual(1.5, nested[1]["default"])
+        self.assertEqual("advanced", self.parameters["thresholds"]["category"],
+                         "The parameter itself is described as before.")
+
+    def test_the_dataclass_is_found_inside_optional(self):
+        nested = self.parameters["optional_thresholds"]["parameters"]
+        self.assertEqual(["key", "limit"], [parameter["key"] for parameter in nested])
+
+    def test_a_dataclass_holding_itself_ends(self):
+        node = self.parameters["nodes"]["parameters"]
+        children = next(parameter for parameter in node if parameter["key"] == "children")
+        self.assertNotIn("parameters", children,
+                         "A class already being described further up must not be described again.")
 
 
 class TestInstallPluginRequirement(unittest.TestCase):
