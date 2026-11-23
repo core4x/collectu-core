@@ -104,6 +104,8 @@ services:
       - API_AUTHENTICATION=1  # Is authentication required for the local api and frontend.
       - LOCAL_ADMIN_USERNAME=admin  # The local admin username.
       # - LOCAL_ADMIN_PASSWORD=  # The local admin password, a default password is generated on start-up.
+      - LOCAL_VIEWER_USERNAME=viewer  # The local read-only user: may view and use input forms, nothing else.
+      # - LOCAL_VIEWER_PASSWORD=  # The local viewer password. The local viewer exists only once it is set.
       - MCP=0  # Enable the MCP server - the API has to be enabled.
       - FRONTEND=1  # Serve the user interface from the api, on API_PORT.
       - MOTHERSHIPS=[]  # The host addresses of the motherships to report to.
@@ -199,8 +201,10 @@ protection (TLS termination, network-level access control, enabled authenticatio
 - Hub accounts act on the local API/frontend with the permissions they hold at the hub: the roles of their
   organization membership, or the scopes of their api access token
 - Hub accounts sign in by approving the sign-in on the hub ("Sign in with Collectu"): their password is typed only
-  on the hub, over TLS, and never sent to the app. The local admin is the only account that signs in with a password
-  on the app itself
+  on the hub, over TLS, and never sent to the app. The local admin and the optional local viewer are the only accounts
+  that sign in with a password on the app itself
+- A local viewer (`local_viewer_username` / `local_viewer_password` in `settings.ini`) gives read-only access without
+  the hub: it may view the app and use its input forms, but not command or change it, and it does not reach the hub
 - Configurable allowlist of remotely executable commands (`allowed_commands` in `settings.ini`)
 - Updates are only applied from the official git repository, when a user triggers them or - opt-in, per app - when
   the Collectu Hub sends them automatically (see below), and only releases whose signature the Core has verified are
@@ -244,6 +248,7 @@ Detailed instructions are available at [collectu.de/docs](https://collectu.de/do
 **Secure commissioning (initial start-up):**
 
 1. Change the default local admin credentials (`local_admin_username` / `local_admin_password` in `settings.ini`).
+   For people who only watch the machine, set a local viewer password (`local_viewer_password`) instead of sharing them.
 2. Enable authentication: set `api_authentication = 1`.
 3. Restrict network exposure: set `api_host` to a specific interface or firewall port `8181`;
    place a TLS-terminating reverse proxy in front for remote access.
